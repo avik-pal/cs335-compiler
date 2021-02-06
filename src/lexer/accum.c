@@ -54,15 +54,15 @@ int main(int argc, char **argv) {
         TokenInfo *it;
         size_t i;
         
-        printf(" ________________________________________________________\n");
-        printf("|%12s|%10s|%10s|%10s|%10s|\n","Token","Token #","Lexeme","Line #","Column #");
-        printf("|========================================================|\n");
+        printf(" _____________________________________________________________________\n");
+        printf("|%15s|%10s|%20s|%10s|%10s|\n","Token","Token #","Lexeme","Line #","Column #");
+        printf("|=====================================================================|\n");
         
         for (it = cvector_begin(vec); it != cvector_end(vec); ++it) {
-            printf("|%12s|%10d|%10s|%10d|%10d|\n", it->token, it->token_number, it->lexeme, it->line_number, it->column_number);
+            printf("|%15s|%10d|%20s|%10d|%10d|\n", it->token, it->token_number, it->lexeme, it->line_number, it->column_number);
         }
         
-        printf("|____________|__________|__________|__________|__________|\n");
+        printf("|_______________|__________|____________________|__________|__________|\n");
     }
     return 1;
 }
