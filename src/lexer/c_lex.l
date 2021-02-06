@@ -142,7 +142,7 @@ loop:
 
 
 int column = 0;
-int line = 0;
+int line = 1;
 void count()
 {
 	int i;
@@ -156,8 +156,6 @@ void count()
 			column += 8 - (column % 8);
 		else
 			column++;
-
-	ECHO;
 }
 
 

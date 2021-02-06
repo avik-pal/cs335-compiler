@@ -426,6 +426,7 @@ char *s;
 	fflush(stdout);
 	printf("\n%*s\n%*s\n", column, "^", column, s);
 }
+
 const char* token_name(int t) {
   return yytname[YYTRANSLATE(t)];
 }
