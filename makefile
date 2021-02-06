@@ -1,6 +1,6 @@
 all: a.out
 
-a.out: lex.yy.c y.tab.c y.tab.h	accum.o
+a.out: lex.yy.c y.tab.c y.tab.h	accum.o src/utils.c
 	@echo "Compiling the final executable ..."
 	gcc accum.o lex.yy.c y.tab.c y.tab.h
 
