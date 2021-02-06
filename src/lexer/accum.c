@@ -3,7 +3,7 @@
 #include "../header/utils.h"
 #include <stdio.h>
 #include <string.h>
-#include "y.tab.h"
+#include "../../y.tab.h"
 // Allocate more than being used by the vector.
 #define CVECTOR_LOGARITHMIC_GROWTH
 
