@@ -1,2 +1,1 @@
-# cs335-compilers-project
-CS335 Compilers IITK Course Project
+# CS335 IITK Compiler Project
