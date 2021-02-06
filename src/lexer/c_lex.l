@@ -141,21 +141,23 @@ loop:
 }
 
 
-int column = 0;
+int column_start = 0;
+int column_end = 0;
 int line = 1;
 void count()
 {
 	int i;
-
+	
+	column_start = column_end;
 	for (i = 0; yytext[i] != '\0'; i++)
 		if (yytext[i] == '\n'){
-			column = 0;
+			column_end = 0;
 			line++;
 		}
 		else if (yytext[i] == '\t')
-			column += 8 - (column % 8);
+			column_end += 8 - (column_end % 8);
 		else
-			column++;
+			column_end++;
 }
 
 

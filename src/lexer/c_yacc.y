@@ -418,13 +418,13 @@ function_definition
 #include <stdio.h>
 
 extern char yytext[];
-extern int column;
+extern int column_end;
 
 yyerror(s)
 char *s;
 {
 	fflush(stdout);
-	printf("\n%*s\n%*s\n", column, "^", column, s);
+	printf("\n%*s\n%*s\n", column_end, "^", column_end, s);
 }
 
 const char* token_name(int t) {

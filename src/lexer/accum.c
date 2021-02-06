@@ -8,7 +8,7 @@
 #define CVECTOR_LOGARITHMIC_GROWTH
 
 extern int line;
-extern int column;
+extern int column_start;
 extern char* token_name();
 extern char* yytext;
 extern int yyleng;
@@ -30,7 +30,7 @@ cvector_vector_type(TokenInfo) accumulate() {
         token = strdup(token_name(token_number));
         lexeme = strdup(yytext);
         line_number = line;
-        column_number = column;
+        column_number = column_start;
 
         // Create a new struct and append to the vector
         TokenInfo tkn_info = {token_number, token, lexeme, line_number, column_number};
