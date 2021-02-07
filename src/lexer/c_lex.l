@@ -12,11 +12,15 @@ IS			(u|U|l|L)*
 void count();
 int check_type();
 void comment();
+void single_comment();
+
 
 %}
 
 %%
 "/*"			{ comment(); }
+"//"			{ single_comment(); }
+
 
 "auto"			{ count(); return(AUTO); }
 "break"			{ count(); return(BREAK); }
@@ -121,29 +125,32 @@ yywrap()
 	return(1);
 }
 
+int column_start = 0;
+int column_end = 0;
+int line = 1;
 
 void comment()
 {
 	char c, c1;
 
 loop:
-	while ((c = input()) != '*' && c != 0)
-		putchar(c);
+	while ((c = input()) != '*' && c != 0){
+		if (c == '\n')
+			line++;
+	}
 
 	if ((c1 = input()) != '/' && c != 0)
 	{
-		unput(c1);
 		goto loop;
 	}
-
-	if (c != 0)
-		putchar(c1);
+}
+void single_comment()
+{
+	char c;
+	while ((c = input()) != '\n' && c != 0);
+	line++;
 }
 
-
-int column_start = 0;
-int column_end = 0;
-int line = 1;
 void count()
 {
 	int i;
