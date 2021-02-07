@@ -7,7 +7,7 @@ IS			(u|U|l|L)*
 
 %{
 #include <stdio.h>
-#include "y.tab.h"
+#include "../header/y.tab.h"
 
 void count();
 int check_type();
