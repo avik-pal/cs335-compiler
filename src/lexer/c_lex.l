@@ -21,7 +21,6 @@ void single_comment();
 "/*"			{ comment(); }
 "//"			{ single_comment(); }
 
-
 "auto"			{ count(); return(AUTO); }
 "break"			{ count(); return(BREAK); }
 "case"			{ count(); return(CASE); }
@@ -122,7 +121,7 @@ L?\"(\\.|[^\\"])*\"	{ count(); return(STRING_LITERAL); }
 
 yywrap()
 {
-	return(1);
+    return(1);
 }
 
 int column_start = 0;
@@ -131,40 +130,40 @@ int line = 1;
 
 void comment()
 {
-	char c, c1;
+    char c, c1;
 
 loop:
-	while ((c = input()) != '*' && c != 0){
-		if (c == '\n')
-			line++;
-	}
+    while ((c = input()) != '*' && c != 0){
+        if (c == '\n')
+            line++;
+    }
 
-	if ((c1 = input()) != '/' && c != 0)
-	{
-		goto loop;
-	}
+    if ((c1 = input()) != '/' && c != 0)
+    {
+        goto loop;
+    }
 }
 void single_comment()
 {
-	char c;
-	while ((c = input()) != '\n' && c != 0);
-	line++;
+    char c;
+    while ((c = input()) != '\n' && c != 0);
+    line++;
 }
 
 void count()
 {
-	int i;
-	
-	column_start = column_end;
-	for (i = 0; yytext[i] != '\0'; i++)
-		if (yytext[i] == '\n'){
-			column_end = 0;
-			line++;
-		}
-		else if (yytext[i] == '\t')
-			column_end += 8 - (column_end % 8);
-		else
-			column_end++;
+    int i;
+    
+    column_start = column_end;
+    for (i = 0; yytext[i] != '\0'; i++)
+        if (yytext[i] == '\n'){
+            column_end = 0;
+            line++;
+        }
+        else if (yytext[i] == '\t')
+            column_end += 8 - (column_end % 8);
+        else
+            column_end++;
 }
 
 
@@ -183,5 +182,5 @@ int check_type()
 *	it actually will only return IDENTIFIER
 */
 
-	return(IDENTIFIER);
+    return(IDENTIFIER);
 }

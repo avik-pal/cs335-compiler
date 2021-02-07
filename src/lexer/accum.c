@@ -11,8 +11,6 @@ extern int line;
 extern int column_start;
 extern char* token_name();
 extern char* yytext;
-extern int yyleng;
-extern int yyparse();
 extern int yylex();
 
 /*
@@ -43,10 +41,8 @@ cvector_vector_type(TokenInfo) accumulate() {
 int main(int argc, char **argv) {
     extern FILE *yyin, *yyout; 
   
-    /* yyin points to the file input.txt  and opens it in read mode*/
+    /* yyin points to the file input.txt and opens it in read mode*/
     yyin = fopen(argv[1], "r");
-    /* yyout points to the file output.txt  and opens it in write mode*/
-    // yyout = fopen("Output.txt", "w");
 
     cvector_vector_type(TokenInfo) vec = accumulate();
 
@@ -54,15 +50,15 @@ int main(int argc, char **argv) {
         TokenInfo *it;
         size_t i;
         
-        printf(" _____________________________________________________________________\n");
-        printf("|%15s|%10s|%20s|%10s|%10s|\n","Token","Token #","Lexeme","Line #","Column #");
-        printf("|=====================================================================|\n");
+        printf(" ___________________________________________________________\n");
+        printf("|%15s|%20s|%10s|%10s|\n","Token","Lexeme","Line #","Column #");
+        printf("|==========================================================|\n");
         
         for (it = cvector_begin(vec); it != cvector_end(vec); ++it) {
-            printf("|%15s|%10d|%20s|%10d|%10d|\n", it->token, it->token_number, it->lexeme, it->line_number, it->column_number);
+            printf("|%15s|%20s|%10d|%10d|\n", it->token, it->lexeme, it->line_number, it->column_number);
         }
         
-        printf("|_______________|__________|____________________|__________|__________|\n");
+        printf("|_______________|____________________|__________|__________|\n");
     }
     return 1;
 }
