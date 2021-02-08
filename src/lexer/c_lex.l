@@ -124,8 +124,8 @@ yywrap()
     return(1);
 }
 
-int column_start = 0;
-int column_end = 0;
+int column_start = 1;
+int column_end = 1;
 int line = 1;
 
 void comment()
@@ -157,7 +157,7 @@ void count()
     column_start = column_end;
     for (i = 0; yytext[i] != '\0'; i++)
         if (yytext[i] == '\n'){
-            column_end = 0;
+            column_end = 1;
             line++;
         }
         else if (yytext[i] == '\t')

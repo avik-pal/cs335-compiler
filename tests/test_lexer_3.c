@@ -2,12 +2,13 @@
 
 void f2()
 {
-    printf("In f2");
+    // printf("In f2");
+    1 + 1;
 } 
 
 int f1(int n)
 {
-    printf("In f1");
+    // printf("In f1");
     f2();
     return fact(n);
 }
@@ -23,6 +24,6 @@ int fact(int n)
 // Driver Code
 int main()
 {
-    printf("%d\n",f1());
+    printf("%d\n",f1(2));
     return 0;
 }
