@@ -9,7 +9,9 @@ IS			(u|U|l|L)*
 #include <stdio.h>
 #include <stdlib.h>
 #include "../header/y.tab.h"
-
+#define ANSI_COLOR_RED_BG     "\x1b[41m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
 void count();
 int check_type();
 void comment();
@@ -121,7 +123,7 @@ L?\"(\\.|[^\\"])*\"	{ count(); return(STRING_LITERAL); }
 "?"			{ count(); return('?'); }
 
 [ \t\v\n\f]		{ count(); }
-.			{ fprintf(stderr, "[Error] Invalid  token detected - \"%s\"\n", yytext); exit(-1); }
+.			{ fprintf(stderr, ANSI_COLOR_RED_BG "[Error]" ANSI_COLOR_RESET " Invalid token detected - " ANSI_COLOR_GREEN "%s"  ANSI_COLOR_RESET "\n", yytext); exit(-1); }
 
 %%
 
