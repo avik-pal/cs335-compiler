@@ -5,7 +5,8 @@
 #include "../header/y.tab.h"
 #include <stdlib.h>
 #include <unistd.h>
-#include<fcntl.h> 
+#include <fcntl.h> 
+
 // Allocate more than being used by the vector.
 #define CVECTOR_LOGARITHMIC_GROWTH
 #define ANSI_COLOR_RED_BG     "\x1b[41m"
@@ -52,16 +53,16 @@ int main(int argc, char **argv) {
     
     for (int i = 1; i < argc; i++)
         if (strcmp(argv[i], "-o") == 0){
-            out_fd = open(argv[i+1], O_RDWR | O_CREAT, 0644);
-            if (i==1){
+            out_fd = open(argv[i+1], O_WRONLY | O_TRUNC | O_CREAT, 0644);
+            if (i==1) {
                 inp_arg = 3;
             }
-            else if (i==2){
+            else if (i==2) {
                 inp_arg = 1;
             }
             break;
         }
-            
+
     if (out_fd){
         dup2(out_fd, 1);
     }
