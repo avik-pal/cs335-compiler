@@ -12,7 +12,7 @@ mkdir bin
 cd src 
 make 
 cd ..
-./bin/lexer tests/test_lexer_1.c # Any of the files having name test_lexer_*.c can be used
+./bin/lexer [-o output_file.txt] tests/test_lexer_1.c     # Any of the files having name test_lexer_*.c can be used
 ```
 
 ## Design Details
