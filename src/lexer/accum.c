@@ -4,6 +4,8 @@
 #include <string.h>
 #include "../header/y.tab.h"
 #include <stdlib.h>
+#include <unistd.h>
+#include<fcntl.h> 
 // Allocate more than being used by the vector.
 #define CVECTOR_LOGARITHMIC_GROWTH
 
@@ -40,11 +42,31 @@ cvector_vector_type(TokenInfo) accumulate() {
 
 int main(int argc, char **argv) {
     extern FILE *yyin, *yyout; 
-  
+    // extern FILE* out_file = NULL;
+    int out_fd = 0;
+
+    int inp_arg = 0;
+    
+    for (int i = 1; i < argc; i++)
+        if (strcmp(argv[i], "-o") == 0){
+            out_fd = open(argv[i+1], O_RDWR | O_CREAT);
+            if (i==1){
+                inp_arg = 3;
+            }
+            else if (i==2){
+                inp_arg = 1;
+            }
+            break;
+        }
+            
+    if (out_fd){
+        dup2(out_fd, 1);
+    }
+
     /* yyin points to the file input.txt and opens it in read mode*/
-    yyin = fopen(argv[1], "r");
+    yyin = fopen(argv[inp_arg], "r");
     if (!yyin){
-        fprintf(stderr, "[Error] Can not open file %s\n", argv[1]); 
+        fprintf(stderr, "[Error] Can not open file %s\n", argv[inp_arg]); 
         exit(-1); 
     }
     else{
@@ -52,7 +74,7 @@ int main(int argc, char **argv) {
         int size = ftell(yyin);
 
         if (0 == size) {
-            fprintf(stderr, "[Error] File %s is empty!\n", argv[1]); 
+            fprintf(stderr, "[Error] File %s is empty!\n", argv[inp_arg]); 
             exit(-1);
         }
         else{
@@ -62,6 +84,7 @@ int main(int argc, char **argv) {
 
     cvector_vector_type(TokenInfo) vec = accumulate();
 
+    
     if (vec) {
         TokenInfo *it;
         size_t i;
