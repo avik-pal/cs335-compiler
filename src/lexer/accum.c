@@ -71,7 +71,16 @@ int main(int argc, char **argv) {
         printf("|==========================================================|\n");
         
         for (it = cvector_begin(vec); it != cvector_end(vec); ++it) {
-            printf("|%15s|%20s|%10d|%10d|\n", it->token, it->lexeme, it->line_number, it->column_number);
+            char *pretty_lexeme = it->lexeme;
+            if (strlen(pretty_lexeme) > 20) {
+                pretty_lexeme[16] = '.';
+                pretty_lexeme[17] = '.';
+                pretty_lexeme[18] = '.';
+                pretty_lexeme[19] = '"';
+                pretty_lexeme[20] = '\0';
+            }
+
+            printf("|%15s|%20s|%10d|%10d|\n", it->token, pretty_lexeme, it->line_number, it->column_number);
         }
         
         printf("|_______________|____________________|__________|__________|\n");

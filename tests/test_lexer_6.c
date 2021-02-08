@@ -20,5 +20,6 @@ class Car <- public Vehicle {
 
 int main(int argc, char **argv) {
     Car newcar;
+    printf("Testing inherrrrrriiiiiiitttttteeeeeencccceeeeee");
     return 1;
 }
