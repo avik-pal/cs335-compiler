@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     /* yyin points to the file input.txt and opens it in read mode*/
     yyin = fopen(argv[inp_arg], "r");
     if (!yyin){
-        fprintf(stderr, ANSI_COLOR_RED_BG "[Error]" ANSI_COLOR_RESET " Can not open file " ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", argv[1]);
+        fprintf(stderr, ANSI_COLOR_RED_BG "[Error]" ANSI_COLOR_RESET " Can not open file " ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", argv[inp_arg]);
         exit(-1); 
     }
     else{
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         int size = ftell(yyin);
 
         if (0 == size) {
-            fprintf(stderr, ANSI_COLOR_RED_BG "[Error]" ANSI_COLOR_RESET " File " ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET " is empty!\n", argv[1]); 
+            fprintf(stderr, ANSI_COLOR_RED_BG "[Error]" ANSI_COLOR_RESET " File " ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET " is empty!\n", argv[inp_arg]); 
             exit(-1);
         }
         else{
@@ -111,6 +111,7 @@ int main(int argc, char **argv) {
         
         printf("|_______________|____________________|__________|__________|\n");
     }
-    close(out_fd);
+    if(out_fd)
+        close(out_fd);
     return 1;
 }
