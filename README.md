@@ -12,13 +12,9 @@ mkdir bin
 cd src 
 make 
 cd ..
-<<<<<<< HEAD
-./bin/lexer [-o output_file.txt] tests/test_lexer_1.c     # Any of the files having name test_lexer_*.c can be used
-=======
 ./bin/lexer tests/test_lexer_1.c -o out_file
 # Any of the files having name test_lexer_*.c can be used
 # -o flag redirects the output to the out_file
->>>>>>> 668942a17ac93744d303b122fb8de94c4783706c
 ```
 
 ## Design Details
