@@ -14,3 +14,13 @@ make
 cd ..
 ./bin/lexer tests/test_lexer_1.c # Any of the files having name test_lexer_*.c can be used
 ```
+
+## Design Details
+
+* Column and Line Numbers start from 1
+
+* Features supported by the lexer in addition to the standard C specifications:
+    * Inheritance
+        * `public`, `protected`, `private` have been added as keywords.
+        * `<-` is used to define inheritance. `class Car <- public Vehicle` is equivalent to the `C++` declaration of `class Car : public Vehicle`.
+        * To declare variables as `public`, `protected`, `private` they need to be enclosed in `{}` instead of the traditional `:` notation in `C++`.

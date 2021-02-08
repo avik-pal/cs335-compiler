@@ -53,6 +53,10 @@ void single_comment();
 "void"			{ count(); return(VOID); }
 "volatile"		{ count(); return(VOLATILE); }
 "while"			{ count(); return(WHILE); }
+"class"         { count(); return(CLASS); }
+"private"       { count(); return(PRIVATE); }
+"protected"     { count(); return(PROTECTED); }
+"public"        { count(); return(PUBLIC); }
 
 {L}({L}|{D})*		{ count(); return(check_type()); }
 
@@ -82,6 +86,7 @@ L?\"(\\.|[^\\"])*\"	{ count(); return(STRING_LITERAL); }
 "<<"			{ count(); return(LEFT_OP); }
 "++"			{ count(); return(INC_OP); }
 "--"			{ count(); return(DEC_OP); }
+"<-"			{ count(); return(INHERITANCE_OP); }
 "->"			{ count(); return(PTR_OP); }
 "&&"			{ count(); return(AND_OP); }
 "||"			{ count(); return(OR_OP); }
