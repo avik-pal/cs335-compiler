@@ -7,6 +7,7 @@ IS			(u|U|l|L)*
 
 %{
 #include <stdio.h>
+#include <stdlib.h>
 #include "../header/y.tab.h"
 
 void count();
@@ -120,7 +121,7 @@ L?\"(\\.|[^\\"])*\"	{ count(); return(STRING_LITERAL); }
 "?"			{ count(); return('?'); }
 
 [ \t\v\n\f]		{ count(); }
-.			{ /* ignore bad characters */ }
+.			{ fprintf(stderr, "[Error] Invalid  token detected - \"%s\"\n", yytext); exit(-1); }
 
 %%
 

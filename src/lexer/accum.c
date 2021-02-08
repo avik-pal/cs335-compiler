@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "../header/y.tab.h"
-
+#include <stdlib.h>
 // Allocate more than being used by the vector.
 #define CVECTOR_LOGARITHMIC_GROWTH
 
@@ -43,6 +43,22 @@ int main(int argc, char **argv) {
   
     /* yyin points to the file input.txt and opens it in read mode*/
     yyin = fopen(argv[1], "r");
+    if (!yyin){
+        fprintf(stderr, "[Error] Can not open file %s\n", argv[1]); 
+        exit(-1); 
+    }
+    else{
+        fseek (yyin, 0, SEEK_END);
+        int size = ftell(yyin);
+
+        if (0 == size) {
+            fprintf(stderr, "[Error] File %s is empty!\n", argv[1]); 
+            exit(-1);
+        }
+        else{
+            fseek(yyin, 0, SEEK_SET);
+        }
+    }
 
     cvector_vector_type(TokenInfo) vec = accumulate();
 
