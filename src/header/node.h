@@ -1,38 +1,58 @@
 #ifndef OPNODE_H_
 #define OPNODE_H_
 
-// How to handle keywords? Can they be treated simply as operators?
+#include "vector.h"
 
 typedef enum {
-    typeCon,  // Constant
-    typeId,   // Identifier
-    typeOpr,  // Operator
-} nodeEnum;
+    N_CHAR,
+    N_SHORT,
+    N_INT,
+    N_LONG,
+    N_SIGNED,
+    N_UNSIGNED,
+    N_FLOAT,
+    N_DOUBLE,
+    N_VOID
+} dataType;
+
+typedef enum {
+    N_CONSTANT,
+    N_IDENTIFIER,
+    N_STRING,
+} constantType;
 
 typedef struct {
-    int value;  // Constant Value
-} conNodeType;
+    constantType cType;
 
-typedef struct {
-    int oper;
-    int nops;
-    nodeType *ops[1];
-} oprNodeType;
-
-typedef struct {
-    int i;  // Index to the symbol table
-} idNodeType;
-
-typedef struct {
-    nodeEnum type;
-
+    // Constant (All types)
+    dataType dType;
     union {
-        conNodeType con;
-        idNodeType id;
-        oprNodeType opr;
+        long long int iVal;
+        long double fVal;
     };
-} nodeType;
 
-extern int sym[26];
+    // Identifiers
+    char *name;
+    long long int symIdx;
+
+    // String Literal
+    char *str;
+} terminal;
+
+typedef struct {
+    char *name;
+    int nops;
+    int *types;  // Whether the current argument comes from the string array/node array
+    cvector_vector_type(nonTerminal) ops;
+    cvector_vector_type(char *) str_list;
+} nonTerminal;
+
+terminal *i_constant(dataType, long long int);
+terminal *f_constant(dataType, long double);
+terminal *identifier(char *, long long int);
+terminal *string_literal(char *);
+
+// nonTerminal function would use var arg, not sure how to use the extern definitions for
+// that case
 
 #endif

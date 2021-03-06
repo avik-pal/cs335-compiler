@@ -6,63 +6,46 @@
 
 extern void yyerror(char *);
 
-nodeType *constant(int value) {
-    nodeType *p;
-
-    if ((p = (nodeType *)malloc(sizeof(nodeType))) == NULL) {
-        yyerror("Out of Memory!!!");
-    }
-
-    p->type = typeCon;
-    p->con.value = value;
-
-    return p;
+terminal *alloc_terminal_node() {
+    terminal *t = (terminal *) malloc(sizeof(terminal));
+    return t;
 }
 
-nodeType *identifier(int i) {
-    nodeType *p;
+terminal *i_constant(dataType dType, long long int value) {
+    terminal *tnode = alloc_terminal_node();
 
-    if ((p = (nodeType *)malloc(sizeof(nodeType))) == NULL) {
-        yyerror("Out of Memory!!!");
-    }
+    tnode->cType = N_CONSTANT;
+    tnode->dType = dType;
+    tnode->iVal = value;
 
-    p->type = typeId;
-    p->id.i = i;
-
-    return p;
+    return tnode;
 }
 
-nodeType *operator(int oper, int nops, ...) {
-    va_list ap;
-    nodeType *p;
-    int i;
+terminal *f_constant(dataType dType, long double value) {
+    terminal *tnode = alloc_terminal_node();
 
-    if ((p = (nodeType *)malloc(sizeof(nodeType))) == NULL) {
-        yyerror("Out of Memory!!!");
-    }
+    tnode->cType = N_CONSTANT;
+    tnode->dType = dType;
+    tnode->fVal = value;
 
-    p->type = typeOpr;
-    p->opr.oper = oper;
-    p->opr.nops = nops;
-
-    va_start(ap, nops);
-    for (i = 0; i < nops; i++) {
-        p->opr.ops[i] = va_arg(ap, nodeType*);
-    }
-    va_end(ap);
-
-    return p;
+    return tnode;
 }
 
-void freeNode(nodeType *p) {
-    int i;
-    if (!p) {
-        return;
-    }
-    if (p->type == typeOpr) {
-        for (i = 0; i < p->opr.nops; i++) {
-            freeNode(p->opr.ops[i]);
-        }
-    }
-    free (p);
+terminal *identifier(char *name, long long int symIdx) {
+    terminal *tnode = alloc_terminal_node();
+
+    tnode->cType = N_IDENTIFIER;
+    tnode->name = name;
+    tnode->symIdx = symIdx;
+
+    return tnode;
+}
+
+terminal *string_literal(char *str) {
+    terminal *tnode = alloc_terminal_node();
+
+    tnode->cType = N_STRING;
+    tnode->str = str;
+
+    return tnode;
 }
