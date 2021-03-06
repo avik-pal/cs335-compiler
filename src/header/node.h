@@ -19,10 +19,11 @@ typedef enum {
     N_CONSTANT,
     N_IDENTIFIER,
     N_STRING,
-} constantType;
+    N_OTHER
+} terminalType;
 
 typedef struct {
-    constantType cType;
+    terminalType cType;
 
     // Constant (All types)
     dataType dType;
@@ -39,7 +40,7 @@ typedef struct {
     char *str;
 } terminal;
 
-typedef struct {
+typedef struct nonTerminal {
     char *name;
     int nops;
     int *types;  // Whether the current argument comes from the string array/node array
@@ -51,6 +52,7 @@ terminal *i_constant(dataType, long long int);
 terminal *f_constant(dataType, long double);
 terminal *identifier(char *, long long int);
 terminal *string_literal(char *);
+terminal *otherterminal(char *);
 
 // nonTerminal function would use var arg, not sure how to use the extern definitions for
 // that case

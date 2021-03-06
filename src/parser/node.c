@@ -6,6 +6,11 @@
 
 extern void yyerror(char *);
 
+int getNodeId() {
+    static int id = 0;
+    return id++;
+}
+
 terminal *alloc_terminal_node() {
     terminal *t = (terminal *) malloc(sizeof(terminal));
     return t;
@@ -48,4 +53,47 @@ terminal *string_literal(char *str) {
     tnode->str = str;
 
     return tnode;
+}
+
+terminal *otherterminal(char *str) {
+    terminal *tnode = alloc_terminal_node();
+
+    tnode->cType = N_OTHER;
+    tnode->str = str;
+
+    return tnode;
+}
+
+nonTerminal *alloc_nonterminal_node() {
+    nonTerminal *t = (nonTerminal *) malloc(sizeof(nonTerminal));
+    return t;
+}
+
+nonTerminal *nonterminal(char *name, int nops, ...) {
+    // Example usage:
+    // logical_or_expression : logical_or_expression OR_OP logical_and_expression
+    // nonterminal("logical_or_expression", 3, 1, 0, 1, $1, $2, $3)
+    va_list args;
+    nonTerminal *ntnode = alloc_nonterminal_node();
+
+    int *types = (int *)malloc(nops * sizeof(int));
+    va_start(args, nops * 2);
+    for (int i = 0; i < nops; i++) {
+        types[i] = va_arg(args, int);
+    }
+    ntnode->types = types;
+
+    cvector_vector_type(nonTerminal) ntvec = NULL;
+    cvector_vector_type(char *) strvec = NULL;
+
+    for (int i = 0; i < nops; i++) {
+        if (types[i] == 1) {
+            // Terminal
+        }
+        else {
+            // Non Terminal
+        }
+    }
+
+    return ntnode;
 }
