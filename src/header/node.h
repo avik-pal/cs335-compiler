@@ -44,8 +44,8 @@ typedef struct nonTerminal {
     char *name;
     int nops;
     int *types;  // Whether the current argument comes from the string array/node array
-    cvector_vector_type(nonTerminal) ops;
-    cvector_vector_type(char *) str_list;
+    cvector_vector_type(nonTerminal) ntops;
+    cvector_vector_type(terminal) tops;
 } nonTerminal;
 
 terminal *i_constant(dataType, long long int);

@@ -76,24 +76,30 @@ nonTerminal *nonterminal(char *name, int nops, ...) {
     va_list args;
     nonTerminal *ntnode = alloc_nonterminal_node();
 
+    ntnode->nops = nops;
+
     int *types = (int *)malloc(nops * sizeof(int));
-    va_start(args, nops * 2);
+    va_start(args, nops);
     for (int i = 0; i < nops; i++) {
         types[i] = va_arg(args, int);
     }
     ntnode->types = types;
 
     cvector_vector_type(nonTerminal) ntvec = NULL;
-    cvector_vector_type(char *) strvec = NULL;
+    cvector_vector_type(terminal) tvec = NULL;
 
     for (int i = 0; i < nops; i++) {
         if (types[i] == 1) {
             // Terminal
+            cvector_push_back(tvec, va_arg(args, terminal));
         }
         else {
             // Non Terminal
+            cvector_push_back(ntvec, va_arg(args, nonTerminal));
         }
     }
+    ntnode->ntops = ntvec;
+    ntnode->tops = tvec;
 
     return ntnode;
 }
