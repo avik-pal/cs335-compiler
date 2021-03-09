@@ -186,12 +186,8 @@ def t_error(t):
 lexer = lex.lex()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("{token type, token name, line nunmber, index relative to start of input}")
-        lex.runmain(lexer)
-    else:
-        fo = open(str(sys.argv[1]), "r+")
-        data = fo.read()
-        fo.close()
+    with open(str(sys.argv[1]), "r+") as file:
+        data = file.read()
+        file.close()
         print("{token type, token name, line nunmber, index relative to start of input}")
         lex.runmain(lexer, data)
