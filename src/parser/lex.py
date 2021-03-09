@@ -179,7 +179,7 @@ t_ignore = " \t"
 
 # Error handling rule
 def t_error(t):
-    print ("Illegal character '%s'" % t.value[0])
+    print("Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
 
 
@@ -189,5 +189,7 @@ if __name__ == "__main__":
     with open(str(sys.argv[1]), "r+") as file:
         data = file.read()
         file.close()
-        print("{token type, token name, line nunmber, index relative to start of input}")
+        print(
+            "{token type, token name, line nunmber, index relative to start of input}"
+        )
         lex.runmain(lexer, data)

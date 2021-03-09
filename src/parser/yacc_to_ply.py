@@ -1,7 +1,7 @@
 lines = open("../lexer/c_yacc.y", "r").readlines()
 
-lines = lines[lines.index("%%\n") + 1:]
-lines = lines[:lines.index("%%\n")]
+lines = lines[lines.index("%%\n") + 1 :]
+lines = lines[: lines.index("%%\n")]
 
 all_prod_rules = []
 prod_rules = []
@@ -18,5 +18,5 @@ with open("ply_file.py", "w+") as file:
         name = rules[0].split()[0]
         comb = (name + " ").join(rules[1:-1])
         file.write(f"def p_{name}(p):\n")
-        file.write(f"    \"\"\"{comb}\"\"\"\n")
-        file.write(f"    p[0] = (\"{name}\",) + tuple(p[-len(p)+1:])\n\n")
+        file.write(f'    """{comb}"""\n')
+        file.write(f'    p[0] = ("{name}",) + tuple(p[-len(p)+1:])\n\n')
