@@ -16,7 +16,7 @@ def p_primary_expression(p):
     """primary_expression : IDENTIFIER
     | F_CONSTANT
     | I_CONSTANT
-	| C_CONSTANT
+        | C_CONSTANT
     | STRING_LITERAL
     | LEFT_BRACKET expression RIGHT_BRACKET"""
     p[0] = ("primary_expression",) + tuple(p[-len(p) + 1 :])
@@ -220,9 +220,70 @@ def p_type_specifier(p):
     | SIGNED
     | UNSIGNED
     | struct_or_union_specifier
+    | class_definition
     | enum_specifier
-	| TYPE_NAME"""
+    | TYPE_NAME"""
     p[0] = ("type_specifier",) + tuple(p[-len(p) + 1 :])
+
+
+def p_inheritance_specifier(p):
+    """inheritance_specifier : access_specifier IDENTIFIER"""
+    p[0] = ("inheritance_specifier",) + tuple(p[-len(p) + 1 :])
+
+
+def p_inheritance_specifier_list(p):
+    """inheritance_specifier_list : inheritance_specifier
+    | inheritance_specifier_list COMMA inheritance_specifier"""
+    p[0] = ("inheritance_specifier_list",) + tuple(p[-len(p) + 1 :])
+
+
+def p_access_specifier(p):
+    """access_specifier : PRIVATE
+    | PUBLIC
+    | PROTECTED"""
+    p[0] = ("access_specifier",) + tuple(p[-len(p) + 1 :])
+
+
+def p_class(p):
+    """class : CLASS"""
+    p[0] = ("class",) + tuple(p[-len(p) + 1 :])
+
+
+def p_class_definition_head(p):
+    """class_definition_head : class
+    | class INHERITANCE_OP inheritance_specifier_list
+    | class IDENTIFIER
+    | class IDENTIFIER  INHERITANCE_OP inheritance_specifier_list"""
+    p[0] = ("class_definition_head",) + tuple(p[-len(p) + 1 :])
+
+
+def p_class_definition(p):
+    """class_definition : class_definition_head LEFT_CURLY_BRACKET class_internal_definition_list RIGHT_CURLY_BRACKET
+    | class_definition_head"""
+    p[0] = ("class_definition",) + tuple(p[-len(p) + 1 :])
+
+
+def p_class_internal_definition_list(p):
+    """class_internal_definition_list : class_internal_definition
+    | class_internal_definition_list class_internal_definition"""
+    p[0] = ("class_internal_definition_list",) + tuple(p[-len(p) + 1 :])
+
+
+def p_class_internal_definition(p):
+    """class_internal_definition : access_specifier LEFT_CURLY_BRACKET class_member_list RIGHT_CURLY_BRACKET SEMICOLON"""
+    p[0] = ("class_internal_definition",) + tuple(p[-len(p) + 1 :])
+
+
+def p_class_member_list(p):
+    """class_member_list : class_member
+    | class_member_list class_member"""
+    p[0] = ("class_member_list",) + tuple(p[-len(p) + 1 :])
+
+
+def p_class_member(p):
+    """class_member : function_definition
+    | declaration"""
+    p[0] = ("class_member",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_or_union_specifier(p):
@@ -490,24 +551,30 @@ def p_error(p):
 
 parser = yacc.yacc()
 
+
 def getArgs():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input', type=str, default=None, help='Input file')
-    parser.add_argument('-o', '--output', type=str, default='AST', help='Output file')
-    parser.add_argument('-t', '--trim', action='store_true', help='Trimmed ast')
+    parser.add_argument("input", type=str, default=None, help="Input file")
+    parser.add_argument(
+        "-o", "--output", type=str, default="AST", help="Output file"
+    )
+    parser.add_argument(
+        "-t", "--trim", action="store_true", help="Trimmed ast"
+    )
     return parser
+
 
 if __name__ == "__main__":
     args = getArgs().parse_args()
     if args.input == None:
-        print("No input file specified")    
+        print("No input file specified")
     else:
         with open(str(args.input), "r+") as file:
             data = file.read()
             tree = yacc.parse(data)
-            if args.output[-4:]==".dot":
+            if args.output[-4:] == ".dot":
                 args.output = args.output[:-4]
             if args.trim:
                 generate_graph_from_ast(reduce_ast(tree), args.output)
             else:
-                generate_graph_from_ast(tree,args.output)
+                generate_graph_from_ast(tree, args.output)
