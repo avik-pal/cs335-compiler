@@ -6,7 +6,7 @@ typedef struct MyStruct {
 } mystruct;
 
 int main(int argc, char **argv) {
-    static mystruct z = {2, 3, 10.0};
+    static struct mystruct z = {2, 3, 10.0};
     const int a = z->a;
     int b = z->b;
     double c = z->c;

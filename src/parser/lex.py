@@ -42,9 +42,10 @@ reserved = (
 
 tokens = reserved + (
     "IDENTIFIER",
+    "TYPE_NAME",
     "I_CONSTANT",
     "F_CONSTANT",
-    "CCONST",
+    "C_CONSTANT",
     "STRING_LITERAL",
     "ELLIPSIS",
     "RIGHT_ASSIGN",
@@ -102,7 +103,7 @@ t_F_CONSTANT = (
     r"((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?"
 )
 t_STRING_LITERAL = r"\"([^\\\n]|(\\.))*?\""
-t_CCONST = r"(L)?\'([^\\\n]|(\\.))*?\'"
+t_C_CONSTANT = r"(L)?\'([^\\\n]|(\\.))*?\'"
 
 t_ELLIPSIS = r"\.\.\."
 t_RIGHT_ASSIGN = r">>="

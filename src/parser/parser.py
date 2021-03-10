@@ -15,6 +15,7 @@ def p_primary_expression(p):
     """primary_expression : IDENTIFIER
     | F_CONSTANT
     | I_CONSTANT
+	| C_CONSTANT
     | STRING_LITERAL
     | LEFT_BRACKET expression RIGHT_BRACKET"""
     p[0] = ("primary_expression",) + tuple(p[-len(p) + 1 :])
@@ -218,7 +219,8 @@ def p_type_specifier(p):
     | SIGNED
     | UNSIGNED
     | struct_or_union_specifier
-    | enum_specifier"""
+    | enum_specifier
+	| TYPE_NAME"""
     p[0] = ("type_specifier",) + tuple(p[-len(p) + 1 :])
 
 

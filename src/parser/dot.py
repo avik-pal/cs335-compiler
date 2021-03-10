@@ -45,7 +45,11 @@ def reduce_ast(ast):
         nChildren = len(ast) - 1
         current_ast.append(ast[0])
         for child in ast[1:]:
-            current_ast.append(reduce_ast(child))
+            reduced_child = reduce_ast(child)
+            if reduced_child[0] == ast[0]:
+                current_ast.extend(reduced_child[1:])
+            else:
+                current_ast.append(reduced_child)
         if nChildren == 1:
             return current_ast[1]
     else:
