@@ -17,6 +17,12 @@ cd ..
 # -o flag redirects the output to the out_file
 ```
 
+#### Milestone 2
+We implemented the parser for an (extended) ANSI C version which outputs a dot file which can then be visualized using any standing dot file viewer. We expect `ply` and `graphviz` to be installed 
+
+We test it using the testcases present in the `tests/` sub-directory. The procedure to build and run the program is as follows:
+
+
 ## Design Details
 
 * Column and Line Numbers start from 1
