@@ -51,6 +51,10 @@ def reduce_ast(ast):
             else:
                 current_ast.append(reduced_child)
         if nChildren == 1:
+            # if isinstance(current_ast[1], (tuple, list)):
+            #     return current_ast[1]
+            # else:
+            #     return current_ast
             return current_ast[1]
     else:
         current_ast = ast
