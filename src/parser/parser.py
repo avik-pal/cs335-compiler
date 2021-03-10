@@ -2,6 +2,7 @@ import sys
 import os
 import lex
 import ply.yacc as yacc
+import argparse
 
 from dot import generate_graph_from_ast, reduce_ast
 
@@ -489,11 +490,24 @@ def p_error(p):
 
 parser = yacc.yacc()
 
+def getArgs():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input', type=str, default=None, help='Input file')
+    parser.add_argument('-o', '--output', type=str, default='AST', help='Output file')
+    parser.add_argument('-t', '--trim', action='store_true', help='Trimmed ast')
+    return parser
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("No input file specified")
+    args = getArgs().parse_args()
+    if args.input == None:
+        print("No input file specified")    
     else:
-        with open(str(sys.argv[1]), "r+") as file:
+        with open(str(args.input), "r+") as file:
             data = file.read()
             tree = yacc.parse(data)
-            generate_graph_from_ast(reduce_ast(tree), "AST")
+            if args.output[-4:]==".dot":
+                args.output = args.output[:-4]
+            if args.trim:
+                generate_graph_from_ast(reduce_ast(tree), args.output)
+            else:
+                generate_graph_from_ast(tree,args.output)

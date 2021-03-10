@@ -11,7 +11,7 @@ def generate_graph_from_ast(ast, filename="AST"):
 
     _generate_graph_from_ast(graph, ast, num, num + 1)
 
-    graph.render(filename=filename)
+    graph.render(filename=filename,cleanup=True)
 
     return graph
 
@@ -59,12 +59,3 @@ def reduce_ast(ast):
     else:
         current_ast = ast
     return current_ast
-
-
-if __name__ == "__main__":
-    result = (
-        "-",
-        ("-", ("NUM", 2.4), ("NUM", 4)),
-        ("NUM", ("NUM2", ("NUM3", 21.0))),
-    )
-    generate_graph_from_ast(reduce_ast(result))
