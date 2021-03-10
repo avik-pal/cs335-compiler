@@ -16,7 +16,8 @@
 
 primary_expression
 	: IDENTIFIER
-	| CONSTANT
+	| F_CONSTANT
+	| I_CONSTANT
 	| STRING_LITERAL
 	| '(' expression ')'
 	;

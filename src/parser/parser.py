@@ -3,7 +3,7 @@ import os
 import lex
 import ply.yacc as yacc
 
-from dot import generate_graph_from_ast
+from dot import generate_graph_from_ast, reduce_ast
 
 tokens = lex.tokens
 flag_for_error = 0
@@ -494,4 +494,4 @@ if __name__ == "__main__":
         with open(str(sys.argv[1]), "r+") as file:
             data = file.read()
             tree = yacc.parse(data)
-            generate_graph_from_ast(tree, "AST")
+            generate_graph_from_ast(reduce_ast(tree), "AST")
