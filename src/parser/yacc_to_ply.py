@@ -1,6 +1,6 @@
 header = open("header.py","r").readlines()
 main = open("main.py","r").readlines()
-lines = open(".//c_yacc.y", "r").readlines()
+lines = open("./c_yacc.y", "r").readlines()
 
 lines = lines[lines.index("%%\n") + 1 :]
 lines = lines[: lines.index("%%\n")]

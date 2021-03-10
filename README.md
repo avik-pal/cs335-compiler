@@ -7,23 +7,40 @@ This project aims to develop a compiler for C language as a part of the course C
 We develop a scanner using lex and yacc, which takes as input any C program and generates a table of tokens along with the corresponding lexeme, line no and column no of the token as output. We use the specifications for scanner and parser as mentioned in the problem statement.
 
 We test it using the testcases present in the `tests/` sub-directory. The procedure to build and run the program is as follows:
-```
-mkdir bin
-cd src 
-make 
-cd ..
-./bin/lexer tests/test_lexer_1.c -o out_file
+```bash
+$ mkdir bin
+$ cd src 
+$ make 
+$ cd ..
+$ ./bin/lexer tests/test_lexer_1.c -o out_file
 # Any of the files having name test_lexer_*.c can be used
 # -o flag redirects the output to the out_file
 ```
 
 #### Milestone 2
-We implemented the parser for an (extended) ANSI C version which outputs a dot file which can then be visualized using any standing dot file viewer. We expect `ply` and `graphviz` to be installed 
+We implemented the parser for an (extended) ANSI C version which outputs a dot file which can then be visualized using any standing dot file viewer. We expect `ply` and `graphviz` to be installed (can be setup using `pip install -r requirements.txt`).
 
-We test it using the testcases present in the `tests/` sub-directory. The procedure to build and run the program is as follows:
+We test it using the testcases present in the `tests/` sub-directory. The procedure to run the program is as follows:
+```bash
+$ python src/parser/parser.py tests/test_parser_1.c --trim -o ast.dot
+# --trim produces a smaller AST meant for humans (though it preserves all the important information needed)
+# -o is used to redirect output to a file
+# Both are optional
+```
 
+How to visualize the AST:
+```bash
+$ dot -Tps AST.dot -o AST.ps
+$ xdg-open AST.ps
+```
 
-## Design Details
+## Miscellaneous
+
+#### How to move from C yacc -> Python PLY yacc in < 1 mins?
+
+It is pretty simple actually :o. Use the helper `src/parser/yacc_to_ply.py` file, which converts the `c_yacc.y` file present in that directory to the corresponding ply format. Finally, if visual aesthetics is important for you, run `black -l 79 ./src/parser/ply_file.py`.
+
+#### Design Details
 
 * Column and Line Numbers start from 1
 
