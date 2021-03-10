@@ -15,8 +15,11 @@ for line in lines:
 
 with open("ply_file.py", "w+") as file:
     for rules in all_prod_rules:
+        rules = list(map(lambda x: x.replace("\t", "   "), rules))
+        rules[1] = rules[1][3:]
         name = rules[0].split()[0]
-        comb = (name + " ").join(rules[1:-1])
+        comb = " ".join(rules[1:-1])
+        comb = comb[:-1]
         file.write(f"def p_{name}(p):\n")
-        file.write(f'    """{comb}"""\n')
+        file.write(f'    """{name} {comb}"""\n')
         file.write(f'    p[0] = ("{name}",) + tuple(p[-len(p)+1:])\n\n')
