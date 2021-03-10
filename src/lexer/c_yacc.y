@@ -19,15 +19,15 @@ primary_expression
 	| F_CONSTANT
 	| I_CONSTANT
 	| STRING_LITERAL
-	| LEFT_BRACKET expression RIGHT_BRACKET
+	| '(' expression ')'
 	;
 
 postfix_expression
 	: primary_expression
-	| postfix_expression LEFT_THIRD_BRACKET expression RIGHT_THIRD_BRACKET
-	| postfix_expression LEFT_BRACKET RIGHT_BRACKET
-	| postfix_expression LEFT_BRACKET argument_expression_list RIGHT_BRACKET
-	| postfix_expression DOT IDENTIFIER
+	| postfix_expression '[' expression ']'
+	| postfix_expression '(' ')'
+	| postfix_expression '(' argument_expression_list ')'
+	| postfix_expression '.' IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
 	| postfix_expression DEC_OP
@@ -35,7 +35,7 @@ postfix_expression
 
 argument_expression_list
 	: assignment_expression
-	| argument_expression_list COMMA assignment_expression
+	| argument_expression_list ',' assignment_expression
 	;
 
 unary_expression
@@ -44,34 +44,34 @@ unary_expression
 	| DEC_OP unary_expression
 	| unary_operator cast_expression
 	| SIZEOF unary_expression
-	| SIZEOF LEFT_BRACKET type_name RIGHT_BRACKET
+	| SIZEOF '(' type_name ')'
 	;
 
 unary_operator
-	: LOGICAL_AND
-	| MULTIPLY
-	| PLUS
-	| MINUS
-	| LOGICAL_NOT
-	| NOT
+	: '&'
+	| '*'
+	| '+'
+	| '-'
+	| '~'
+	| '!'
 	;
 
 cast_expression
 	: unary_expression
-	| LEFT_BRACKET type_name RIGHT_BRACKET cast_expression
+	| '(' type_name ')' cast_expression
 	;
 
 multiplicative_expression
 	: cast_expression
-	| multiplicative_expression MULTIPLY cast_expression
-	| multiplicative_expression DIVIDE cast_expression
-	| multiplicative_expression MOD cast_expression
+	| multiplicative_expression '*' cast_expression
+	| multiplicative_expression '/' cast_expression
+	| multiplicative_expression '%' cast_expression
 	;
 
 additive_expression
 	: multiplicative_expression
-	| additive_expression PLUS multiplicative_expression
-	| additive_expression MINUS multiplicative_expression
+	| additive_expression '+' multiplicative_expression
+	| additive_expression '-' multiplicative_expression
 	;
 
 shift_expression
@@ -82,8 +82,8 @@ shift_expression
 
 relational_expression
 	: shift_expression
-	| relational_expression LESS shift_expression
-	| relational_expression GREATER shift_expression
+	| relational_expression '<' shift_expression
+	| relational_expression '>' shift_expression
 	| relational_expression LE_OP shift_expression
 	| relational_expression GE_OP shift_expression
 	;
@@ -96,17 +96,17 @@ equality_expression
 
 and_expression
 	: equality_expression
-	| and_expression LOGICAL_AND equality_expression
+	| and_expression '&' equality_expression
 	;
 
 exclusive_or_expression
 	: and_expression
-	| exclusive_or_expression EXPONENT and_expression
+	| exclusive_or_expression '^' and_expression
 	;
 
 inclusive_or_expression
 	: exclusive_or_expression
-	| inclusive_or_expression LOGICAL_OR exclusive_or_expression
+	| inclusive_or_expression '|' exclusive_or_expression
 	;
 
 logical_and_expression
@@ -121,7 +121,7 @@ logical_or_expression
 
 conditional_expression
 	: logical_or_expression
-	| logical_or_expression QUESTION expression COLON conditional_expression
+	| logical_or_expression '?' expression ':' conditional_expression
 	;
 
 assignment_expression
@@ -130,7 +130,7 @@ assignment_expression
 	;
 
 assignment_operator
-	: EQ
+	: '='
 	| MUL_ASSIGN
 	| DIV_ASSIGN
 	| MOD_ASSIGN
@@ -145,7 +145,7 @@ assignment_operator
 
 expression
 	: assignment_expression
-	| expression COMMA assignment_expression
+	| expression ',' assignment_expression
 	;
 
 constant_expression
@@ -153,8 +153,8 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers SEMICOLON
-	| declaration_specifiers init_declarator_list SEMICOLON
+	: declaration_specifiers ';'
+	| declaration_specifiers init_declarator_list ';'
 	;
 
 declaration_specifiers
@@ -168,12 +168,12 @@ declaration_specifiers
 
 init_declarator_list
 	: init_declarator
-	| init_declarator_list COMMA init_declarator
+	| init_declarator_list ',' init_declarator
 	;
 
 init_declarator
 	: declarator
-	| declarator EQ initializer
+	| declarator '=' initializer
 	;
 
 storage_class_specifier
@@ -195,18 +195,19 @@ type_specifier
 	| SIGNED
 	| UNSIGNED
 	| struct_or_union_specifier
-	| class_definition
+	| class_specifier
 	| enum_specifier
 	| TYPE_NAME
 	;
 
 inheritance_specifier
 	: access_specifier IDENTIFIER
+	| IDENTIFIER
 	;
 
 inheritance_specifier_list
 	: inheritance_specifier
-	| inheritance_specifier_list COMMA inheritance_specifier
+	| inheritance_specifier_list ',' inheritance_specifier
 	;
 
 access_specifier 
@@ -219,25 +220,24 @@ class
 	: CLASS
 	;
 
-class_definition_head 
-	: class
+class_specifier_head 
+	: class 
 	| class INHERITANCE_OP inheritance_specifier_list
 	| class IDENTIFIER 
 	| class IDENTIFIER  INHERITANCE_OP inheritance_specifier_list
 	;
 
-class_definition 
-	: class_definition_head LEFT_CURLY_BRACKET class_internal_definition_list RIGHT_CURLY_BRACKET
-	| class_definition_head
+class_specifier 
+	: class_specifier_head '{' class_declaration_list '}'
 	;
 
-class_internal_definition_list
-	: class_internal_definition
-	| class_internal_definition_list class_internal_definition
+class_declaration_list
+	: class_declaration
+	| class_declaration_list class_declaration
 	; 
 
-class_internal_definition	
-	: access_specifier LEFT_CURLY_BRACKET class_member_list RIGHT_CURLY_BRACKET SEMICOLON
+class_declaration	
+	: access_specifier '{' class_member_list '}' ';'
 	;
 
 class_member_list
@@ -251,8 +251,8 @@ class_member
 	;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
-	| struct_or_union LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
+	: struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+	| struct_or_union '{' struct_declaration_list '}'
 	| struct_or_union IDENTIFIER
 	;
 
@@ -267,7 +267,7 @@ struct_declaration_list
 	;
 
 struct_declaration
-	: specifier_qualifier_list struct_declarator_list SEMICOLON
+	: specifier_qualifier_list struct_declarator_list ';'
 	;
 
 specifier_qualifier_list
@@ -279,29 +279,29 @@ specifier_qualifier_list
 
 struct_declarator_list
 	: struct_declarator
-	| struct_declarator_list COMMA struct_declarator
+	| struct_declarator_list ',' struct_declarator
 	;
 
 struct_declarator
 	: declarator
-	| COLON constant_expression
-	| declarator COLON constant_expression
+	| ':' constant_expression
+	| declarator ':' constant_expression
 	;
 
 enum_specifier
-	: ENUM LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
-	| ENUM IDENTIFIER LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
+	: ENUM '{' enumerator_list '}'
+	| ENUM IDENTIFIER '{' enumerator_list '}'
 	| ENUM IDENTIFIER
 	;
 
 enumerator_list
 	: enumerator
-	| enumerator_list COMMA enumerator
+	| enumerator_list ',' enumerator
 	;
 
 enumerator
 	: IDENTIFIER
-	| IDENTIFIER EQ constant_expression
+	| IDENTIFIER '=' constant_expression
 	;
 
 type_qualifier
@@ -316,19 +316,19 @@ declarator
 
 direct_declarator
 	: IDENTIFIER
-	| LEFT_BRACKET declarator RIGHT_BRACKET
-	| direct_declarator LEFT_THIRD_BRACKET constant_expression RIGHT_THIRD_BRACKET
-	| direct_declarator LEFT_THIRD_BRACKET RIGHT_THIRD_BRACKET
-	| direct_declarator LEFT_BRACKET parameter_type_list RIGHT_BRACKET
-	| direct_declarator LEFT_BRACKET identifier_list RIGHT_BRACKET
-	| direct_declarator LEFT_BRACKET RIGHT_BRACKET
+	| '(' declarator ')'
+	| direct_declarator '[' constant_expression ']'
+	| direct_declarator '[' ']'
+	| direct_declarator '(' parameter_type_list ')'
+	| direct_declarator '(' identifier_list ')'
+	| direct_declarator '(' ')'
 	;
 
 pointer
-	: MULTIPLY
-	| MULTIPLY type_qualifier_list
-	| MULTIPLY pointer
-	| MULTIPLY type_qualifier_list pointer
+	: '*'
+	| '*' type_qualifier_list
+	| '*' pointer
+	| '*' type_qualifier_list pointer
 	;
 
 type_qualifier_list
@@ -339,12 +339,12 @@ type_qualifier_list
 
 parameter_type_list
 	: parameter_list
-	| parameter_list COMMA ELLIPSIS
+	| parameter_list ',' ELLIPSIS
 	;
 
 parameter_list
 	: parameter_declaration
-	| parameter_list COMMA parameter_declaration
+	| parameter_list ',' parameter_declaration
 	;
 
 parameter_declaration
@@ -355,7 +355,7 @@ parameter_declaration
 
 identifier_list
 	: IDENTIFIER
-	| identifier_list COMMA IDENTIFIER
+	| identifier_list ',' IDENTIFIER
 	;
 
 type_name
@@ -370,26 +370,26 @@ abstract_declarator
 	;
 
 direct_abstract_declarator
-	: LEFT_BRACKET abstract_declarator RIGHT_BRACKET
-	| LEFT_THIRD_BRACKET RIGHT_THIRD_BRACKET
-	| LEFT_THIRD_BRACKET constant_expression RIGHT_THIRD_BRACKET
-	| direct_abstract_declarator LEFT_THIRD_BRACKET RIGHT_THIRD_BRACKET
-	| direct_abstract_declarator LEFT_THIRD_BRACKET constant_expression RIGHT_THIRD_BRACKET
-	| LEFT_BRACKET RIGHT_BRACKET
-	| LEFT_BRACKET parameter_type_list RIGHT_BRACKET
-	| direct_abstract_declarator LEFT_BRACKET RIGHT_BRACKET
-	| direct_abstract_declarator LEFT_BRACKET parameter_type_list RIGHT_BRACKET
+	: '(' abstract_declarator ')'
+	| '[' ']'
+	| '[' constant_expression ']'
+	| direct_abstract_declarator '[' ']'
+	| direct_abstract_declarator '[' constant_expression ']'
+	| '(' ')'
+	| '(' parameter_type_list ')'
+	| direct_abstract_declarator '(' ')'
+	| direct_abstract_declarator '(' parameter_type_list ')'
 	;
 
 initializer
 	: assignment_expression
-	| LEFT_CURLY_BRACKET initializer_list RIGHT_CURLY_BRACKET
-	| LEFT_CURLY_BRACKET initializer_list COMMA RIGHT_CURLY_BRACKET
+	| '{' initializer_list '}'
+	| '{' initializer_list ',' '}'
 	;
 
 initializer_list
 	: initializer
-	| initializer_list COMMA initializer
+	| initializer_list ',' initializer
 	;
 
 statement
@@ -402,16 +402,16 @@ statement
 	;
 
 labeled_statement
-	: IDENTIFIER COLON statement
-	| CASE constant_expression COLON statement
-	| DEFAULT COLON statement
+	: IDENTIFIER ':' statement
+	| CASE constant_expression ':' statement
+	| DEFAULT ':' statement
 	;
 
 compound_statement
-	: LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
-	| LEFT_CURLY_BRACKET statement_list RIGHT_CURLY_BRACKET
-	| LEFT_CURLY_BRACKET declaration_list RIGHT_CURLY_BRACKET
-	| LEFT_CURLY_BRACKET declaration_list statement_list RIGHT_CURLY_BRACKET
+	: '{' '}'
+	| '{' statement_list '}'
+	| '{' declaration_list '}'
+	| '{' declaration_list statement_list '}'
 	;
 
 declaration_list
@@ -425,29 +425,29 @@ statement_list
 	;
 
 expression_statement
-	: SEMICOLON
-	| expression SEMICOLON
+	: ';'
+	| expression ';'
 	;
 
 selection_statement
-	: IF LEFT_BRACKET expression RIGHT_BRACKET statement
-	| IF LEFT_BRACKET expression RIGHT_BRACKET statement ELSE statement
-	| SWITCH LEFT_BRACKET expression RIGHT_BRACKET statement
+	: IF '(' expression ')' statement
+	| IF '(' expression ')' statement ELSE statement
+	| SWITCH '(' expression ')' statement
 	;
 
 iteration_statement
-	: WHILE LEFT_BRACKET expression RIGHT_BRACKET statement
-	| DO statement WHILE LEFT_BRACKET expression RIGHT_BRACKET SEMICOLON
-	| FOR LEFT_BRACKET expression_statement expression_statement RIGHT_BRACKET statement
-	| FOR LEFT_BRACKET expression_statement expression_statement expression RIGHT_BRACKET statement
+	: WHILE '(' expression ')' statement
+	| DO statement WHILE '(' expression ')' ';'
+	| FOR '(' expression_statement expression_statement ')' statement
+	| FOR '(' expression_statement expression_statement expression ')' statement
 	;
 
 jump_statement
-	: GOTO IDENTIFIER SEMICOLON
-	| CONTINUE SEMICOLON
-	| BREAK SEMICOLON
-	| RETURN SEMICOLON
-	| RETURN expression SEMICOLON
+	: GOTO IDENTIFIER ';'
+	| CONTINUE ';'
+	| BREAK ';'
+	| RETURN ';'
+	| RETURN expression ';'
 	;
 
 translation_unit
