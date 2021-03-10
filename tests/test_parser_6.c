@@ -1,25 +1,59 @@
-// Example modified from https://www.w3schools.com/cpp/cpp_classes.asp
-class Vehicle {
-    public {
-        char *type;
-    }
-}
-
-class Car <- public Vehicle {
-    public {
-        char *brand;
-        char *model;
-        int year;
+// This should work
+class Person { 
+   // Data members of person 
+    private{
+        long aadhar_number;
+    };  
+    private{
+        char* name;
+    }; 
+    public{ 
+        char * returnName()  { return this->name;} 
     };
-    private {
-        int internal_part1;
-        long internal_part2;
-        short internal_part3;
-    }
-};
+}; 
+  
+class Faculty <- public Person { 
+   // data members of Faculty
+    protected{
+        long employeeID;
+    };  
+    public{
+        long getEmployeeID(){ 
+         return this->employeeID; 
+        }
+    }; 
+}; 
+  
+class Student <- public Person { 
+   // data members of Student 
+   private {
+       long rollNo;
+   };
+    public{ 
+        long getRollNo() { 
+            return this->rollNo; 
+        } 
+    };
+}; 
+  
+class TA <- public Faculty, public Student  {
 
-int main(int argc, char **argv) {
-    Car newcar;
-    printf("Testing inherrrrrriiiiiiitttttteeeeeencccceeeeee");
-    return 1;
-}
+    private{
+        char** courses;
+        int maxSize =  1024;
+        int numCourses;
+    }; 
+    public{
+        void printCourses(){ 
+            int i;
+            for(i=0; i<this->numCourses;i++)
+                printf("%s", this->courses[i]); 
+        }
+
+    };
+}; 
+  
+int main()  { 
+    class TA ta1;
+    ta1.printCourses(); 
+} 

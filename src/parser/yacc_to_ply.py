@@ -1,3 +1,5 @@
+header = open("header.py","r").readlines()
+main = open("main.py","r").readlines()
 lines = open("../lexer/c_yacc.y", "r").readlines()
 
 lines = lines[lines.index("%%\n") + 1 :]
@@ -14,6 +16,9 @@ for line in lines:
     prod_rules.append(line)
 
 with open("ply_file.py", "w+") as file:
+    for line in header:
+        file.write(line)
+    file.write("\n")
     for rules in all_prod_rules:
         rules = list(map(lambda x: x.replace("\t", "   "), rules))
         rules[1] = rules[1][3:]
@@ -23,3 +28,5 @@ with open("ply_file.py", "w+") as file:
         file.write(f"def p_{name}(p):\n")
         file.write(f'    """{name} {comb}"""\n')
         file.write(f'    p[0] = ("{name}",) + tuple(p[-len(p)+1:])\n\n')
+    for line in main:
+        file.write(line)
