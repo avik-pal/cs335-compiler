@@ -11,7 +11,7 @@ def generate_graph_from_ast(ast, filename="AST"):
 
     _generate_graph_from_ast(graph, ast, num, num + 1)
 
-    graph.render(filename=filename,cleanup=True)
+    graph.render(filename=filename, cleanup=True)
 
     return graph
 

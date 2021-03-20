@@ -155,6 +155,7 @@ t_QUESTION = r"\?"
 
 TYPE_NAMES = []
 
+
 def t_IDENTIFIER(t):
     r"[A-Za-z_][\w_]*"
     global EXPECTED_TYPENAMES
