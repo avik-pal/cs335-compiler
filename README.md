@@ -1,9 +1,14 @@
 # CS335 IITK Compiler Project
 
 ## Description
-This project aims to develop a compiler for C language as a part of the course CS335-Compiler Design.
+This project aims to develop a compiler for C language as a part of the course CS335 Compiler Design.
+
+NOTE: To run the code for the respective Milestone, please checkout the tags. Future versions are not supposed to be backwards compatible.
 
 #### Milestone 1
+
+**TAG: lexer**
+
 We develop a scanner using lex and yacc, which takes as input any C program and generates a table of tokens along with the corresponding lexeme, line no and column no of the token as output. We use the specifications for scanner and parser as mentioned in the problem statement.
 
 We test it using the testcases present in the `tests/` sub-directory. The procedure to build and run the program is as follows:
@@ -18,6 +23,9 @@ $ ./bin/lexer tests/test_lexer_1.c -o out_file
 ```
 
 #### Milestone 2
+
+**TAG: parser**
+
 We implemented the parser for an (extended) ANSI C version which outputs a dot file which can then be visualized using any standing dot file viewer. We expect `ply` and `graphviz` to be installed (can be setup using `pip install -r requirements.txt`).
 
 We test it using the testcases present in the `tests/` sub-directory. The procedure to run the program is as follows:

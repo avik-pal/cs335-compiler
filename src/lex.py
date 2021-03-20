@@ -199,4 +199,3 @@ if __name__ == "__main__":
             "{token type, token name, line nunmber, index relative to start of input}"
         )
         lex.runmain(lexer, data)
-        print(TYPE_NAMES)
