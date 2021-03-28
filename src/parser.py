@@ -5,6 +5,7 @@ import ply.yacc as yacc
 import argparse
 
 from dot import generate_graph_from_ast, reduce_ast
+from symtab import pop_scope, push_scope, new_scope
 
 tokens = lex.tokens
 flag_for_error = 0
@@ -16,7 +17,7 @@ def p_primary_expression(p):
     """primary_expression : IDENTIFIER
     | F_CONSTANT
     | I_CONSTANT
-        | C_CONSTANT
+    | C_CONSTANT
     | STRING_LITERAL
     | LEFT_BRACKET expression RIGHT_BRACKET"""
     p[0] = ("primary_expression",) + tuple(p[-len(p) + 1 :])
@@ -258,7 +259,7 @@ def p_class_definition_head(p):
 
 
 def p_class_definition(p):
-    """class_definition : class_definition_head LEFT_CURLY_BRACKET class_internal_definition_list RIGHT_CURLY_BRACKET
+    """class_definition : class_definition_head lbrace class_internal_definition_list rbrace
     | class_definition_head"""
     p[0] = ("class_definition",) + tuple(p[-len(p) + 1 :])
 
@@ -270,7 +271,7 @@ def p_class_internal_definition_list(p):
 
 
 def p_class_internal_definition(p):
-    """class_internal_definition : access_specifier LEFT_CURLY_BRACKET class_member_list RIGHT_CURLY_BRACKET SEMICOLON"""
+    """class_internal_definition : access_specifier lbrace class_member_list rbrace SEMICOLON"""
     p[0] = ("class_internal_definition",) + tuple(p[-len(p) + 1 :])
 
 
@@ -287,8 +288,8 @@ def p_class_member(p):
 
 
 def p_struct_or_union_specifier(p):
-    """struct_or_union_specifier : struct_or_union IDENTIFIER LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
-    | struct_or_union LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
+    """struct_or_union_specifier : struct_or_union IDENTIFIER lbrace struct_declaration_list rbrace
+    | struct_or_union lbrace struct_declaration_list rbrace
     | struct_or_union IDENTIFIER"""
     p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
 
@@ -332,8 +333,8 @@ def p_struct_declarator(p):
 
 
 def p_enum_specifier(p):
-    """enum_specifier : ENUM LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
-    | ENUM IDENTIFIER LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
+    """enum_specifier : ENUM lbrace enumerator_list rbrace
+    | ENUM IDENTIFIER lbrace enumerator_list rbrace
     | ENUM IDENTIFIER"""
     p[0] = ("enum_specifier",) + tuple(p[-len(p) + 1 :])
 
@@ -469,10 +470,10 @@ def p_labeled_statement(p):
 
 
 def p_compound_statement(p):
-    """compound_statement : LEFT_CURLY_BRACKET RIGHT_CURLY_BRACKET
-    | LEFT_CURLY_BRACKET statement_list RIGHT_CURLY_BRACKET
-    | LEFT_CURLY_BRACKET declaration_list RIGHT_CURLY_BRACKET
-    | LEFT_CURLY_BRACKET declaration_list statement_list RIGHT_CURLY_BRACKET"""
+    """compound_statement : lbrace rbrace
+    | lbrace statement_list rbrace
+    | lbrace declaration_list rbrace
+    | lbrace declaration_list statement_list rbrace"""
     p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
 
 
@@ -536,6 +537,20 @@ def p_function_definition(p):
     | declarator declaration_list compound_statement
     | declarator compound_statement"""
     p[0] = ("function_definition",) + tuple(p[-len(p) + 1 :])
+
+
+def p_lbrace(p):
+    """lbrace : LEFT_CURLY_BRACKET
+    """
+    push_scope(new_scope())
+    p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
+
+
+def p_rbrace(p):
+    """rbrace : RIGHT_CURLY_BRACKET
+    """
+    p[0] = ("rbrace",) + tuple(p[-len(p) + 1 :])
+    pop_scope()
 
 
 def p_error(p):

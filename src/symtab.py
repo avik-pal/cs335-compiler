@@ -61,3 +61,19 @@ class SymbolTable:
         )
         # Finally check in the current parameter table
         return self.lookup_parameter(symname) if res is None else res
+
+
+SYMBOL_TABLES = []
+
+def pop_scope() -> SymbolTable:
+    global SYMBOL_TABLES
+    print("POP ", SYMBOL_TABLES[-1].table_number)
+    return SYMBOL_TABLES.pop()
+
+def push_scope(s: SymbolTable) -> None:
+    global SYMBOL_TABLES
+    SYMBOL_TABLES.append(s)
+    print(s.table_number)
+
+def new_scope() -> SymbolTable:
+    return SymbolTable()
