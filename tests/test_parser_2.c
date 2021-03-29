@@ -2,7 +2,8 @@
 // Function to print an array
 void printArray(int arr[], int size)
 {
-    int i;
+    int i = 9;
+    double c = 6.0;
     for (i=0; i < size; i++) {
         printf("%d ", arr[i]);
     }

@@ -5,7 +5,14 @@ import ply.yacc as yacc
 import argparse
 
 from dot import generate_graph_from_ast, reduce_ast
-from symtab import pop_scope, push_scope, new_scope, get_current_symtab
+from symtab import (
+    pop_scope,
+    push_scope,
+    new_scope,
+    get_current_symtab,
+    get_tmp_label,
+    get_tmp_var,
+)
 
 tokens = lex.tokens
 flag_for_error = 0
@@ -15,12 +22,27 @@ start = "translation_unit"
 
 def p_primary_expression(p):
     """primary_expression : IDENTIFIER
-    | F_CONSTANT
-    | I_CONSTANT
-    | C_CONSTANT
+    | f_const
+    | i_const
+    | c_const
     | STRING_LITERAL
     | LEFT_BRACKET expression RIGHT_BRACKET"""
     p[0] = ("primary_expression",) + tuple(p[-len(p) + 1 :])
+
+
+def p_f_const(p):
+    """f_const : F_CONSTANT"""
+    p[0] = {"value": p[1], "code": [], "type": "double"}
+
+
+def p_i_const(p):
+    """i_const : I_CONSTANT"""
+    p[0] = {"value": p[1], "code": [], "type": "long"}
+
+
+def p_c_const(p):
+    """c_const : C_CONSTANT"""
+    p[0] = {"value": p[1], "code": [], "type": "char"}
 
 
 def p_postfix_expression(p):
@@ -540,15 +562,13 @@ def p_function_definition(p):
 
 
 def p_lbrace(p):
-    """lbrace : LEFT_CURLY_BRACKET
-    """
+    """lbrace : LEFT_CURLY_BRACKET"""
     push_scope(new_scope(get_current_symtab()))
     p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
 
 
 def p_rbrace(p):
-    """rbrace : RIGHT_CURLY_BRACKET
-    """
+    """rbrace : RIGHT_CURLY_BRACKET"""
     p[0] = ("rbrace",) + tuple(p[-len(p) + 1 :])
     pop_scope()
 
@@ -589,9 +609,9 @@ if __name__ == "__main__":
             push_scope(new_scope(get_current_symtab()))
             tree = yacc.parse(data)
             pop_scope()
-            if args.output[-4:] == ".dot":
-                args.output = args.output[:-4]
-            if args.trim:
-                generate_graph_from_ast(reduce_ast(tree), args.output)
-            else:
-                generate_graph_from_ast(tree, args.output)
+            # if args.output[-4:] == ".dot":
+            #     args.output = args.output[:-4]
+            # if args.trim:
+            #     generate_graph_from_ast(reduce_ast(tree), args.output)
+            # else:
+            #     generate_graph_from_ast(tree, args.output)

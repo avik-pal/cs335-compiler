@@ -31,7 +31,7 @@ DATATYPE2SIZE = {
     "UNSIGNED LONG LONG INT": 8,
     "FLOAT": 4,
     "DOUBLE": 8,
-    "LONG DOUBLE": 16
+    "LONG DOUBLE": 16,
 }
 
 TABLENUMBER = 0
@@ -41,7 +41,7 @@ class SymbolTable:
     def __init__(self, parent=None) -> None:
         global TABLENUMBER
         self._symtab = dict()  # Stores SymbolName -> (Type, Scope, Attributes)
-        self._paramtab = []    # List of SymbolTable
+        self._paramtab = []  # List of SymbolTable
         self.parent = parent
         self.table_number = TABLENUMBER
         TABLENUMBER += 1
@@ -62,8 +62,12 @@ class SymbolTable:
                     entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
                 except KeyError:
                     # TODO: Proper error message with line number and such
-                    raise Exception(f"{entry['type']} is not a valid data type")
-                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
+                    raise Exception(
+                        f"{entry['type']} is not a valid data type"
+                    )
+                entry["offset"] = compute_offset_size(
+                    entry["size"], entry["is_array"], entry["dimensions"]
+                )
             # Variables (ID) -> ["name", "type", "is_array", "dimensions", "kind", "size", "offset"]
             # Functions (FN) -> ["name", "return type", "parameter types", "kind"]
             self._symtab[entry["name"]] = entry
@@ -101,24 +105,49 @@ class SymbolTable:
 
 SYMBOL_TABLES = []
 
+
 def pop_scope() -> SymbolTable:
     global SYMBOL_TABLES
     cur_tab = get_current_symtab()
-    print("[DEBUG INFO]  POP SYMBOL TABLE: ", cur_tab.table_number, cur_tab.table_name)
+    print(
+        "[DEBUG INFO]  POP SYMBOL TABLE: ",
+        cur_tab.table_number,
+        cur_tab.table_name,
+    )
     return SYMBOL_TABLES.pop()
+
 
 def push_scope(s: SymbolTable) -> None:
     global SYMBOL_TABLES
     SYMBOL_TABLES.append(s)
     print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
 
+
 def new_scope(parent=None) -> SymbolTable:
     return SymbolTable(parent)
+
 
 def get_current_symtab() -> Union[None, SymbolTable]:
     global SYMBOL_TABLES
     return None if len(SYMBOL_TABLES) == 0 else SYMBOL_TABLES[-1]
 
+
 def compute_offset_size(dsize, is_array, dimensions) -> int:
     # TODO: Implement
     return -1
+
+
+TMP_VAR_COUNTER = 0
+TMP_LABEL_COUNTER = 0
+
+
+def get_tmp_var() -> str:
+    global TMP_VAR_COUNTER
+    TMP_VAR_COUNTER += 1
+    return f"_tmp_var_{TMP_VAR_COUNTER}"
+
+
+def get_tmp_label() -> str:
+    global TMP_LABEL_COUNTER
+    TMP_LABEL_COUNTER += 1
+    return f"_tmp_label_{TMP_LABEL_COUNTER}"
