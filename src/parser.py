@@ -5,7 +5,7 @@ import ply.yacc as yacc
 import argparse
 
 from dot import generate_graph_from_ast, reduce_ast
-from symtab import pop_scope, push_scope, new_scope
+from symtab import pop_scope, push_scope, new_scope, get_current_symtab
 
 tokens = lex.tokens
 flag_for_error = 0
@@ -288,8 +288,8 @@ def p_class_member(p):
 
 
 def p_struct_or_union_specifier(p):
-    """struct_or_union_specifier : struct_or_union IDENTIFIER lbrace struct_declaration_list rbrace
-    | struct_or_union lbrace struct_declaration_list rbrace
+    """struct_or_union_specifier : struct_or_union IDENTIFIER LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
+    | struct_or_union LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
     | struct_or_union IDENTIFIER"""
     p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
 
@@ -333,8 +333,8 @@ def p_struct_declarator(p):
 
 
 def p_enum_specifier(p):
-    """enum_specifier : ENUM lbrace enumerator_list rbrace
-    | ENUM IDENTIFIER lbrace enumerator_list rbrace
+    """enum_specifier : ENUM LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
+    | ENUM IDENTIFIER LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
     | ENUM IDENTIFIER"""
     p[0] = ("enum_specifier",) + tuple(p[-len(p) + 1 :])
 
@@ -542,7 +542,7 @@ def p_function_definition(p):
 def p_lbrace(p):
     """lbrace : LEFT_CURLY_BRACKET
     """
-    push_scope(new_scope())
+    push_scope(new_scope(get_current_symtab()))
     p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
 
 
@@ -586,7 +586,9 @@ if __name__ == "__main__":
     else:
         with open(str(args.input), "r+") as file:
             data = file.read()
+            push_scope(new_scope(get_current_symtab()))
             tree = yacc.parse(data)
+            pop_scope()
             if args.output[-4:] == ".dot":
                 args.output = args.output[:-4]
             if args.trim:
