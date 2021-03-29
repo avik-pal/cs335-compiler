@@ -21,13 +21,19 @@ start = "translation_unit"
 
 
 def p_primary_expression(p):
-    """primary_expression : IDENTIFIER
+    """primary_expression : identifier
     | f_const
     | i_const
     | c_const
     | STRING_LITERAL
     | LEFT_BRACKET expression RIGHT_BRACKET"""
-    p[0] = ("primary_expression",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[len(p) - 1]
+
+
+def p_identifier(p):
+    """identifier : IDENTIFIER"""
+    # TODO: Check presence in symbol table
+    p[0] = p[1]
 
 
 def p_f_const(p):
