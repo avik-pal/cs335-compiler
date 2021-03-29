@@ -12,6 +12,8 @@ from symtab import (
     get_current_symtab,
     get_tmp_label,
     get_tmp_var,
+    NUMERIC_TYPES,
+    CHARACTER_TYPES,
 )
 
 tokens = lex.tokens
@@ -593,7 +595,36 @@ def p_error(p):
 parser = yacc.yacc()
 
 
-def getArgs():
+def populate_global_symbol_table() -> None:
+    # TODO: Need to do this for all the base functions / keywords
+    table = get_current_symtab()
+
+    # Some of the binary operators
+    for op in ("+", "-", "/"):
+        for _type in NUMERIC_TYPES:
+            _type = _type.lower()
+            table.insert(
+                {
+                    "name": op,
+                    "return type": _type,
+                    "parameter types": [_type, _type],
+                },
+                1,
+            )
+        for _type in CHARACTER_TYPES:
+            _type = _type.lower()
+            # Numeric operations on char is performed by typecasting to integer
+            table.insert(
+                {
+                    "name": op,
+                    "return type": "int",
+                    "parameter types": [_type, _type],
+                },
+                1,
+            )
+
+
+def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=str, default=None, help="Input file")
     parser.add_argument(
@@ -606,14 +637,18 @@ def getArgs():
 
 
 if __name__ == "__main__":
-    args = getArgs().parse_args()
+    args = get_args().parse_args()
     if args.input == None:
         print("No input file specified")
     else:
         with open(str(args.input), "r+") as file:
             data = file.read()
+
             push_scope(new_scope(get_current_symtab()))
+            populate_global_symbol_table()
+
             tree = yacc.parse(data)
+
             pop_scope()
             # if args.output[-4:] == ".dot":
             #     args.output = args.output[:-4]

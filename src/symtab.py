@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List
 
 
 DATATYPE2SIZE = {
@@ -34,14 +34,51 @@ DATATYPE2SIZE = {
     "LONG DOUBLE": 16,
 }
 
+
+CHARACTER_TYPES = ["CHAR", "SIGNED CHAR", "UNSIGNED CHAR"]
+
+
+NUMERIC_TYPES = [
+    "SHORT",
+    "SHORT INT",
+    "SIGNED SHORT",
+    "SIGNED SHORT INT",
+    "UNSIGNED SHORT",
+    "UNSIGNED SHORT INT",
+    "INT",
+    "SIGNED INT",
+    "UNSIGNED INT",
+    "SIGNED",
+    "UNSIGNED",
+    "LONG",
+    "LONG INT",
+    "SIGNED LONG INT",
+    "SIGNED LONG",
+    "UNSIGNED LONG",
+    "UNSIGNED LONG INT",
+    "LONG LONG",
+    "LONG LONG INT",
+    "SIGNED LONG LONG",
+    "SIGNED LONG LONG INT",
+    "UNSIGNED LONG LONG",
+    "UNSIGNED LONG LONG INT",
+    "FLOAT",
+    "DOUBLE",
+    "LONG DOUBLE",
+]
+
+
 TABLENUMBER = 0
 
 
 class SymbolTable:
+    # kind = 1 for FN and 0 for ID
     def __init__(self, parent=None) -> None:
         global TABLENUMBER
-        self._symtab = dict()  # Stores SymbolName -> (Type, Scope, Attributes)
-        self._paramtab = []  # List of SymbolTable
+        self._symtab_variables = dict()
+        self._symtab_functions = dict()
+        self._function_names = dict()
+        self._paramtab = []
         self.parent = parent
         self.table_number = TABLENUMBER
         TABLENUMBER += 1
@@ -51,13 +88,23 @@ class SymbolTable:
         else:
             self.table_name = f"BLOCK {self.table_number}"
 
-    def insert(self, entry: dict, kind: int = 1) -> bool:
-        # kind = 1 for FN and 0 for ID
+    @staticmethod
+    def _get_proper_name(entry: dict, kind: int = 0):
+        if kind == 0:
+            return entry["name"]
+        elif kind == 1:
+            return (
+                entry["name"] + "(" + ",".join(entry["parameter types"]) + ")"
+            )
+
+    def insert(self, entry: dict, kind: int = 0) -> bool:
         # Variables (ID) -> ["name", "type", "is_array", "dimensions"]
         # Functions (FN) -> ["name", "return type", "parameter types"]
-        if self.lookup_current_table(entry["name"]) is None:
-            entry["kind"] = "FN" if kind == 1 else "ID"
+        name = self._get_proper_name(entry, kind)
+        if self.lookup_current_table(name, kind) is None:
+            entry["kind"] = kind
             if kind == 0:
+                # Variable Identifier
                 try:
                     entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
                 except KeyError:
@@ -68,29 +115,51 @@ class SymbolTable:
                 entry["offset"] = compute_offset_size(
                     entry["size"], entry["is_array"], entry["dimensions"]
                 )
-            # Variables (ID) -> ["name", "type", "is_array", "dimensions", "kind", "size", "offset"]
-            # Functions (FN) -> ["name", "return type", "parameter types", "kind"]
-            self._symtab[entry["name"]] = entry
+                self._symtab_variables[name] = entry
+            elif kind == 1:
+                # Function
+                self._symtab_functions[name] = entry
+                if entry["name"] in self._function_names:
+                    self._function_names[entry["name"]].append(name)
+                else:
+                    self._function_names[entry["name"]] = [name]
             return True
         return False
+        # After Storage
+        # Variables (ID) -> ["name", "type", "is_array", "dimensions", "kind", "size", "offset"]
+        # Functions (FN) -> ["name", "return type", "parameter types", "kind"]
 
     def lookup_current_table(
         self, symname: str, paramtab_check: bool = True
-    ) -> Union[None, tuple]:
-        res = self._symtab.get(symname, None)
+    ) -> Union[None, list, dict]:
+        res = self._symtab_variables.get(symname, None)
+        if res is None:
+            # Check for matching functions
+            if "(" in symname:
+                res = self._symtab_functions.get(symname, None)
+            else:
+                # If we match with a function base name return list of all
+                # the available functions
+                funcs = self._function_names.get(symname, None)
+                res = (
+                    [self._symtab_functions[func] for func in funcs]
+                    if funcs is not None
+                    else None
+                )
         return (
             self.lookup_parameter(symname)
             if res is None and paramtab_check
             else res
         )
 
-    def lookup_parameter(self, paramname: str) -> Union[None, tuple]:
+    def lookup_parameter(self, paramname: str) -> Union[None, list, dict]:
+        # TODO: Check if this works
         for table in self._paramtab:
-            if paramname in table._symtab:
-                return table._symtab[paramname]
+            if paramname in table._symtab_variables:
+                return table._symtab_variables[paramname]
         return None
 
-    def lookup(self, symname: str, idx: int = -1) -> Union[None, tuple]:
+    def lookup(self, symname: str, idx: int = -1) -> Union[None, list, dict]:
         # Check in the current list of symbols
         res = self.lookup_current_table(symname, paramtab_check=(idx == -1))
         # Check if present in the parent recursively till root node is reached
@@ -102,19 +171,49 @@ class SymbolTable:
         # Finally check in the current parameter table
         return self.lookup_parameter(symname) if res is None else res
 
+    def display(self) -> None:
+        # Simple Pretty Printer
+        print()
+        print("-" * 100)
+        print(
+            f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}"
+        )
+        print("-" * 51)
+        print(" " * 20 + " Variables " + " " * 20)
+        print("-" * 51)
+        for k, v in self._symtab_variables.items():
+            print(
+                f"Name: {k}, Type: {v['type']}, Size: {v['size']}"
+                + (
+                    ""
+                    if not v["is_array"]
+                    else f"Dimensions: {v['dimensions']}"
+                )
+            )
+        print("-" * 51)
+        print(" " * 20 + " Functions " + " " * 20)
+        print("-" * 51)
+        for k, v in self._symtab_functions.items():
+            print(
+                f"Name: {v['name']}, Return: {v['return type']}, Parameters: {v['parameter types']}, Name Resolution: {k}"
+            )
+        print("-" * 100)
+        print()
+
 
 SYMBOL_TABLES = []
 
 
 def pop_scope() -> SymbolTable:
     global SYMBOL_TABLES
-    cur_tab = get_current_symtab()
+    s = SYMBOL_TABLES.pop()
+    s.display()
     print(
         "[DEBUG INFO]  POP SYMBOL TABLE: ",
-        cur_tab.table_number,
-        cur_tab.table_name,
+        s.table_number,
+        s.table_name,
     )
-    return SYMBOL_TABLES.pop()
+    return s
 
 
 def push_scope(s: SymbolTable) -> None:
@@ -132,7 +231,9 @@ def get_current_symtab() -> Union[None, SymbolTable]:
     return None if len(SYMBOL_TABLES) == 0 else SYMBOL_TABLES[-1]
 
 
-def compute_offset_size(dsize, is_array, dimensions) -> int:
+def compute_offset_size(
+    dsize: int, is_array: bool, dimensions: List[int]
+) -> int:
     # TODO: Implement
     return -1
 
