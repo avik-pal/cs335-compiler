@@ -57,3 +57,12 @@ It is pretty simple actually :o. Use the helper `src/parser/yacc_to_ply.py` file
         * `public`, `protected`, `private` have been added as keywords.
         * `<-` is used to define inheritance. `class Car <- public Vehicle` is equivalent to the `C++` declaration of `class Car : public Vehicle`.
         * To declare variables as `public`, `protected`, `private` they need to be enclosed in `{}` instead of the traditional `:` notation in `C++`.
+
+#### How to use the SymbolTable?
+
+* Initialize with a parent. Global Table has no parent
+* `insert`: Takes an `entry` (`dict`), refer to the code to see what fields are needed for each kind of identifier. All these fields are mandatory. Additionally a `kind` (`int`) variable must be passed to indicate what type of identifier is it (see the top of SymbolTable to find out the exact numbers).
+* `check_type`: Whether `typename` (`str`) is a valid type.
+* `translate_type`: For mental sanity we shall replace `struct ___`/`union ___` with a typedef. Call this function to get this typedef"ed" type.
+* `lookup`: Returns a list/dict if the symbol being searched is found in the current table / it's parents
+* `display`: Pretty Printing
