@@ -14,10 +14,36 @@ from symtab import (
     get_tmp_var,
     NUMERIC_TYPES,
     CHARACTER_TYPES,
+    DATATYPE2SIZE
 )
+flag_for_error = 0
+### Error flags
+UNKNOWN_ERR = 0
+TYPE_CAST_ERR = 1
+
+# Take two types and return the final dataype to cast to.
+def type_cast(s1,s2):
+    global flag_for_error
+    if (s1 not in DATATYPE2SIZE.keys()) or (s2 not in DATATYPE2SIZE.keys()):
+        flag_for_error = TYPE_CAST_ERR
+        return "error"
+    elif s1 == "DOUBLE" or s2 == "DOUBLE":
+        return "DOUBLE"
+    elif s1 =="FLOAT" or s2 == "FLOAT":
+        return "FLOAT"
+    elif DATATYPE2SIZE[s1] > DATATYPE2SIZE[s2]:
+        return s1
+    elif DATATYPE2SIZE[s2] > DATATYPE2SIZE[s1]:
+        return s2
+    elif s1.startswith("UNSIGNED"):
+        return s1
+    elif s2.startswith("UNSIGNED"):
+        return s2
+    else:
+        flag_for_error = UNKNOWN_ERR
+        return "error"
 
 tokens = lex.tokens
-flag_for_error = 0
 
 start = "translation_unit"
 
@@ -583,7 +609,7 @@ def p_rbrace(p):
 
 def p_error(p):
     global flag_for_error
-    flag_for_error = 1
+    # flag_for_error = 1
 
     if p is not None:
         print("error at line no:  %s :: %s" % ((p.lineno), (p.value)))
