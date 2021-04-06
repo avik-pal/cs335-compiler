@@ -268,10 +268,10 @@ class SymbolTable:
 
     def _search_for_class(self, symname: str) -> Union[None, dict]:
         return self._symtab_classes.get(symname, None)
-    
+
     def _search_for_enum(self, symname: str) -> Union[None, dict]:
         return self._symtab_enums.get(symname, None)
-    
+
     def _search_for_union(
         self, symname: str, alt_name: Union[str, None]
     ) -> Union[None, dict]:
@@ -293,7 +293,9 @@ class SymbolTable:
     ) -> Union[None, list, dict]:
         res = self._search_for_variable(symname)
         res = self._search_for_function(symname) if res is None else res
-        res = self._search_for_struct(symname, alt_name) if res is None else res
+        res = (
+            self._search_for_struct(symname, alt_name) if res is None else res
+        )
         res = self._search_for_class(symname) if res is None else res
         res = self._search_for_enum(symname) if res is None else res
         res = self._search_for_union(symname, alt_name) if res is None else res
