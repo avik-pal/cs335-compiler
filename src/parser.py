@@ -69,7 +69,7 @@ def p_identifier(p):
     #       needs to be handled here
     symTab = get_current_symtab()
     if symTab.lookup(p[1]) is None:
-        raise SyntaxError  # undeclared identifier used
+        raise Exception  # undeclared identifier used
     p[0] = p[1]
 
 
@@ -104,7 +104,7 @@ def p_postfix_expression(p):
 
     elif len(p) == 3:
         if p[1]["type"] != "long":
-            raise SyntaxError
+            raise Exception
         else:
             p[0] = p[1]
             p[0]["value"] = (
@@ -117,17 +117,17 @@ def p_postfix_expression(p):
             symTab = get_current_symtab()
             entry = symTab.lookup(p[1])
             if entry is None:
-                raise SyntaxError  # undeclared identifier
+                raise Exception  # undeclared identifier
             struct_entry = symTab.lookup(
                 entry["type"]
             )  # not needed if already checked at time of storing
             if struct_entry is None:
-                raise SyntaxError  # undeclared struct used
+                raise Exception  # undeclared struct used
             else:
                 # check if p[1] is a struct
                 if struct_entry["kind"] == 2:
                     if p[3] not in struct_entry["field names"]:
-                        raise SyntaxError  # wrong field name
+                        raise Exception  # wrong field name
                     else:
                         p[0]["type"] = struct_entry["field type"][
                             struct_entry["field names"].index(p[3])
@@ -135,7 +135,7 @@ def p_postfix_expression(p):
                         p[0]["value"] = entry["values"][p[3]]
                         p[0]["code"] = []
                 else:
-                    raise SyntaxError  # no struct defn found
+                    raise Exception  # no struct defn found
 
         elif p[2] == "->":
             # p[1] is a pointer to struct
@@ -148,11 +148,11 @@ def p_postfix_expression(p):
             symTab = get_current_symtab()
             entry = symTab.lookup(p[1])
             if entry is None:
-                raise SyntaxError
+                raise Exception
             else:
                 # parameter check ?
                 if entry["parameter types"] != []:
-                    raise SyntaxError  # type mismatch
+                    raise Exception  # type mismatch
 
                 p[0]["type"] = entry["return type"]
                 p[0]["code"] = []
@@ -164,11 +164,11 @@ def p_postfix_expression(p):
             symTab = get_current_symtab()
             entry = symTab.lookup(p[1])
             if entry is None:
-                raise SyntaxError  # no function
+                raise Exception  # no function
             else:
                 # type matching
                 if p[3]["type"] != entry["parameter types"]:
-                    raise SyntaxError  # type mismatch
+                    raise Exception  # type mismatch
 
                 p[0]["type"] = entry["return type"]
                 p[0]["code"] = []
