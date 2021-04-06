@@ -43,7 +43,14 @@ def type_cast(s1, s2):
         return s2
     else:
         flag_for_error = UNKNOWN_ERR
-        return "error"
+        raise Exception("Type Cast not possible")
+        # return "error"
+
+
+def cast_value_to_type(val, type):
+    # TODO
+    # Throw an error if typecast is not possible
+    return val
 
 
 LAST_POPPED_TABLE = None
@@ -99,8 +106,6 @@ def p_postfix_expression(p):
     | postfix_expression PTR_OP IDENTIFIER
     | postfix_expression INC_OP
     | postfix_expression DEC_OP"""
-    # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
-
     if len(p) == 2:
         p[0] = p[1]
 
@@ -180,6 +185,8 @@ def p_postfix_expression(p):
             pass
         # unhandled
 
+    # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
+
 
 def p_argument_expression_list(p):
     """argument_expression_list : assignment_expression
@@ -194,7 +201,11 @@ def p_unary_expression(p):
     | unary_operator cast_expression
     | SIZEOF unary_expression
     | SIZEOF LEFT_BRACKET type_name RIGHT_BRACKET"""
-    p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_unary_operator(p):
@@ -210,7 +221,11 @@ def p_unary_operator(p):
 def p_cast_expression(p):
     """cast_expression : unary_expression
     | LEFT_BRACKET type_name RIGHT_BRACKET cast_expression"""
-    p[0] = ("cast_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("cast_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_multiplicative_expression(p):
@@ -218,21 +233,33 @@ def p_multiplicative_expression(p):
     | multiplicative_expression MULTIPLY cast_expression
     | multiplicative_expression DIVIDE cast_expression
     | multiplicative_expression MOD cast_expression"""
-    p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_additive_expression(p):
     """additive_expression : multiplicative_expression
     | additive_expression PLUS multiplicative_expression
     | additive_expression MINUS multiplicative_expression"""
-    p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_shift_expression(p):
     """shift_expression : additive_expression
     | shift_expression LEFT_OP additive_expression
     | shift_expression RIGHT_OP additive_expression"""
-    p[0] = ("shift_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("shift_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_relational_expression(p):
@@ -241,56 +268,102 @@ def p_relational_expression(p):
     | relational_expression GREATER shift_expression
     | relational_expression LE_OP shift_expression
     | relational_expression GE_OP shift_expression"""
-    p[0] = ("relational_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("relational_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_equality_expression(p):
     """equality_expression : relational_expression
     | equality_expression EQ_OP relational_expression
     | equality_expression NE_OP relational_expression"""
-    p[0] = ("equality_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("equality_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_and_expression(p):
     """and_expression : equality_expression
     | and_expression LOGICAL_AND equality_expression"""
-    p[0] = ("and_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("and_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_exclusive_or_expression(p):
     """exclusive_or_expression : and_expression
     | exclusive_or_expression EXPONENT and_expression"""
-    p[0] = ("exclusive_or_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("exclusive_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_inclusive_or_expression(p):
     """inclusive_or_expression : exclusive_or_expression
     | inclusive_or_expression LOGICAL_OR exclusive_or_expression"""
-    p[0] = ("inclusive_or_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("inclusive_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_logical_and_expression(p):
     """logical_and_expression : inclusive_or_expression
     | logical_and_expression AND_OP inclusive_or_expression"""
-    p[0] = ("logical_and_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("logical_and_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_logical_or_expression(p):
     """logical_or_expression : logical_and_expression
     | logical_or_expression OR_OP logical_and_expression"""
-    p[0] = ("logical_or_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("logical_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_conditional_expression(p):
     """conditional_expression : logical_or_expression
     | logical_or_expression QUESTION expression COLON conditional_expression"""
-    p[0] = ("conditional_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("conditional_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_assignment_expression(p):
     """assignment_expression : conditional_expression
     | unary_expression assignment_operator assignment_expression"""
-    p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        symTab = get_current_symtab()
+        if "value" in p[1] and "value" in p[3]:
+            entry = symTab.lookup(p[1]["value"])
+            val = cast_value_to_type(p[3]["value"], entry["type"])
+            if p[2] == "=":
+                symTab.update_value(p[1]["value"], val)
+            else:
+                # TODO: Handle different forms of assignment like *=, +=
+                pass
+        else:
+            p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_assignment_operator(p):
@@ -305,7 +378,8 @@ def p_assignment_operator(p):
     | AND_ASSIGN
     | XOR_ASSIGN
     | OR_ASSIGN"""
-    p[0] = ("assignment_operator",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
+    # p[0] = ("assignment_operator",) + tuple(p[-len(p) + 1 :])
 
 
 def p_expression(p):
