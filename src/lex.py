@@ -99,9 +99,7 @@ tokens = reserved + (
 disallowed_identifiers = {r.lower(): r for r in reserved}
 
 t_I_CONSTANT = r"\d+([uU]|[lL]|[uU][lL]|[lL][uU])?"
-t_F_CONSTANT = (
-    r"((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?"
-)
+t_F_CONSTANT = r"((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?"
 t_STRING_LITERAL = r"\"([^\\\n]|(\\.))*?\""
 t_C_CONSTANT = r"(L)?\'([^\\\n]|(\\.))*?\'"
 
@@ -196,7 +194,5 @@ if __name__ == "__main__":
     with open(str(sys.argv[1]), "r+") as file:
         data = file.read()
         file.close()
-        print(
-            "{token type, token name, line nunmber, index relative to start of input}"
-        )
+        print("{token type, token name, line nunmber, index relative to start of input}")
         lex.runmain(lexer, data)

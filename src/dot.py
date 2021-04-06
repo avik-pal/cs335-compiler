@@ -28,9 +28,7 @@ def _generate_graph_from_ast(graph, ast, parentTknId, childTknId):
             childTknId_copy = childTknId
             childTknId += 1
             if isinstance(ast[i], (tuple, list)):
-                childTknId = _generate_graph_from_ast(
-                    graph, ast[i], childTknId_copy, childTknId
-                )
+                childTknId = _generate_graph_from_ast(graph, ast[i], childTknId_copy, childTknId)
                 graph.node(str(childTknId_copy), str(ast[i][0]))
                 graph.edge(str(parentTknId), str(childTknId_copy))
             else:

@@ -61,31 +61,8 @@ def cast_value_to_type(val, type):
     return val
 
 
-def resolve_function_name_uniform_types(fname, plist):
-    symTab = get_current_symtab()
-    if len(plist) == 0:
-        entry = symTab.lookup(f"{fname}()")
-        if entry is None:
-            raise Exception
-        return f"{fname}()", entry, plist
-
-    if len(plist) == 1:
-        entry = symTab.lookup(f"{fname}({plist[0]['type']})")
-        if entry is None:
-            raise Exception
-        return f"{fname}({plist[0]['type']})", entry, plist
-
-    t1, t2 = plist[0]["type"], plist[1]["type"]
-    tcast = type_cast(t1, t2)
-    for t in plist[2:]:
-        tcast = type_cast(t, tcast)
-
-    funcname = f"{fname}(" + ",".join([tcast] * len(plist)) + ")"
-    entry = get_current_symtab().lookup(funcname)
-    if entry is None:
-        raise Exception
-
-    args = [
+def _get_conversion_function(p, tcast):
+    return (
         p
         if p["type"] == tcast
         else {
@@ -101,8 +78,41 @@ def resolve_function_name_uniform_types(fname, plist):
             ],
             "kind": "FUNCTION CALL",
         }
-        for p in plist
-    ]
+    )
+
+
+def resolve_function_name_uniform_types(fname, plist, totype=None):
+    symTab = get_current_symtab()
+    if len(plist) == 0:
+        entry = symTab.lookup(f"{fname}()")
+        if entry is None:
+            raise Exception
+        return f"{fname}()", entry, plist
+
+    if len(plist) == 1:
+        entry = symTab.lookup(f"{fname}({plist[0]['type']})")
+        if entry is None:
+            raise Exception
+        return (
+            f"{fname}({plist[0]['type']})",
+            entry,
+            [_get_conversion_function(plist[0], totype) if totype is not None else plist[0]],
+        )
+
+    if totype is None:
+        t1, t2 = plist[0]["type"], plist[1]["type"]
+        tcast = type_cast(t1, t2)
+        for t in plist[2:]:
+            tcast = type_cast(t, tcast)
+    else:
+        tcast = totype
+
+    funcname = f"{fname}(" + ",".join([tcast] * len(plist)) + ")"
+    entry = get_current_symtab().lookup(funcname)
+    if entry is None:
+        raise Exception
+
+    args = [_get_conversion_function(p, tcast) for p in plist]
 
     return funcname, entry, args
 
@@ -194,9 +204,7 @@ def p_postfix_expression(p):
             entry = symTab.lookup(p[1]["value"])
             if entry is None:
                 raise Exception  # undeclared identifier
-            struct_entry = symTab.lookup(
-                entry["type"]
-            )  # not needed if already checked at time of storing
+            struct_entry = symTab.lookup(entry["type"])  # not needed if already checked at time of storing
             if struct_entry is None:
                 raise Exception  # undeclared struct used
             else:
@@ -205,9 +213,7 @@ def p_postfix_expression(p):
                     if p[3] not in struct_entry["field names"]:
                         raise Exception  # wrong field name
                     else:
-                        p[0]["type"] = struct_entry["field type"][
-                            struct_entry["field names"].index(p[3])
-                        ]
+                        p[0]["type"] = struct_entry["field type"][struct_entry["field names"].index(p[3])]
                         p[0]["value"] = entry["values"][p[3]]
                         p[0]["code"] = []
                 else:
@@ -309,8 +315,15 @@ def p_multiplicative_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_additive_expression(p):
@@ -320,8 +333,15 @@ def p_additive_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_shift_expression(p):
@@ -331,8 +351,15 @@ def p_shift_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("shift_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("shift_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_relational_expression(p):
@@ -344,10 +371,7 @@ def p_relational_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        fname, entry, args = resolve_function_name_uniform_types(
-            p[2], [p[1], p[3]]
-        )
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
 
         p[0] = {
             "value": fname,
@@ -365,8 +389,15 @@ def p_equality_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("equality_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("equality_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_and_expression(p):
@@ -375,8 +406,15 @@ def p_and_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("and_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("and_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_exclusive_or_expression(p):
@@ -385,8 +423,15 @@ def p_exclusive_or_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("exclusive_or_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("exclusive_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_inclusive_or_expression(p):
@@ -395,8 +440,15 @@ def p_inclusive_or_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("inclusive_or_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("inclusive_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_logical_and_expression(p):
@@ -405,8 +457,15 @@ def p_logical_and_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("logical_and_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("logical_and_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_logical_or_expression(p):
@@ -415,8 +474,15 @@ def p_logical_or_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("logical_or_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(p[2], [p[1], p[3]])
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("logical_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_conditional_expression(p):
@@ -435,29 +501,28 @@ def p_assignment_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        symTab = get_current_symtab()
-        if "value" in p[1] and "value" in p[3]:
-            # TODO: Write with a typecast function call
-            entry = symTab.lookup(p[1]["value"])
-            val = cast_value_to_type(p[3]["value"], entry["type"])
-            if p[2] == "=":
-                funcname = f"__store({entry['type']}*,{entry['type']})"
-                funcentry = symTab.lookup(funcname)
-                if funcentry is None:
-                    raise Exception
-                p[0] = {
-                    "value": funcname,
-                    "type": funcentry["return type"],
-                    "arguments": [p[1], val],
-                    "kind": "FUNCTION CALL",
-                }
-                # symTab.update_value(p[1]["value"], val)
-            else:
-                # TODO: Handle different forms of assignment like *=, +=
-                p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
+        if p[2] == "=":
+            # TODO: Check invalid type conversions
+            arg = _get_conversion_function(p[3], p[1]["type"])
+            p[0] = {
+                "value": f"__store({p[1]['type']}*,{p[1]['type']})",
+                "type": "void",
+                "arguments": [p[1], arg],
+                "kind": "FUNCTION CALL",
+            }
+
         else:
-            p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
+            # FIXME: Order of type conversion for +=, -=, etc.
+            fname, fentry, args = resolve_function_name_uniform_types(p[2][:-1], [p[1], p[3]])
+            expr = {"value": fname, "type": fentry["return type"], "arguments": args, "kind": "FUNCTION CALL"}
+            arg = _get_conversion_function(expr, p[1]["type"])
+            p[0] = {
+                "value": f"__store({p[1]['type']}*,{p[1]['type']})",
+                "type": "void",
+                "arguments": [p[1], arg],
+                "kind": "FUNCTION CALL",
+            }
+            # p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_assignment_operator(p):
@@ -482,7 +547,7 @@ def p_expression(p):
     if len(p) == 2:
         p[0] = [p[1]]
     else:
-        p[0] = p[0] + p[3]
+        p[0] = p[1] + p[3]
         # p[0] = ("expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -515,9 +580,7 @@ def p_declaration(p):
                 kind=0,
             )
             if not valid:
-                raise Exception(
-                    f"Variable {_p['value']} already declared with type {entry['type']}"
-                )
+                raise Exception(f"Variable {_p['value']} already declared with type {entry['type']}")
 
 
 def p_declaration_specifiers_1(p):
@@ -1099,12 +1162,8 @@ def populate_global_symbol_table() -> None:
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=str, default=None, help="Input file")
-    parser.add_argument(
-        "-o", "--output", type=str, default="AST", help="Output file"
-    )
-    parser.add_argument(
-        "-t", "--trim", action="store_true", help="Trimmed ast"
-    )
+    parser.add_argument("-o", "--output", type=str, default="AST", help="Output file")
+    parser.add_argument("-t", "--trim", action="store_true", help="Trimmed ast")
     return parser
 
 

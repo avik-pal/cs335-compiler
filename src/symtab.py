@@ -112,17 +112,13 @@ class SymbolTable:
             return entry["name"]
         else:
             # For function and its disambiguation
-            return (
-                entry["name"] + "(" + ",".join(entry["parameter types"]) + ")"
-            )
+            return entry["name"] + "(" + ",".join(entry["parameter types"]) + ")"
 
     def update_value(self, name: str, value) -> None:
         entry = self.lookup(name)
         entry["value"] = value
 
-    def insert(
-        self, entry: dict, kind: int = 0
-    ) -> Tuple[bool, Union[dict, List[dict]]]:
+    def insert(self, entry: dict, kind: int = 0) -> Tuple[bool, Union[dict, List[dict]]]:
         # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions"}
         # Functions (FN) -> {"name", "return type", "parameter types"}
         # Structs (ST)   -> {"name", "alt name" (via typedef), "field names", "field types"}
@@ -132,9 +128,7 @@ class SymbolTable:
         global DATATYPE2SIZE
 
         name = self._get_proper_name(entry, kind)
-        prev_entry = self.lookup_current_table(
-            name, kind, entry.get("alt name", None)
-        )
+        prev_entry = self.lookup_current_table(name, kind, entry.get("alt name", None))
         if prev_entry is None:
             entry["kind"] = kind
 
@@ -144,15 +138,9 @@ class SymbolTable:
                     entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
                 except KeyError:
                     # TODO: Proper error message with line number and such
-                    raise Exception(
-                        f"{entry['type']} is not a valid data type"
-                    )
-                entry["value"] = entry.get(
-                    "value", get_default_value(entry["type"])
-                )
-                entry["offset"] = compute_offset_size(
-                    entry["size"], entry["is_array"], entry["dimensions"]
-                )
+                    raise Exception(f"{entry['type']} is not a valid data type")
+                entry["value"] = entry.get("value", get_default_value(entry["type"]))
+                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
                 self._symtab_variables[name] = entry
 
             elif kind == 1:
@@ -220,24 +208,12 @@ class SymbolTable:
     def _check_type_in_current_table(self, typename: str) -> bool:
         global DATATYPE2SIZE
 
-        is_basic_type = (
-            typename.upper() in DATATYPE2SIZE
-            if not isinstance(typename, (list, tuple))
-            else False
-        )
-        return (
-            typename in self._custom_types
-            if not is_basic_type
-            else is_basic_type
-        )
+        is_basic_type = typename.upper() in DATATYPE2SIZE if not isinstance(typename, (list, tuple)) else False
+        return typename in self._custom_types if not is_basic_type else is_basic_type
 
     def check_type(self, typename: str) -> bool:
         is_type = self._check_type_in_current_table(typename)
-        return (
-            self.parent.check_type(typename)
-            if self.parent is not None and not is_type
-            else is_type
-        )
+        return self.parent.check_type(typename) if self.parent is not None and not is_type else is_type
 
     def _translate_type(self, typename: str) -> Union[None, str]:
         if typename[: max(6, len(typename))] == "struct":
@@ -249,37 +225,23 @@ class SymbolTable:
     def translate_type(self, typename: str) -> Union[None, str]:
         # Takes struct ___ / union ___ and converts it to a proper label
         tname = self._translate_type(typename)
-        return (
-            self.parent.translate_type(typename)
-            if self.parent is not None and not tname
-            else tname
-        )
+        return self.parent.translate_type(typename) if self.parent is not None and not tname else tname
 
     def _search_for_variable(self, symname: str) -> Union[None, dict]:
         return self._symtab_variables.get(symname, None)
 
-    def _search_for_function(
-        self, symname: str
-    ) -> Union[None, List[dict], dict]:
+    def _search_for_function(self, symname: str) -> Union[None, List[dict], dict]:
         if "(" in symname:
             return self._symtab_functions.get(symname, None)
         else:
             # If we match with a function base name return list of all
             # the available functions
             funcs = self._function_names.get(symname, None)
-            return (
-                [self._symtab_functions[func] for func in funcs]
-                if funcs is not None
-                else None
-            )
+            return [self._symtab_functions[func] for func in funcs] if funcs is not None else None
 
-    def _search_for_struct(
-        self, symname: str, alt_name: Union[str, None]
-    ) -> Union[None, dict]:
+    def _search_for_struct(self, symname: str, alt_name: Union[str, None]) -> Union[None, dict]:
         if f"struct {symname}" in self._symtab_structs:
-            return self._symtab_typedefs[
-                self._symtab_structs[f"struct {symname}"]
-            ]
+            return self._symtab_typedefs[self._symtab_structs[f"struct {symname}"]]
         if symname in self._symtab_typedefs:
             return self._symtab.typedefs[symname]
         if alt_name in self._symtab_typedefs:
@@ -292,13 +254,9 @@ class SymbolTable:
     def _search_for_enum(self, symname: str) -> Union[None, dict]:
         return self._symtab_enums.get(symname, None)
 
-    def _search_for_union(
-        self, symname: str, alt_name: Union[str, None]
-    ) -> Union[None, dict]:
+    def _search_for_union(self, symname: str, alt_name: Union[str, None]) -> Union[None, dict]:
         if f"union {symname}" in self._symtab_unions:
-            return self._symtab_typedefs[
-                self._symtab_unions[f"union {symname}"]
-            ]
+            return self._symtab_typedefs[self._symtab_unions[f"union {symname}"]]
         if symname in self._symtab_typedefs:
             return self._symtab.typedefs[symname]
         if alt_name in self._symtab_typedefs:
@@ -313,17 +271,11 @@ class SymbolTable:
     ) -> Union[None, list, dict]:
         res = self._search_for_variable(symname)
         res = self._search_for_function(symname) if res is None else res
-        res = (
-            self._search_for_struct(symname, alt_name) if res is None else res
-        )
+        res = self._search_for_struct(symname, alt_name) if res is None else res
         res = self._search_for_class(symname) if res is None else res
         res = self._search_for_enum(symname) if res is None else res
         res = self._search_for_union(symname, alt_name) if res is None else res
-        return (
-            self.lookup_parameter(symname)
-            if res is None and paramtab_check
-            else res
-        )
+        return self.lookup_parameter(symname) if res is None and paramtab_check else res
 
     def lookup_parameter(self, paramname: str) -> Union[None, list, dict]:
         res = None
@@ -333,47 +285,31 @@ class SymbolTable:
                 break
         return res
 
-    def lookup(
-        self, symname: str, idx: int = -1, alt_name: Union[str, None] = None
-    ) -> Union[None, list, dict]:
+    def lookup(self, symname: str, idx: int = -1, alt_name: Union[str, None] = None) -> Union[None, list, dict]:
         # Check in the current list of symbols
-        res = self.lookup_current_table(
-            symname, paramtab_check=(idx == -1), alt_name=alt_name
-        )
+        res = self.lookup_current_table(symname, paramtab_check=(idx == -1), alt_name=alt_name)
         # Check if present in the parent recursively till root node is reached
-        res = (
-            self.parent.lookup(symname, idx=0, alt_name=alt_name)
-            if res is None and self.parent
-            else res
-        )
+        res = self.parent.lookup(symname, idx=0, alt_name=alt_name) if res is None and self.parent else res
         # Finally check in the current parameter table
         return self.lookup_parameter(symname) if res is None else res
 
     def add_function_scope(self, funcname: str, table) -> None:
         if "(" not in funcname:
-            raise Exception(
-                f"Supply the disambiguated function name for {funcname}"
-            )
+            raise Exception(f"Supply the disambiguated function name for {funcname}")
         self._symtab_functions[funcname] = SymbolTable
 
     def display(self) -> None:
         # Simple Pretty Printer
         print()
         print("-" * 100)
-        print(
-            f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}"
-        )
+        print(f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}")
         print("-" * 51)
         print(" " * 20 + " Variables " + " " * 20)
         print("-" * 51)
         for k, v in self._symtab_variables.items():
             print(
                 f"Name: {k}, Type: {v['type']}, Size: {v['size']}, Value: {v['value']}"
-                + (
-                    ""
-                    if not v["is_array"]
-                    else f"Dimensions: {v['dimensions']}"
-                )
+                + ("" if not v["is_array"] else f"Dimensions: {v['dimensions']}")
             )
         print("-" * 51)
         print(" " * 20 + " Functions " + " " * 20)
@@ -417,9 +353,7 @@ def get_current_symtab() -> Union[None, SymbolTable]:
     return None if len(SYMBOL_TABLES) == 0 else SYMBOL_TABLES[-1]
 
 
-def compute_offset_size(
-    dsize: int, is_array: bool, dimensions: List[int]
-) -> int:
+def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int]) -> int:
     # TODO: Implement
     return -1
 
