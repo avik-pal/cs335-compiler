@@ -109,6 +109,10 @@ class SymbolTable:
                 entry["name"] + "(" + ",".join(entry["parameter types"]) + ")"
             )
 
+    def update_value(self, name: str, value) -> None:
+        entry = self.lookup(name)
+        entry["value"] = value
+
     def insert(self, entry: dict, kind: int = 0) -> Union[bool, dict]:
         # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions"}
         # Functions (FN) -> {"name", "return type", "parameter types"}

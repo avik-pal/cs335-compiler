@@ -65,7 +65,8 @@ def p_primary_expression(p):
 
 def p_identifier(p):
     """identifier : IDENTIFIER"""
-    # TODO: Check presence in symbol table
+    # TODO: Might be associated with declaration of the variable so that
+    #       needs to be handled here
     symTab = get_current_symtab()
     if symTab.lookup(p[1]) is None:
         raise SyntaxError  # undeclared identifier used
