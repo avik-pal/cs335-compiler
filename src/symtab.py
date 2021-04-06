@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Tuple
 
 
 DATATYPE2SIZE = {
@@ -113,7 +113,9 @@ class SymbolTable:
         entry = self.lookup(name)
         entry["value"] = value
 
-    def insert(self, entry: dict, kind: int = 0) -> Union[bool, dict]:
+    def insert(
+        self, entry: dict, kind: int = 0
+    ) -> Tuple[bool, Union[dict, List[dict]]]:
         # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions"}
         # Functions (FN) -> {"name", "return type", "parameter types"}
         # Structs (ST)   -> {"name", "alt name" (via typedef), "field names", "field types"}
@@ -123,10 +125,10 @@ class SymbolTable:
         global DATATYPE2SIZE
 
         name = self._get_proper_name(entry, kind)
-        if (
-            self.lookup_current_table(name, kind, entry.get("alt name", None))
-            is None
-        ):
+        prev_entry = self.lookup_current_table(
+            name, kind, entry.get("alt name", None)
+        )
+        if prev_entry is None:
             entry["kind"] = kind
 
             if kind == 0:
@@ -202,8 +204,8 @@ class SymbolTable:
             else:
                 raise Exception(f"{kind} is not a valid kind of identifier")
 
-            return entry
-        return False
+            return True, entry
+        return False, prev_entry
         # After Storage
         # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "kind", "size", "offset"}
         # Functions (FN) -> {"name", "return type", "parameter types", "kind", "local scope"}

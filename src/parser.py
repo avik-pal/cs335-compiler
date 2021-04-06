@@ -328,7 +328,7 @@ def p_declaration(p):
         p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
     else:
         # TODO: Handle arrays, structs, etc. Right now only handles basic variables. Even int a = 2 won't work
-        symTab.insert(
+        valid, entry = symTab.insert(
             {
                 "name": p[2]["value"],
                 "type": p[1]["value"],
@@ -337,6 +337,10 @@ def p_declaration(p):
             },
             kind=0,
         )
+        if not valid:
+            raise Exception(
+                f"Variable {p[2]['value']} already declared with type {entry['type']}"
+            )
 
 
 def p_declaration_specifiers_1(p):
