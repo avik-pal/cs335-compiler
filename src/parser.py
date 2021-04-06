@@ -7,6 +7,7 @@ import argparse
 
 from dot import generate_graph_from_ast, reduce_ast
 from symtab import (
+    BASIC_TYPES,
     pop_scope,
     push_scope,
     new_scope,
@@ -17,6 +18,9 @@ from symtab import (
     NUMERIC_TYPES,
     CHARACTER_TYPES,
     DATATYPE2SIZE,
+    BASIC_TYPES,
+    FLOATING_POINT_TYPES,
+    INTEGER_TYPES,
 )
 
 flag_for_error = 0
@@ -27,7 +31,7 @@ TYPE_CAST_ERR = 1
 # Take two types and return the final dataype to cast to.
 def type_cast(s1, s2):
     global flag_for_error
-    if (s1 not in DATATYPE2SIZE.keys()) or (s2 not in DATATYPE2SIZE.keys()):
+    if (s1 not in BASIC_TYPES) or (s2 not in BASIC_TYPES):
         flag_for_error = TYPE_CAST_ERR
         return "error"
     elif s1 == "DOUBLE" or s2 == "DOUBLE":
@@ -78,9 +82,10 @@ def p_primary_expression(p):
 def p_identifier(p):
     """identifier : IDENTIFIER"""
     symTab = get_current_symtab()
-    if symTab.lookup(p[1]) is None:
+    entry = symTab.lookup(p[1])
+    if entry is None:
         raise Exception  # undeclared identifier used
-    p[0] = {"value": p[1], "code": []}
+    p[0] = {"value": p[1], "code": [], "type": entry["type"]}
 
 
 def p_f_const(p):
@@ -112,13 +117,12 @@ def p_postfix_expression(p):
         p[0] = p[1]
 
     elif len(p) == 3:
-        if p[1]["type"] != "long":
-            raise Exception
-        else:
-            p[0] = p[1]
-            p[0]["value"] = (
-                p[0]["value"] + 1 if (p[2] == "++") else p[0]["value"] - 1
-            )
+        # VERIFY: Should always have a "type" field
+        symTab = get_current_symtab()
+        funcname = p[2] + f"({p[1]['type']})"
+        entry = symTab.lookup(funcname)
+        p[0] = ("FUNCTION CALL", funcname, p[1])
+        # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
 
     elif len(p) == 4:
         if p[2] == ".":
@@ -389,7 +393,11 @@ def p_assignment_operator(p):
 def p_expression(p):
     """expression : assignment_expression
     | expression COMMA assignment_expression"""
-    p[0] = ("expression",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[0] + p[3]
+        # p[0] = ("expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_constant_expression(p):
@@ -413,7 +421,10 @@ def p_declaration(p):
                     "type": p[1]["value"],
                     "is_array": False,
                     "dimensions": [],
-                    "value": cast_value_to_type(_p.get("store", get_default_value(p[1]["value"])), p[1]["value"])
+                    "value": cast_value_to_type(
+                        _p.get("store", get_default_value(p[1]["value"])),
+                        p[1]["value"],
+                    ),
                 },
                 kind=0,
             )
@@ -776,7 +787,8 @@ def p_statement(p):
     | selection_statement
     | iteration_statement
     | jump_statement"""
-    p[0] = ("statement",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
+    # p[0] = ("statement",) + tuple(p[-len(p) + 1 :])
 
 
 def p_labeled_statement(p):
@@ -786,18 +798,22 @@ def p_labeled_statement(p):
     p[0] = ("labeled_statement",) + tuple(p[-len(p) + 1 :])
 
 
-def p_compound_statement(p):
+def p_compound_statement_1(p):
     """compound_statement : lbrace rbrace
     | lbrace statement_list rbrace
-    | lbrace declaration_list rbrace
     | lbrace declaration_list statement_list rbrace"""
     if len(p) == 3:
         p[0] = {"code": []}
     elif len(p) == 4:
         p[0] = p[2]
     else:
-        # TODO
-        p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
+        # Declarations should not be shown in AST
+        p[0] = p[3]
+
+
+def p_compound_statement_2(p):
+    """compound_statement : lbrace declaration_list rbrace"""
+    pass
 
 
 def p_declaration_list(p):
@@ -809,13 +825,19 @@ def p_declaration_list(p):
 def p_statement_list(p):
     """statement_list : statement
     | statement_list statement"""
-    p[0] = ("statement_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[2]]
+    # p[0] = ("statement_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_expression_statement(p):
     """expression_statement : SEMICOLON
     | expression SEMICOLON"""
-    p[0] = ("expression_statement",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 3:
+        p[0] = p[1]
+    # p[0] = ("expression_statement",) + tuple(p[-len(p) + 1 :])
 
 
 def p_selection_statement(p):
@@ -895,7 +917,6 @@ def p_lbrace(p):
                 }
             )
     p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
-    print(p.lineno(1))
 
 
 def p_rbrace(p):
@@ -925,7 +946,7 @@ def populate_global_symbol_table() -> None:
 
     # Some of the binary operators
     for op in ("+", "-", "/"):
-        for _type in NUMERIC_TYPES:
+        for _type in BASIC_TYPES:
             _type = _type.lower()
             table.insert(
                 {
@@ -935,14 +956,27 @@ def populate_global_symbol_table() -> None:
                 },
                 1,
             )
-        for _type in CHARACTER_TYPES:
+    
+    for op in ("%"):
+        for _type in INTEGER_TYPES:
             _type = _type.lower()
-            # Numeric operations on char is performed by typecasting to integer
             table.insert(
                 {
                     "name": op,
-                    "return type": "int",
+                    "return type": _type,
                     "parameter types": [_type, _type],
+                },
+                1,
+            )
+
+    for op in ("++", "--"):
+        for _type in NUMERIC_TYPES + CHARACTER_TYPES:
+            _type = _type.lower()
+            table.insert(
+                {
+                    "name": op,
+                    "return type": _type,
+                    "parameter types": [_type],
                 },
                 1,
             )
@@ -969,7 +1003,7 @@ if __name__ == "__main__":
             data = file.read()
 
             push_scope(new_scope(get_current_symtab()))
-            # populate_global_symbol_table()
+            populate_global_symbol_table()
 
             tree = yacc.parse(data)
 

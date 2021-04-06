@@ -1,9 +1,11 @@
 int main() {
     int c, a, b;
+    double z;
 	if(c==0) {
 		c++;
         if(a==b)
-            a++;
+            z = (1 == 1 ? a : b);
+            z++;
     }
 	else
 		b++;
@@ -15,7 +17,7 @@ int main() {
             break;
 
         case 2:
-            a+b;
+            z = a+b;
             break;
 
         default:

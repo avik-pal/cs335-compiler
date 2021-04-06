@@ -37,8 +37,7 @@ DATATYPE2SIZE = {
 
 CHARACTER_TYPES = ["CHAR", "SIGNED CHAR", "UNSIGNED CHAR"]
 
-
-NUMERIC_TYPES = [
+INTEGER_TYPES = [
     "SHORT",
     "SHORT INT",
     "SIGNED SHORT",
@@ -62,10 +61,18 @@ NUMERIC_TYPES = [
     "SIGNED LONG LONG INT",
     "UNSIGNED LONG LONG",
     "UNSIGNED LONG LONG INT",
+]
+
+FLOATING_POINT_TYPES = [
     "FLOAT",
     "DOUBLE",
     "LONG DOUBLE",
 ]
+
+
+NUMERIC_TYPES = INTEGER_TYPES + FLOATING_POINT_TYPES
+
+BASIC_TYPES = NUMERIC_TYPES + CHARACTER_TYPES
 
 
 TABLENUMBER = 0
@@ -385,7 +392,8 @@ SYMBOL_TABLES = []
 def pop_scope() -> SymbolTable:
     global SYMBOL_TABLES
     s = SYMBOL_TABLES.pop()
-    s.display()
+    if s.table_name != "GLOBAL":
+        s.display()
     print(
         "[DEBUG INFO]  POP SYMBOL TABLE: ",
         s.table_number,
