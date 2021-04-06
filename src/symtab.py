@@ -138,7 +138,9 @@ class SymbolTable:
                     raise Exception(
                         f"{entry['type']} is not a valid data type"
                     )
-                entry["value"] = entry.get("value", get_default_value(entry["type"]))
+                entry["value"] = entry.get(
+                    "value", get_default_value(entry["type"])
+                )
                 entry["offset"] = compute_offset_size(
                     entry["size"], entry["is_array"], entry["dimensions"]
                 )

@@ -45,6 +45,7 @@ def type_cast(s1, s2):
         flag_for_error = UNKNOWN_ERR
         return "error"
 
+
 LAST_POPPED_TABLE = None
 INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
 
@@ -577,14 +578,17 @@ def p_direct_declarator_1(p):
 def p_direct_declarator_2(p):
     """direct_declarator : direct_declarator LEFT_BRACKET parameter_type_list RIGHT_BRACKET"""
     global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
-    p[0] = {"value": p[1]["value"], "code": [], "parameters": [(_p["type"], _p["value"]) for _p in p[3]]}
+    p[0] = {
+        "value": p[1]["value"],
+        "code": [],
+        "parameters": [(_p["type"], _p["value"]) for _p in p[3]],
+    }
     INITIALIZE_PARAMETERS_IN_NEW_SCOPE = p[0]["parameters"]
 
 
 def p_direct_declarator_3(p):
     """direct_declarator : direct_declarator LEFT_BRACKET identifier_list RIGHT_BRACKET"""
     p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
-
 
 
 def p_pointer(p):
@@ -623,6 +627,7 @@ def p_parameter_list(p):
 def p_parameter_declaration_1(p):
     """parameter_declaration : declaration_specifiers declarator"""
     p[0] = {"value": p[2]["value"], "code": [], "type": p[1]["value"]}
+
 
 def p_parameter_declaration_2(p):
     """parameter_declaration : declaration_specifiers abstract_declarator
@@ -769,7 +774,14 @@ def p_function_definition(p):
     if len(p) == 4:
         # TODO: Again arrays as parameters wont work for now
         #       Recursive functions wont work for now
-        symTab.insert({"name": p[2]["value"], "return type": p[1]["value"], "parameter types": [_p[0] for _p in p[2]["parameters"]]}, kind = 1)
+        symTab.insert(
+            {
+                "name": p[2]["value"],
+                "return type": p[1]["value"],
+                "parameter types": [_p[0] for _p in p[2]["parameters"]],
+            },
+            kind=1,
+        )
     else:
         # TODO
         pass
@@ -784,7 +796,14 @@ def p_lbrace(p):
     global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
     if not INITIALIZE_PARAMETERS_IN_NEW_SCOPE is None:
         for param in INITIALIZE_PARAMETERS_IN_NEW_SCOPE:
-            symTab.insert({"name": param[1], "type": param[0], "is_array": False, "dimensions": []})
+            symTab.insert(
+                {
+                    "name": param[1],
+                    "type": param[0],
+                    "is_array": False,
+                    "dimensions": [],
+                }
+            )
     p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
 
 
