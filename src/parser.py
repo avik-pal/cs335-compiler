@@ -12,6 +12,7 @@ from symtab import (
     get_current_symtab,
     get_tmp_label,
     get_tmp_var,
+    get_default_value,
     NUMERIC_TYPES,
     CHARACTER_TYPES,
     DATATYPE2SIZE,
@@ -44,6 +45,8 @@ def type_cast(s1, s2):
         flag_for_error = UNKNOWN_ERR
         return "error"
 
+LAST_POPPED_TABLE = None
+INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
 
 tokens = lex.tokens
 
@@ -65,12 +68,10 @@ def p_primary_expression(p):
 
 def p_identifier(p):
     """identifier : IDENTIFIER"""
-    # TODO: Might be associated with declaration of the variable so that
-    #       needs to be handled here
     symTab = get_current_symtab()
     if symTab.lookup(p[1]) is None:
         raise Exception  # undeclared identifier used
-    p[0] = p[1]
+    p[0] = {"value": p[1], "code": []}
 
 
 def p_f_const(p):
@@ -320,15 +321,41 @@ def p_constant_expression(p):
 def p_declaration(p):
     """declaration : declaration_specifiers SEMICOLON
     | declaration_specifiers init_declarator_list SEMICOLON"""
-    p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
+    symTab = get_current_symtab()
+    if len(p) == 3:
+        # TODO
+        p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
+    else:
+        # TODO: Handle arrays, structs, etc. Right now only handles basic variables. Even int a = 2 won't work
+        symTab.insert(
+            {
+                "name": p[2]["value"],
+                "type": p[1]["value"],
+                "is_array": False,
+                "dimensions": [],
+            },
+            kind=0,
+        )
 
 
-def p_declaration_specifiers(p):
+def p_declaration_specifiers_1(p):
     """declaration_specifiers : storage_class_specifier
-    | storage_class_specifier declaration_specifiers
-    | type_specifier
-    | type_specifier declaration_specifiers
-    | type_qualifier
+    | storage_class_specifier declaration_specifiers"""
+    p[0] = ("declaration_specifiers",) + tuple(p[-len(p) + 1 :])
+
+
+def p_declaration_specifiers_2(p):
+    """declaration_specifiers : type_specifier
+    | type_specifier declaration_specifiers"""
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("declaration_specifiers",) + tuple(p[-len(p) + 1 :])
+
+
+def p_declaration_specifiers_3(p):
+    """declaration_specifiers : type_qualifier
     | type_qualifier declaration_specifiers"""
     p[0] = ("declaration_specifiers",) + tuple(p[-len(p) + 1 :])
 
@@ -336,13 +363,21 @@ def p_declaration_specifiers(p):
 def p_init_declarator_list(p):
     """init_declarator_list : init_declarator
     | init_declarator_list COMMA init_declarator"""
-    p[0] = ("init_declarator_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("init_declarator_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_init_declarator(p):
     """init_declarator : declarator
     | declarator EQ initializer"""
-    p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO:
+        p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
 
 
 def p_storage_class_specifier(p):
@@ -368,7 +403,13 @@ def p_type_specifier(p):
     | class_definition
     | enum_specifier
     | TYPE_NAME"""
-    p[0] = ("type_specifier",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("type_specifier",) + tuple(p[-len(p) + 1 :])
+
+    # Check if it is a valid type
+    symTab = get_current_symtab()
+    if not symTab.check_type(p[1]):
+        raise Exception(f"{p[1]} is not a valid type")
+    p[0] = {"value": p[1], "code": []}
 
 
 def p_inheritance_specifier(p):
@@ -504,18 +545,46 @@ def p_type_qualifier(p):
 def p_declarator(p):
     """declarator : pointer direct_declarator
     | direct_declarator"""
-    p[0] = ("declarator",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 3:
+        # TODO
+        p[0] = ("declarator",) + tuple(p[-len(p) + 1 :])
+    else:
+        p[0] = p[1]
 
 
-def p_direct_declarator(p):
+def p_direct_declarator_1(p):
     """direct_declarator : IDENTIFIER
     | LEFT_BRACKET declarator RIGHT_BRACKET
     | direct_declarator LEFT_THIRD_BRACKET constant_expression RIGHT_THIRD_BRACKET
     | direct_declarator LEFT_THIRD_BRACKET RIGHT_THIRD_BRACKET
-    | direct_declarator LEFT_BRACKET parameter_type_list RIGHT_BRACKET
-    | direct_declarator LEFT_BRACKET identifier_list RIGHT_BRACKET
     | direct_declarator LEFT_BRACKET RIGHT_BRACKET"""
+    # TODO: Rules 2, 3, 4
+    if len(p) == 2:
+        # Identifier
+        p[0] = {"value": p[1], "code": []}
+    elif len(p) == 4:
+        if p[1] == "(":
+            # TODO: Rule 2
+            p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
+        else:
+            # Rule 7: No parameter function
+            p[0] = {"value": p[1]["value"], "code": [], "parameters": []}
+    else:
+        # TODO
+        p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
+
+
+def p_direct_declarator_2(p):
+    """direct_declarator : direct_declarator LEFT_BRACKET parameter_type_list RIGHT_BRACKET"""
+    global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
+    p[0] = {"value": p[1]["value"], "code": [], "parameters": [(_p["type"], _p["value"]) for _p in p[3]]}
+    INITIALIZE_PARAMETERS_IN_NEW_SCOPE = p[0]["parameters"]
+
+
+def p_direct_declarator_3(p):
+    """direct_declarator : direct_declarator LEFT_BRACKET identifier_list RIGHT_BRACKET"""
     p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
+
 
 
 def p_pointer(p):
@@ -535,18 +604,28 @@ def p_type_qualifier_list(p):
 def p_parameter_type_list(p):
     """parameter_type_list : parameter_list
     | parameter_list COMMA ELLIPSIS"""
-    p[0] = ("parameter_type_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("parameter_type_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_parameter_list(p):
     """parameter_list : parameter_declaration
     | parameter_list COMMA parameter_declaration"""
-    p[0] = ("parameter_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
 
 
-def p_parameter_declaration(p):
-    """parameter_declaration : declaration_specifiers declarator
-    | declaration_specifiers abstract_declarator
+def p_parameter_declaration_1(p):
+    """parameter_declaration : declaration_specifiers declarator"""
+    p[0] = {"value": p[2]["value"], "code": [], "type": p[1]["value"]}
+
+def p_parameter_declaration_2(p):
+    """parameter_declaration : declaration_specifiers abstract_declarator
     | declaration_specifiers"""
     p[0] = ("parameter_declaration",) + tuple(p[-len(p) + 1 :])
 
@@ -618,7 +697,13 @@ def p_compound_statement(p):
     | lbrace statement_list rbrace
     | lbrace declaration_list rbrace
     | lbrace declaration_list statement_list rbrace"""
-    p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 3:
+        p[0] = {"code": []}
+    elif len(p) == 4:
+        p[0] = p[2]
+    else:
+        # TODO
+        p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
 
 
 def p_declaration_list(p):
@@ -680,19 +765,34 @@ def p_function_definition(p):
     | declaration_specifiers declarator compound_statement
     | declarator declaration_list compound_statement
     | declarator compound_statement"""
+    symTab = get_current_symtab()
+    if len(p) == 4:
+        # TODO: Again arrays as parameters wont work for now
+        #       Recursive functions wont work for now
+        symTab.insert({"name": p[2]["value"], "return type": p[1]["value"], "parameter types": [_p[0] for _p in p[2]["parameters"]]}, kind = 1)
+    else:
+        # TODO
+        pass
     p[0] = ("function_definition",) + tuple(p[-len(p) + 1 :])
 
 
 def p_lbrace(p):
     """lbrace : LEFT_CURLY_BRACKET"""
+    # TODO: Handling insert for arrays in parameters
     push_scope(new_scope(get_current_symtab()))
+    symTab = get_current_symtab()
+    global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
+    if not INITIALIZE_PARAMETERS_IN_NEW_SCOPE is None:
+        for param in INITIALIZE_PARAMETERS_IN_NEW_SCOPE:
+            symTab.insert({"name": param[1], "type": param[0], "is_array": False, "dimensions": []})
     p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
 
 
 def p_rbrace(p):
     """rbrace : RIGHT_CURLY_BRACKET"""
+    global LAST_POPPED_TABLE
     p[0] = ("rbrace",) + tuple(p[-len(p) + 1 :])
-    pop_scope()
+    LAST_POPPED_TABLE = pop_scope()
 
 
 def p_error(p):
@@ -759,7 +859,7 @@ if __name__ == "__main__":
             data = file.read()
 
             push_scope(new_scope(get_current_symtab()))
-            populate_global_symbol_table()
+            # populate_global_symbol_table()
 
             tree = yacc.parse(data)
 

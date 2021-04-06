@@ -138,6 +138,7 @@ class SymbolTable:
                     raise Exception(
                         f"{entry['type']} is not a valid data type"
                     )
+                entry["value"] = entry.get("value", get_default_value(entry["type"]))
                 entry["offset"] = compute_offset_size(
                     entry["size"], entry["is_array"], entry["dimensions"]
                 )
@@ -208,7 +209,11 @@ class SymbolTable:
     def _check_type_in_current_table(self, typename: str) -> bool:
         global DATATYPE2SIZE
 
-        is_basic_type = typename.upper() in DATATYPE2SIZE
+        is_basic_type = (
+            typename.upper() in DATATYPE2SIZE
+            if not isinstance(typename, (list, tuple))
+            else False
+        )
         return (
             typename in self._custom_types
             if not is_basic_type
@@ -352,7 +357,7 @@ class SymbolTable:
         print("-" * 51)
         for k, v in self._symtab_variables.items():
             print(
-                f"Name: {k}, Type: {v['type']}, Size: {v['size']}"
+                f"Name: {k}, Type: {v['type']}, Size: {v['size']}, Value: {v['value']}"
                 + (
                     ""
                     if not v["is_array"]
@@ -421,3 +426,8 @@ def get_tmp_label() -> str:
     global TMP_LABEL_COUNTER
     TMP_LABEL_COUNTER += 1
     return f"__tmp_label_{TMP_LABEL_COUNTER}"
+
+
+def get_default_value(type: str):
+    # TODO: Defaults for different types similar to C
+    return -1
