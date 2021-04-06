@@ -31,9 +31,12 @@ TYPE_CAST_ERR = 1
 # Take two types and return the final dataype to cast to.
 def type_cast(s1, s2):
     global flag_for_error
+    if s1 == s2:
+        return s1
+
     if (s1 not in BASIC_TYPES) or (s2 not in BASIC_TYPES):
         flag_for_error = TYPE_CAST_ERR
-        return "error"
+        raise Exception("Type Cast not possible")
     elif s1 == "DOUBLE" or s2 == "DOUBLE":
         return "DOUBLE"
     elif s1 == "FLOAT" or s2 == "FLOAT":
@@ -58,6 +61,52 @@ def cast_value_to_type(val, type):
     return val
 
 
+def resolve_function_name_uniform_types(fname, plist):
+    symTab = get_current_symtab()
+    if len(plist) == 0:
+        entry = symTab.lookup(f"{fname}()")
+        if entry is None:
+            raise Exception
+        return f"{fname}()", entry, plist
+
+    if len(plist) == 1:
+        entry = symTab.lookup(f"{fname}({plist[0]['type']})")
+        if entry is None:
+            raise Exception
+        return f"{fname}({plist[0]['type']})", entry, plist
+
+    t1, t2 = plist[0]["type"], plist[1]["type"]
+    tcast = type_cast(t1, t2)
+    for t in plist[2:]:
+        tcast = type_cast(t, tcast)
+
+    funcname = f"{fname}(" + ",".join([tcast] * len(plist)) + ")"
+    entry = get_current_symtab().lookup(funcname)
+    if entry is None:
+        raise Exception
+
+    args = [
+        p
+        if p["type"] == tcast
+        else {
+            "value": f"__convert({p['type']},{tcast})",
+            "type": tcast,
+            "arguments": [
+                p,
+                {
+                    "value": get_default_value(tcast),
+                    "type": tcast,
+                    "kind": "CONSTANT",
+                },
+            ],
+            "kind": "FUNCTION CALL",
+        }
+        for p in plist
+    ]
+
+    return funcname, entry, args
+
+
 LAST_POPPED_TABLE = None
 INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
 
@@ -73,6 +122,7 @@ def p_primary_expression(p):
     | c_const
     | STRING_LITERAL
     | LEFT_BRACKET expression RIGHT_BRACKET"""
+    # TODO: String Literal
     if len(p) == 4:
         p[0] = p[2]
     else:
@@ -85,22 +135,27 @@ def p_identifier(p):
     entry = symTab.lookup(p[1])
     if entry is None:
         raise Exception  # undeclared identifier used
-    p[0] = {"value": p[1], "code": [], "type": entry["type"]}
+    p[0] = {
+        "value": p[1],
+        "code": [],
+        "type": entry["type"],
+        "kind": "IDENTIFIER",
+    }
 
 
 def p_f_const(p):
     """f_const : F_CONSTANT"""
-    p[0] = {"value": p[1], "code": [], "type": "double"}
+    p[0] = {"value": p[1], "code": [], "type": "float", "kind": "CONSTANT"}
 
 
 def p_i_const(p):
     """i_const : I_CONSTANT"""
-    p[0] = {"value": p[1], "code": [], "type": "long"}
+    p[0] = {"value": p[1], "code": [], "type": "int", "kind": "CONSTANT"}
 
 
 def p_c_const(p):
     """c_const : C_CONSTANT"""
-    p[0] = {"value": p[1], "code": [], "type": "char"}
+    p[0] = {"value": p[1], "code": [], "type": "char", "kind": "CONSTANT"}
 
 
 def p_postfix_expression(p):
@@ -123,11 +178,17 @@ def p_postfix_expression(p):
         if entry is None:
             # Uncessary for this case
             raise Exception
-        p[0] = ("FUNCTION CALL", entry["return type"], funcname, p[1]["value"])
+        p[0] = {
+            "value": funcname,
+            "type": entry["return type"],
+            "arguments": [p[1]],
+            "kind": "FUNCTION CALL",
+        }
         # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
 
     elif len(p) == 4:
         if p[2] == ".":
+            # TODO
             # p[1] is a struct
             symTab = get_current_symtab()
             entry = symTab.lookup(p[1]["value"])
@@ -161,25 +222,30 @@ def p_postfix_expression(p):
         else:
             # function call
             symTab = get_current_symtab()
-            entry = symTab.lookup(p[1]["value"] + "()")
+            funcname = p[1]["value"] + "()"
+            entry = symTab.lookup(funcname)
             if entry is None:
                 raise Exception
 
-            p[0]["type"] = entry["return type"]
-            p[0]["code"] = []
-            p[0]["value"] = p[1]["value"]
+            p[0] = {
+                "value": funcname,
+                "type": entry["return type"],
+                "arguments": [],
+                "kind": "FUNCTION CALL",
+            }
 
     elif len(p) == 5:
         if p[2] == "(":
             # function call
-            symTab = get_current_symtab()
-            entry = symTab.lookup(p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")") 
-            if entry is None:
-                raise Exception  # no function
+            # TODO: Depends on the argument expression list
+            # symTab = get_current_symtab()
+            # funcname = p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")"
+            # entry = symTab.lookup(funcname)
+            # if entry is None:
+            #     raise Exception  # no function
 
-            p[0]["type"] = entry["return type"]
-            p[0]["code"] = []
-            p[0]["value"] = p[1]["value"]  # not sure
+            # p[0] = ("FUNCTION CALL", entry["return type"], funcname)
+            pass
 
         elif p[2] == "[":
             pass
@@ -195,16 +261,9 @@ def p_argument_expression_list(p):
     # p[0] = ("argument_expression_list",) + tuple(p[-len(p) + 1 :])
 
     if len(p) == 2:
-        p[0]["value"] = []
-        p[0]["value"].append(p[1]["value"])
-        p[0]["type"] = []
-        p[0]["type"].append(p[1]["type"])
-        p[0]["code"] = []
-
+        p[0] = [p[1]]
     else:
-        p[0]["value"] = p[1]["value"].append(p[3]["value"])
-        p[0]["type"] = p[1]["type"].append(p[3]["type"])
-        p[0]["code"] = []
+        p[0] = p[1] + [p[3]]
 
 
 def p_unary_expression(p):
@@ -286,7 +345,17 @@ def p_relational_expression(p):
         p[0] = p[1]
     else:
         # TODO
-        p[0] = ("relational_expression",) + tuple(p[-len(p) + 1 :])
+        fname, entry, args = resolve_function_name_uniform_types(
+            p[2], [p[1], p[3]]
+        )
+
+        p[0] = {
+            "value": fname,
+            "type": entry["return type"],
+            "arguments": args,
+            "kind": "FUNCTION CALL",
+        }
+        # p[0] = ("relational_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_equality_expression(p):
@@ -369,6 +438,7 @@ def p_assignment_expression(p):
         # TODO
         symTab = get_current_symtab()
         if "value" in p[1] and "value" in p[3]:
+            # TODO: Write with a typecast function call
             entry = symTab.lookup(p[1]["value"])
             val = cast_value_to_type(p[3]["value"], entry["type"])
             if p[2] == "=":
@@ -376,17 +446,16 @@ def p_assignment_expression(p):
                 funcentry = symTab.lookup(funcname)
                 if funcentry is None:
                     raise Exception
-                p[0] = (
-                    "FUNCTION CALL",
-                    funcentry["return type"],
-                    funcname,
-                    entry["name"],
-                    val,
-                )
+                p[0] = {
+                    "value": funcname,
+                    "type": funcentry["return type"],
+                    "arguments": [p[1], val],
+                    "kind": "FUNCTION CALL",
+                }
                 # symTab.update_value(p[1]["value"], val)
             else:
                 # TODO: Handle different forms of assignment like *=, +=
-                pass
+                p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
         else:
             p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
 
@@ -973,6 +1042,18 @@ def populate_global_symbol_table() -> None:
                 {
                     "name": op,
                     "return type": _type,
+                    "parameter types": [_type, _type],
+                },
+                1,
+            )
+
+    for op in ("<", ">", "<=", ">=", "==", "!="):
+        for _type in BASIC_TYPES:
+            _type = _type.lower()
+            table.insert(
+                {
+                    "name": op,
+                    "return type": "int",  # essentially boolean
                     "parameter types": [_type, _type],
                 },
                 1,
