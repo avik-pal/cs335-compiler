@@ -121,7 +121,10 @@ def p_postfix_expression(p):
         symTab = get_current_symtab()
         funcname = p[2] + f"({p[1]['type']})"
         entry = symTab.lookup(funcname)
-        p[0] = ("FUNCTION CALL", funcname, p[1])
+        if entry is None:
+            # Uncessary for this case
+            raise Exception
+        p[0] = ("FUNCTION CALL", entry["return type"], funcname, p[1]["value"])
         # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
 
     elif len(p) == 4:
@@ -366,7 +369,18 @@ def p_assignment_expression(p):
             entry = symTab.lookup(p[1]["value"])
             val = cast_value_to_type(p[3]["value"], entry["type"])
             if p[2] == "=":
-                symTab.update_value(p[1]["value"], val)
+                funcname = f"__store({entry['type']}*,{entry['type']})"
+                funcentry = symTab.lookup(funcname)
+                if funcentry is None:
+                    raise Exception
+                p[0] = (
+                    "FUNCTION CALL",
+                    funcentry["return type"],
+                    funcname,
+                    entry["name"],
+                    val,
+                )
+                # symTab.update_value(p[1]["value"], val)
             else:
                 # TODO: Handle different forms of assignment like *=, +=
                 pass
@@ -867,14 +881,18 @@ def p_jump_statement(p):
 def p_translation_unit(p):
     """translation_unit : external_declaration
     | translation_unit external_declaration"""
-    p[0] = ("translation_unit",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[2]]
     print(p[0])
 
 
 def p_external_declaration(p):
     """external_declaration : function_definition
     | declaration"""
-    p[0] = ("external_declaration",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
+    # p[0] = ("external_declaration",) + tuple(p[-len(p) + 1 :])
 
 
 def p_function_definition(p):
@@ -894,10 +912,10 @@ def p_function_definition(p):
             },
             kind=1,
         )
+        p[0] = p[3]
     else:
         # TODO
-        pass
-    p[0] = ("function_definition",) + tuple(p[-len(p) + 1 :])
+        p[0] = ("function_definition",) + tuple(p[-len(p) + 1 :])
 
 
 def p_lbrace(p):
@@ -956,8 +974,8 @@ def populate_global_symbol_table() -> None:
                 },
                 1,
             )
-    
-    for op in ("%"):
+
+    for op in "%":
         for _type in INTEGER_TYPES:
             _type = _type.lower()
             table.insert(
@@ -970,13 +988,25 @@ def populate_global_symbol_table() -> None:
             )
 
     for op in ("++", "--"):
-        for _type in NUMERIC_TYPES + CHARACTER_TYPES:
+        for _type in BASIC_TYPES:
             _type = _type.lower()
             table.insert(
                 {
                     "name": op,
                     "return type": _type,
                     "parameter types": [_type],
+                },
+                1,
+            )
+
+    for op in ("__store",):
+        for _type in BASIC_TYPES:
+            _type = _type.lower()
+            table.insert(
+                {
+                    "name": op,
+                    "return type": "void",
+                    "parameter types": [f"{_type}*", _type],
                 },
                 1,
             )
