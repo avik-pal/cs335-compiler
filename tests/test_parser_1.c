@@ -1,8 +1,10 @@
 int main() {
+    int c, a, b;
 	if(c==0) {
 		c++;
-	if(a==b)
-		a++;}
+        if(a==b)
+            a++;
+    }
 	else
 		b++;
 

@@ -1,5 +1,6 @@
 import sys
 import os
+from typing import cast
 import lex
 import ply.yacc as yacc
 import argparse
@@ -106,6 +107,7 @@ def p_postfix_expression(p):
     | postfix_expression PTR_OP IDENTIFIER
     | postfix_expression INC_OP
     | postfix_expression DEC_OP"""
+
     if len(p) == 2:
         p[0] = p[1]
 
@@ -185,7 +187,8 @@ def p_postfix_expression(p):
             pass
         # unhandled
 
-    # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
+    else:
+        p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_argument_expression_list(p):
@@ -215,7 +218,8 @@ def p_unary_operator(p):
     | MINUS
     | LOGICAL_NOT
     | NOT"""
-    p[0] = ("unary_operator",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
+    # p[0] = ("unary_operator",) + tuple(p[-len(p) + 1 :])
 
 
 def p_cast_expression(p):
@@ -401,20 +405,22 @@ def p_declaration(p):
         # TODO
         p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
     else:
-        # TODO: Handle arrays, structs, etc. Right now only handles basic variables. Even int a = 2 won't work
-        valid, entry = symTab.insert(
-            {
-                "name": p[2]["value"],
-                "type": p[1]["value"],
-                "is_array": False,
-                "dimensions": [],
-            },
-            kind=0,
-        )
-        if not valid:
-            raise Exception(
-                f"Variable {p[2]['value']} already declared with type {entry['type']}"
+        # TODO: Handle arrays, structs, etc. Right now only handles basic variables
+        for _p in p[2]:
+            valid, entry = symTab.insert(
+                {
+                    "name": _p["value"],
+                    "type": p[1]["value"],
+                    "is_array": False,
+                    "dimensions": [],
+                    "value": cast_value_to_type(_p.get("store", get_default_value(p[1]["value"])), p[1]["value"])
+                },
+                kind=0,
             )
+            if not valid:
+                raise Exception(
+                    f"Variable {_p['value']} already declared with type {entry['type']}"
+                )
 
 
 def p_declaration_specifiers_1(p):
@@ -443,10 +449,10 @@ def p_init_declarator_list(p):
     """init_declarator_list : init_declarator
     | init_declarator_list COMMA init_declarator"""
     if len(p) == 2:
-        p[0] = p[1]
+        p[0] = [p[1]]
     else:
-        # TODO
-        p[0] = ("init_declarator_list",) + tuple(p[-len(p) + 1 :])
+        p[0] = p[1] + [p[3]]
+        # p[0] = ("init_declarator_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_init_declarator(p):
@@ -455,8 +461,9 @@ def p_init_declarator(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO:
-        p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
+        # TODO: Might require different handling for struct or array {1, 2, 3} type initialization
+        p[0] = {"value": p[1]["value"], "code": [], "store": p[3]["value"]}
+        # p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
 
 
 def p_storage_class_specifier(p):
@@ -749,7 +756,11 @@ def p_initializer(p):
     """initializer : assignment_expression
     | LEFT_CURLY_BRACKET initializer_list RIGHT_CURLY_BRACKET
     | LEFT_CURLY_BRACKET initializer_list COMMA RIGHT_CURLY_BRACKET"""
-    p[0] = ("initializer",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("initializer",) + tuple(p[-len(p) + 1 :])
 
 
 def p_initializer_list(p):
@@ -835,6 +846,7 @@ def p_translation_unit(p):
     """translation_unit : external_declaration
     | translation_unit external_declaration"""
     p[0] = ("translation_unit",) + tuple(p[-len(p) + 1 :])
+    print(p[0])
 
 
 def p_external_declaration(p):
@@ -883,6 +895,7 @@ def p_lbrace(p):
                 }
             )
     p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
+    print(p.lineno(1))
 
 
 def p_rbrace(p):
