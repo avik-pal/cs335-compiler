@@ -55,13 +55,20 @@ def p_primary_expression(p):
     | c_const
     | STRING_LITERAL
     | LEFT_BRACKET expression RIGHT_BRACKET"""
-    p[0] = p[len(p) - 1]
+    if (len(p) == 4):
+        p[0] = p[2]
+    else:
+        p[0] = p[len(p) - 1]
 
 
 def p_identifier(p):
     """identifier : IDENTIFIER"""
     # TODO: Check presence in symbol table
+    symTab = get_current_symtab()
+    if (symTab.lookup(p[1]) is None):
+        raise SyntaxError #undeclared identifier used
     p[0] = p[1]
+
 
 
 def p_f_const(p):
@@ -88,8 +95,85 @@ def p_postfix_expression(p):
     | postfix_expression PTR_OP IDENTIFIER
     | postfix_expression INC_OP
     | postfix_expression DEC_OP"""
-    p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
 
+    if (len(p) == 2):
+        p[0] = p[1]
+
+    elif (len(p) == 3):
+        if (p[1]["type"] != "long"):
+            raise SyntaxError
+        else:
+            p[0] = p[1]
+            p[0]["value"] = p[0]["value"] + 1 if (p[2] == "++") else p[0]["value"] - 1
+    
+    elif (len(p) == 4):
+        if (p[2] == '.'):
+            # p[1] is a struct
+            symTab = get_current_symtab()
+            entry = symTab.lookup(p[1])
+            if (entry is None):
+                raise SyntaxError #undeclared identifier
+            struct_entry = symTab.lookup(entry["type"])  # not needed if already checked at time of storing
+            if (struct_entry is None):
+                raise SyntaxError #undeclared struct used
+            else:
+                # check if p[1] is a struct
+                if (struct_entry["kind"] == 2):
+                    if p[3] not in struct_entry["field names"]:
+                        raise SyntaxError # wrong field name
+                    else:
+                        p[0]["type"] = struct_entry["field type"][struct_entry["field names"].index(p[3])]
+                        p[0]["value"] = entry["values"][p[3]]
+                        p[0]["code"] = []
+                else:
+                    raise SyntaxError # no struct defn found
+
+        elif (p[2] == "->"):
+             # p[1] is a pointer to struct
+            symTab = get_current_symtab()
+            entry = symTab.lookup(p[1])
+            # unhandled
+
+        else:
+            # function call
+            symTab = get_current_symtab()
+            entry = symTab.lookup(p[1])
+            if (entry is None):
+                raise SyntaxError
+            else:
+                # parameter check ?  
+                if (entry["parameter types"] != [])
+                    raise SyntaxError # type mismatch
+
+                p[0]["type"] = entry["return type"]
+                p[0]["code"] = []
+                p[0]["value"] = p[1]["value"]
+
+    elif (len(p) == 5):
+        if (p[2] == '('):
+            # function call
+            symTab = get_current_symtab()
+            entry = symTab.lookup(p[1])
+            if (entry is None):
+                raise SyntaxError # no function 
+            else:
+                # type matching 
+                if (p[3]["type"] != entry["parameter types"])
+                    raise SyntaxError  # type mismatch
+
+                p[0]["type"] = entry["return type"]
+                p[0]["code"] = []
+                p[0]["value"] = p[1]["value"] # not sure 
+
+
+        elif (p[2] == '['):
+        # unhandled
+
+
+
+
+                
 
 def p_argument_expression_list(p):
     """argument_expression_list : assignment_expression
@@ -579,6 +663,7 @@ def p_translation_unit(p):
     """translation_unit : external_declaration
     | translation_unit external_declaration"""
     p[0] = ("translation_unit",) + tuple(p[-len(p) + 1 :])
+
 
 
 def p_external_declaration(p):

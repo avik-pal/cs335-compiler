@@ -110,7 +110,7 @@ class SymbolTable:
             )
 
     def insert(self, entry: dict, kind: int = 0) -> Union[bool, dict]:
-        # Variables (ID) -> {"name", "type", "is_array", "dimensions"}
+        # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions"}
         # Functions (FN) -> {"name", "return type", "parameter types"}
         # Structs (ST)   -> {"name", "alt name" (via typedef), "field names", "field types"}
         # Classes (CL)   -> {"name", ... TBD}
@@ -198,7 +198,7 @@ class SymbolTable:
             return entry
         return False
         # After Storage
-        # Variables (ID) -> {"name", "type", "is_array", "dimensions", "kind", "size", "offset"}
+        # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "kind", "size", "offset"}
         # Functions (FN) -> {"name", "return type", "parameter types", "kind", "local scope"}
 
     def _check_type_in_current_table(self, typename: str) -> bool:
