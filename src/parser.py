@@ -112,7 +112,6 @@ def p_postfix_expression(p):
     | postfix_expression PTR_OP IDENTIFIER
     | postfix_expression INC_OP
     | postfix_expression DEC_OP"""
-
     if len(p) == 2:
         p[0] = p[1]
 
@@ -131,7 +130,7 @@ def p_postfix_expression(p):
         if p[2] == ".":
             # p[1] is a struct
             symTab = get_current_symtab()
-            entry = symTab.lookup(p[1])
+            entry = symTab.lookup(p[1]["value"])
             if entry is None:
                 raise Exception  # undeclared identifier
             struct_entry = symTab.lookup(
@@ -156,43 +155,35 @@ def p_postfix_expression(p):
         elif p[2] == "->":
             # p[1] is a pointer to struct
             symTab = get_current_symtab()
-            entry = symTab.lookup(p[1])
-            # unhandled
+            entry = symTab.lookup(p[1]["value"])
+            # TODO
 
         else:
             # function call
             symTab = get_current_symtab()
-            entry = symTab.lookup(p[1])
+            entry = symTab.lookup(p[1]["value"] + "()")
             if entry is None:
                 raise Exception
-            else:
-                # parameter check ?
-                if entry["parameter types"] != []:
-                    raise Exception  # type mismatch
 
-                p[0]["type"] = entry["return type"]
-                p[0]["code"] = []
-                p[0]["value"] = p[1]["value"]
+            p[0]["type"] = entry["return type"]
+            p[0]["code"] = []
+            p[0]["value"] = p[1]["value"]
 
     elif len(p) == 5:
         if p[2] == "(":
             # function call
             symTab = get_current_symtab()
-            entry = symTab.lookup(p[1])
+            entry = symTab.lookup(p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")") 
             if entry is None:
                 raise Exception  # no function
-            else:
-                # type matching
-                if p[3]["type"] != entry["parameter types"]:
-                    raise Exception  # type mismatch
 
-                p[0]["type"] = entry["return type"]
-                p[0]["code"] = []
-                p[0]["value"] = p[1]["value"]  # not sure
+            p[0]["type"] = entry["return type"]
+            p[0]["code"] = []
+            p[0]["value"] = p[1]["value"]  # not sure
 
         elif p[2] == "[":
             pass
-        # unhandled
+            # TODO
 
     else:
         p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
@@ -201,7 +192,19 @@ def p_postfix_expression(p):
 def p_argument_expression_list(p):
     """argument_expression_list : assignment_expression
     | argument_expression_list COMMA assignment_expression"""
-    p[0] = ("argument_expression_list",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("argument_expression_list",) + tuple(p[-len(p) + 1 :])
+
+    if len(p) == 2:
+        p[0]["value"] = []
+        p[0]["value"].append(p[1]["value"])
+        p[0]["type"] = []
+        p[0]["type"].append(p[1]["type"])
+        p[0]["code"] = []
+
+    else:
+        p[0]["value"] = p[1]["value"].append(p[3]["value"])
+        p[0]["type"] = p[1]["type"].append(p[3]["type"])
+        p[0]["code"] = []
 
 
 def p_unary_expression(p):
