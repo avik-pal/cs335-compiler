@@ -30,6 +30,8 @@ flag_for_error = 0
 UNKNOWN_ERR = 0
 TYPE_CAST_ERR = 1
 
+GLOBAL_ERROR_LIST = []
+
 # Take two types and return the final dataype to cast to.
 def _type_cast(s1, s2):
     global flag_for_error
@@ -192,8 +194,10 @@ def p_identifier(p):
     if type(entry) is list:
         entry = entry[0]
     if entry is None:
-        raise Exception  # undeclared identifier used
-    # print(entry)
+        err_msg = "Error at line number "+str(p.lineno(1))+": Undeclared identifier used"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
+        # raise Exception  # undeclared identifier used
     if entry["kind"] == 1 :
         p[0] = {
             "value": p[1],
@@ -245,7 +249,10 @@ def p_postfix_expression(p):
         entry = symTab.lookup(funcname)
         if entry is None:
             # Uncessary for this case
-            raise Exception
+            err_msg = "Error at line number "+str(p.lineno(2))+": No entry found in symbol table"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            #raise Exception
         p[0] = {
             "value": funcname,
             "type": entry["return type"],
@@ -265,21 +272,33 @@ def p_postfix_expression(p):
             symTab = get_current_symtab()
             entry = symTab.lookup(p[1]["value"])
             if entry is None:
-                raise Exception  # undeclared identifier
+                err_msg = "Error at line number "+str(p.lineno(1))+": Undeclared identifier used"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception  # undeclared identifier
             struct_entry = symTab.lookup(entry["type"])  # not needed if already checked at time of storing
             if struct_entry is None:
-                raise Exception  # undeclared struct used
+                err_msg = "Error at line number "+str(p.lineno(1))+": Undeclared struct used"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception  # undeclared struct used
             else:
                 # check if p[1] is a struct
                 if struct_entry["kind"] == 2:
                     if p[3] not in struct_entry["field names"]:
-                        raise Exception  # wrong field name
+                        err_msg = "Error at line number "+str(p.lineno(3))+": Wrong field name used"
+                        GLOBAL_ERROR_LIST.append(err_msg)
+                        raise SyntaxError
+                        #raise Exception  # wrong field name
                     else:
                         p[0]["type"] = struct_entry["field type"][struct_entry["field names"].index(p[3])]
                         p[0]["value"] = entry["values"][p[3]]
                         p[0]["code"] = []
                 else:
-                    raise Exception  # no struct defn found
+                    err_msg = "Error at line number "+str(p.lineno(1))+": No such struct definition"
+                    GLOBAL_ERROR_LIST.append(err_msg)
+                    raise SyntaxError
+                    #raise Exception  # no struct defn found
 
         elif p[2] == "->":
             # p[1] is a pointer to struct
@@ -293,7 +312,10 @@ def p_postfix_expression(p):
             funcname = p[1]["value"] + "()"
             entry = symTab.lookup(funcname)
             if entry is None:
-                raise Exception
+                err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                # raise Exception
 
             p[0] = {
                 "value": funcname,
@@ -313,7 +335,10 @@ def p_postfix_expression(p):
             funcname = p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")"
             entry = symTab.lookup(funcname)
             if entry is None:
-                raise Exception  # no function
+                err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception  # no function
 
             args = p[3]["value"]
             p[0] = {
@@ -334,7 +359,10 @@ def p_postfix_expression(p):
                 funcname = "__get_array_element" + f"({p[1]['type']}*,int)"
                 entry = symTab.lookup(funcname)
                 if entry is None:
-                    raise Exception
+                    err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                    GLOBAL_ERROR_LIST.append(err_msg)
+                    raise SyntaxError
+                    #raise Exception
 
                 nvar = get_tmp_var(p[1])
                 p[0] = {
@@ -343,7 +371,10 @@ def p_postfix_expression(p):
                     "code": ["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar],
                 }
             else:
-                raise Exception
+                err_msg = "Error at line number "+str(p.lineno(3))+": Not an integr index"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                # raise Exception
 
     else:
         p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
@@ -387,7 +418,10 @@ def p_unary_expression(p):
             entry = symTab.lookup(funcname)
 
             if entry is None:
-                raise Exception
+                err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception
 
             p[0] = {
                 "value": funcname,
@@ -906,7 +940,10 @@ def p_declaration(p):
                 kind=0,
             )
             if not valid:
-                raise Exception(f"Variable {_p['value']} already declared with type {entry['type']}")
+                err_msg = "Error at line number "+str(p.lineno(2))+": "+f"Variable {_p['value']} already declared with type {entry['type']}"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception(f"Variable {_p['value']} already declared with type {entry['type']}")
 
 
 def p_declaration_specifiers(p):
@@ -984,7 +1021,10 @@ def p_type_specifier(p):
     # Check if it is a valid type
     symTab = get_current_symtab()
     if not symTab.check_type(p[1]):
-        raise Exception(f"{p[1]} is not a valid type")
+        err_msg = "Error at line number "+str(p.lineno(1))+": "+f"{p[1]} is not a valid type"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
+        # raise Exception(f"{p[1]} is not a valid type")
     p[0] = {"value": p[1], "code": []}
 
 
@@ -1007,7 +1047,10 @@ def p_type_specifier_custom_types(p):
             )
         else:
             if not symTab.check_type("struct " + p[1]["name"]):
-                raise Exception(f"struct {p[1]['name']} is not a valid type")
+                err_msg = "Error at line number "+str(p.lineno(1))+": "+f"struct {p[1]['name']} is not a valid type"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception(f"struct {p[1]['name']} is not a valid type")
         p[0] = {"value": "struct " + p[1]["name"], "code": []}
     
     elif p[1]["kind"] == 5:
@@ -1023,7 +1066,10 @@ def p_type_specifier_custom_types(p):
             )
         else:
             if not symTab.check_type("union " + p[1]["name"]):
-                raise Exception(f"union {p[1]['name']} is not a valid type")
+                err_msg = "Error at line number "+str(p.lineno(1))+": "+f"union {p[1]['name']} is not a valid type"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception(f"union {p[1]['name']} is not a valid type")
         p[0] = {"value": "union " + p[1]["name"], "code": []}
     
     elif p[1]["kind"] == 4:
@@ -1038,10 +1084,16 @@ def p_type_specifier_custom_types(p):
             )
         else:
             if not symTab.check_type(p[1]["value"]):
-                raise Exception(f"{p[1]['value']} is not a valid type")
+                err_msg = "Error at line number "+str(p.lineno(1))+": "+f"{p[1]['value']} is not a valid type"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                #raise Exception(f"{p[1]['value']} is not a valid type")
         p[0] = {"value": p[1]["value"], "code": []}
     else:
-        raise Exception("Unsupported Custom Type")
+        err_msg = "Error at line number "+str(p.lineno(1))+": Unsupported Custom Type"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
+        #raise Exception("Unsupported Custom Type")
 
 
 def p_inheritance_specifier(p):
@@ -1669,12 +1721,21 @@ def p_function_definition(p):
         for code in p[3]["code"]:
             if len(code) > 0 and code[0] == "RETURN":
                 if len(code) == 1 and p[1]["value"] != "void":
-                    raise Exception("Return type not matching declared type")
+                    err_msg = "Error at line number "+str(p.lineno(1))+": Return type not matching declared type"
+                    GLOBAL_ERROR_LIST.append(err_msg)
+                    raise SyntaxError
+                    #raise Exception("Return type not matching declared type")
                 elif len(code) > 1 and p[1]["value"] != code[1]["type"]:
-                    raise Exception("Return type not matching declared type")
+                    err_msg = "Error at line number "+str(p.lineno(1))+": Return type not matching declared type"
+                    GLOBAL_ERROR_LIST.append(err_msg)
+                    raise SyntaxError
+                    #raise Exception("Return type not matching declared type")
                 no_return = False
         if no_return and p[1]["value"] != "void":
-            raise Exception("Return type not matching declared type")
+            err_msg = "Error at line number "+str(p.lineno(1))+": Return type not matching declared type"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            #raise Exception("Return type not matching declared type")
 
     else:
         # TODO
@@ -1710,7 +1771,7 @@ def p_rbrace(p):
 def p_error(p):
     global flag_for_error
     # flag_for_error = 1
-
+    print("random chhez")
     if p is not None:
         print("error at line no:  %s :: %s" % ((p.lineno), (p.value)))
         parser.errok()
@@ -1827,6 +1888,9 @@ if __name__ == "__main__":
             print()
 
             parse_code(tree)
+
+            for err in GLOBAL_ERROR_LIST:
+                print(err)
 
             # if args.output[-4:] == ".dot":
             #     args.output = args.output[:-4]

@@ -387,6 +387,7 @@ def get_current_symtab() -> Union[None, SymbolTable]:
 
 
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int]) -> int:
+    return -1
     if len(dimensions) == 0:
         return dsize
     else:
