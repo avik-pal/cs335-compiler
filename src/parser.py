@@ -332,6 +332,10 @@ def p_argument_expression_list(p):
         ind = 1
     else:
         ind = 3
+        p[0]["code"] += p[1]["code"]
+        p[0]["type"] += p[1]["type"]
+        p[0]["value"] += p[1]["value"]
+
 
     p[0]["code"].append(p[ind]["code"])
     p[0]["type"].append(p[ind]["type"])
