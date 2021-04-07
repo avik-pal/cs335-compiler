@@ -41,7 +41,9 @@ def _type_cast(s1, s2):
         return s1
     if (s1 not in BASIC_TYPES) or (s2 not in BASIC_TYPES):
         flag_for_error = TYPE_CAST_ERR
-        raise Exception("Type Cast not possible")
+        err_msg = "Type Cast not possible"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
     elif s1 == "DOUBLE" or s2 == "DOUBLE":
         return "DOUBLE"
     elif s1 == "FLOAT" or s2 == "FLOAT":
@@ -56,24 +58,34 @@ def _type_cast(s1, s2):
         return s2
     else:
         flag_for_error = UNKNOWN_ERR
-        raise Exception("Type Cast not possible: UNKNOWN")
+        err_msg = "Type Cast not possible: UNKNOWN"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
         # return "error"
 
 
 def type_cast(s1, s2):
+    print(s1, s2)
+    # print(s2)
     if s1.get("pointer_lvl",0) > 0 and s2.get("pointer_lvl",0) > 0:
-        raise Exception("Can not cast pointer to pointer!")
+        err_msg = "Can not cast pointer to pointer"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
     elif s1.get("pointer_lvl",0) > 0 :
         if s2['type'].upper() in INTEGER_TYPES:
             return s1
         else:
-            print(F"Can not cast {s2['type']} to pointer!")
-            raise Exception(F"Can not cast {s2['type']} to pointer!")
+            err_msg = F"Can not cast {s2['type']} to pointer!"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+
     elif s2.get("pointer_lvl",0) > 0 :
         if s1['type'].upper() in INTEGER_TYPES:
             return s2
         else:
-            raise Exception(F"Can not cast {s1['type']} to pointer!")
+            err_msg = F"Can not cast {s1['type']} to pointer!"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
     else:
         return { 'type': _type_cast(s1['type'], s2['type']).lower(),
                 "pointer_lvl" : 0}
@@ -203,6 +215,7 @@ def p_identifier(p):
             "value": p[1],
             "code": [],
             "type": entry["return type"],
+            "pointer_lvl" : entry.get("pointer_lvl",0),
             "kind": "IDENTIFIER",
             # "entry": entry,  # FIXME: Add this back in the final code
         }
@@ -211,6 +224,7 @@ def p_identifier(p):
             "value": p[1],
             "code": [],
             "type": entry["type"],
+            "pointer_lvl" : entry.get("pointer_lvl",0),
             "kind": "IDENTIFIER",
             # "entry": entry,  # FIXME: Add this back in the final code
         }
@@ -882,11 +896,11 @@ def p_declaration(p):
             if "store" in _p:
                 if not _p.get("is_array", False):
                     if len(_p["code"]) > 0:
-                        expr = _get_conversion_function_expr(_p["store"],{"type":tinfo})
+                        expr = _get_conversion_function_expr(_p["store"],{'type':tinfo})
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     else:
-                        expr = _get_conversion_function(_p["store"], {"type":tinfo})
+                        expr = _get_conversion_function(_p["store"], {'type':tinfo})
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     vname = get_tmp_var()
