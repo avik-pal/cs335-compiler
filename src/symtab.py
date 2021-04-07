@@ -415,11 +415,11 @@ def get_tmp_label() -> str:
 
 
 def get_default_value(type: str):
-    if str.upper() in INTEGER_TYPES:
+    if type.upper() in INTEGER_TYPES:
         return 0
-    elif str.upper() in FLOATING_POINT_TYPES:
+    elif type.upper() in FLOATING_POINT_TYPES:
         return 0.0
-    elif str.upper() in CHARACTER_TYPES:
+    elif type.upper() in CHARACTER_TYPES:
         return None
     else:
         return -1

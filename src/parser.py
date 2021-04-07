@@ -281,14 +281,24 @@ def p_postfix_expression(p):
         if p[2] == "(":
             # function call
             # TODO: Depends on the argument expression list
-            # symTab = get_current_symtab()
-            # funcname = p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")"
-            # entry = symTab.lookup(funcname)
-            # if entry is None:
-            #     raise Exception  # no function
+            symTab = get_current_symtab()
+            funcname = p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")"
+            entry = symTab.lookup(funcname)
+            if entry is None:
+                raise Exception  # no function
 
-            # p[0] = ("FUNCTION CALL", entry["return type"], funcname)
-            pass
+            args = p[3]["value"]
+            p[0] = {
+                "value": funcname,
+                "type": entry["return type"],
+                "arguments": p[3]["value"],
+                "kind": "FUNCTION CALL",
+            }
+
+            nvar = get_tmp_var(p[0]["type"])
+            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["value"] = nvar
+            del p[0]["arguments"]
 
         elif p[2] == "[":
             if p[3]["type"] == "int":
@@ -318,10 +328,16 @@ def p_argument_expression_list(p):
     | argument_expression_list COMMA assignment_expression"""
     # p[0] = ("argument_expression_list",) + tuple(p[-len(p) + 1 :])
 
+    p[0] = {"code": [], "type": [], "value":[]}
+
     if len(p) == 2:
-        p[0] = [p[1]]
+        ind = 1
     else:
-        p[0] = p[1] + [p[3]]
+        ind = 3
+        
+    p[0]["code"].append(p[ind]["code"])
+    p[0]["type"].append(p[ind]["type"])
+    p[0]["value"].append(p[ind]["value"])
 
 
 def p_unary_expression(p):
@@ -1435,7 +1451,7 @@ def p_function_definition(p):
             if len(code) > 0 and code[0] == "RETURN":
                 if len(code) == 1 and p[1]["value"] != "void":
                     raise Exception("Return type not matching declared type")
-                elif p[1]["value"] != code[1]["type"]:
+                elif len(code) > 1 and p[1]["value"] != code[1]["type"]:
                     raise Exception("Return type not matching declared type")
                 no_return = False
         if no_return and p[1]["value"] != "void":
