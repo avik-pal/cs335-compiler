@@ -349,9 +349,54 @@ def p_unary_expression(p):
     | SIZEOF LEFT_BRACKET type_name RIGHT_BRACKET"""
     if len(p) == 2:
         p[0] = p[1]
+
+    elif len(p) == 3:
+        if p[1] == "++" or p[1] == "--":
+            symTab = get_current_symtab()
+            funcname = p[1] + f"({p[2]['type']})"
+            entry = symTab.lookup(funcname)
+
+            if entry is None:
+                raise Exception
+
+            p[0] = {
+                "value": funcname,
+                "type": entry["return type"],
+                "arguments": [p[2]],
+                "kind": "FUNCTION CALL",
+            }
+
+            nvar = get_tmp_var(p[0]["type"])
+            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["value"] = nvar
+            del p[0]["arguments"]
+
+        elif p[1] == "sizeof":
+
+            p[0] = {
+                "type": "int",
+                "value": "SIZEOF",
+            }
+
+            p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
+
+        else:
+            # TODO: depends on cast expression
+            pass
+
     else:
-        # TODO
-        p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
+        if p[1] == "sizeof":
+            p[0] = {
+                "type": "int",
+                "value": "SIZEOF",
+            }
+
+            p[0]["code"] = [[p[0]["value"]], p[3]["code"]]
+
+
+
+            
+    # p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_unary_operator(p):
@@ -372,7 +417,9 @@ def p_cast_expression(p):
         p[0] = p[1]
     else:
         # TODO
-        p[0] = ("cast_expression",) + tuple(p[-len(p) + 1 :])
+        p[0] = {type}
+
+        # p[0] = ("cast_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_multiplicative_expression(p):
