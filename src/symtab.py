@@ -372,8 +372,14 @@ def get_current_symtab() -> Union[None, SymbolTable]:
 
 
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int]) -> int:
-    # TODO: Implement
-    return -1
+    if len(dimensions)==0:
+        return dsize
+    else:
+        prod = 1
+        for dim in dimensions:
+            prod *= dim
+        return prod*dsize
+
 
 
 TMP_VAR_COUNTER = 0
@@ -407,5 +413,11 @@ def get_tmp_label() -> str:
 
 
 def get_default_value(type: str):
-    # TODO: Defaults for different types similar to C
-    return -1
+    if str.upper() in INTEGER_TYPES:
+        return 0
+    elif str.upper() in FLOATING_POINT_TYPES:
+        return 0.0
+    elif str.upper() in CHARACTER_TYPES:
+        return None
+    else:
+        return -1
