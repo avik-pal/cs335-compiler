@@ -194,6 +194,10 @@ def p_postfix_expression(p):
             "arguments": [p[1]],
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
 
     elif len(p) == 4:
@@ -239,6 +243,10 @@ def p_postfix_expression(p):
                 "arguments": [],
                 "kind": "FUNCTION CALL",
             }
+            nvar = get_tmp_var(p[0]["type"])
+            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["value"] = nvar
+            del p[0]["arguments"]
 
     elif len(p) == 5:
         if p[2] == "(":
@@ -323,6 +331,10 @@ def p_multiplicative_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -341,6 +353,10 @@ def p_additive_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -359,6 +375,10 @@ def p_shift_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("shift_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -379,6 +399,10 @@ def p_relational_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("relational_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -397,6 +421,10 @@ def p_equality_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("equality_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -414,6 +442,10 @@ def p_and_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("and_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -431,6 +463,10 @@ def p_exclusive_or_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("exclusive_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -448,6 +484,10 @@ def p_inclusive_or_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("inclusive_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -465,6 +505,10 @@ def p_logical_and_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("logical_and_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -482,6 +526,10 @@ def p_logical_or_expression(p):
             "arguments": args,
             "kind": "FUNCTION CALL",
         }
+        nvar = get_tmp_var(p[0]["type"])
+        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["value"] = nvar
+        del p[0]["arguments"]
         # p[0] = ("logical_or_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -491,7 +539,7 @@ def p_conditional_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
+        # TODO: Translate to an IF Statement
         p[0] = ("conditional_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -506,10 +554,14 @@ def p_assignment_expression(p):
             arg = _get_conversion_function(p[3], p[1]["type"])
             p[0] = {
                 "value": f"__store({p[1]['type']}*,{p[1]['type']})",
-                "type": "void",
+                "type": p[1]["type"],
                 "arguments": [p[1], arg],
                 "kind": "FUNCTION CALL",
             }
+            nvar = get_tmp_var(p[0]["type"])
+            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["value"] = nvar
+            del p[0]["arguments"]
 
         else:
             # FIXME: Order of type conversion for +=, -=, etc.
@@ -518,10 +570,14 @@ def p_assignment_expression(p):
             arg = _get_conversion_function(expr, p[1]["type"])
             p[0] = {
                 "value": f"__store({p[1]['type']}*,{p[1]['type']})",
-                "type": "void",
+                "type": p[1]["type"],
                 "arguments": [p[1], arg],
                 "kind": "FUNCTION CALL",
             }
+            nvar = get_tmp_var(p[0]["type"])
+            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["value"] = nvar
+            del p[0]["arguments"]
             # p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -545,15 +601,17 @@ def p_expression(p):
     """expression : assignment_expression
     | expression COMMA assignment_expression"""
     if len(p) == 2:
-        p[0] = [p[1]]
+        p[0] = {"value": p[1]["value"], "type": p[1]["type"], "kind": "EXPRESSION", "code": p[1]["code"]}
     else:
-        p[0] = p[1] + p[3]
+        p[0] = {"value": p[3]["value"], "type": p[3]["type"], "kind": "EXPRESSION", "code": p[1]["code"] + p[3]}
+        # p[0] = p[1] + p[3]
         # p[0] = ("expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_constant_expression(p):
     """constant_expression : conditional_expression"""
-    p[0] = ("constant_expression",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
+    # p[0] = ("constant_expression",) + tuple(p[-len(p) + 1 :])
 
 
 def p_declaration(p):
@@ -953,7 +1011,7 @@ def p_compound_statement_1(p):
 
 def p_compound_statement_2(p):
     """compound_statement : lbrace declaration_list rbrace"""
-    pass
+    p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
 
 
 def p_declaration_list(p):
@@ -966,15 +1024,18 @@ def p_statement_list(p):
     """statement_list : statement
     | statement_list statement"""
     if len(p) == 2:
-        p[0] = [p[1]]
+        p[0] = p[1]
+        p[0]["kind"] = "STATEMENT"
     else:
-        p[0] = p[1] + [p[2]]
+        p[0] = p[2]
+        p[0]["code"] = p[1]["code"] + p[2]["code"]
     # p[0] = ("statement_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_expression_statement(p):
     """expression_statement : SEMICOLON
     | expression SEMICOLON"""
+    p[0] = {"code": [], "value": None}
     if len(p) == 3:
         p[0] = p[1]
     # p[0] = ("expression_statement",) + tuple(p[-len(p) + 1 :])
@@ -984,7 +1045,26 @@ def p_selection_statement(p):
     """selection_statement : IF LEFT_BRACKET expression RIGHT_BRACKET statement
     | IF LEFT_BRACKET expression RIGHT_BRACKET statement ELSE statement
     | SWITCH LEFT_BRACKET expression RIGHT_BRACKET statement"""
-    p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
+    if p[1] == "if":
+        p[0] = {"code": []}
+        elseLabel = get_tmp_label()
+        if len(p[3]["code"]) > 0:
+            p[0]["code"] += p[3]["code"]
+        if p[3]["value"] is not None:
+            p[0]["code"] += [["IF", p[3]["value"], "==", "0", "GOTO", elseLabel]]
+        if len(p[5]["code"]) > 0:
+            p[0]["code"] += p[5]["code"]
+        if len(p) == 6:
+            p[0]["code"] += [["LABEL", elseLabel]]
+        else:
+            finishLabel = get_tmp_label()
+            p[0]["code"] += [["GOTO", finishLabel], ["LABEL", elseLabel]]
+            if len(p[7]["code"]) > 0:
+                p[0]["code"] += p[7]["code"]
+            p[0]["code"] += [["LABEL", finishLabel]]
+    else:
+        # TODO
+        p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
 
 
 def p_iteration_statement(p):
@@ -992,6 +1072,26 @@ def p_iteration_statement(p):
     | DO statement WHILE LEFT_BRACKET expression RIGHT_BRACKET SEMICOLON
     | FOR LEFT_BRACKET expression_statement expression_statement RIGHT_BRACKET statement
     | FOR LEFT_BRACKET expression_statement expression_statement expression RIGHT_BRACKET statement"""
+    # TODO
+    # NOTE: We translate all loops to its equivalent while loop for easy handling
+    # beginLabel = get_tmp_label()
+    # endLabel = get_tmp_label()
+    # if p[1] == "while":
+    #     p[0] = {
+    #         "value": None, "kind": "LOOP",
+    #         "code": [
+    #             ["LABEL", beginLabel],
+    #             [p[3]["code"]],
+    #             []
+    #         ]
+    #     }
+    # elif p[1] == "do":
+    #     pass
+    # elif p[1] == "for":
+    #     if len(p) == 6:
+    #         pass
+    #     elif len(p) == 7:
+    #         pass
     p[0] = ("iteration_statement",) + tuple(p[-len(p) + 1 :])
 
 
@@ -1001,7 +1101,18 @@ def p_jump_statement(p):
     | BREAK SEMICOLON
     | RETURN SEMICOLON
     | RETURN expression SEMICOLON"""
-    p[0] = ("jump_statement",) + tuple(p[-len(p) + 1 :])
+    # TODO
+    p[0] = {"code": []}
+    if p[1] == "goto":
+        p[0]["code"] += [["GOTO", p[2]["value"]]]
+    elif p[1] == "continue":
+        pass
+    elif p[1] == "break":
+        pass
+    elif p[1] == "return":
+        # Handle return type matching
+        pass
+    # p[0] = ("jump_statement",) + tuple(p[-len(p) + 1 :])
 
 
 def p_translation_unit(p):
@@ -1143,7 +1254,7 @@ def populate_global_symbol_table() -> None:
             table.insert(
                 {
                     "name": op,
-                    "return type": "void",
+                    "return type": _type,
                     "parameter types": [f"{_type}*", _type],
                 },
                 1,

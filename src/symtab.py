@@ -363,10 +363,14 @@ TMP_VAR_COUNTER = 0
 TMP_LABEL_COUNTER = 0
 
 
-def get_tmp_var() -> str:
+def get_tmp_var(vartype=None) -> str:
     global TMP_VAR_COUNTER
     TMP_VAR_COUNTER += 1
-    return f"__tmp_var_{TMP_VAR_COUNTER}"
+    vname = f"__tmp_var_{TMP_VAR_COUNTER}"
+    if vartype is not None:
+        symTab = get_current_symtab()
+        symTab.insert({"name": vname, "type": vartype, "is_array": False, "dimensions": []})
+    return vname
 
 
 def get_tmp_label() -> str:
