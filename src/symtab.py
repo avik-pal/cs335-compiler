@@ -362,6 +362,7 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int]) -> in
 
 TMP_VAR_COUNTER = 0
 TMP_LABEL_COUNTER = 0
+TMP_CLOSURE_COUNTER = 0
 
 
 def get_tmp_var(vartype=None) -> str:
@@ -371,6 +372,15 @@ def get_tmp_var(vartype=None) -> str:
     if vartype is not None:
         symTab = get_current_symtab()
         symTab.insert({"name": vname, "type": vartype, "is_array": False, "dimensions": []})
+    return vname
+
+
+def get_tmp_closure(rettype: str, argtypes: list = []) -> str:
+    global TMP_CLOSURE_COUNTER
+    TMP_CLOSURE_COUNTER += 1
+    vname = f"__tmp_closure_{TMP_VAR_COUNTER}"
+    symTab = get_current_symtab()
+    symTab.insert({"name": vname, "return type": rettype, "parameter types": argtypes}, kind=1)
     return vname
 
 

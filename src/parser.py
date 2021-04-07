@@ -14,6 +14,7 @@ from symtab import (
     get_current_symtab,
     get_tmp_label,
     get_tmp_var,
+    get_tmp_closure,
     get_default_value,
     NUMERIC_TYPES,
     CHARACTER_TYPES,
@@ -29,11 +30,12 @@ UNKNOWN_ERR = 0
 TYPE_CAST_ERR = 1
 
 # Take two types and return the final dataype to cast to.
-def type_cast(s1, s2):
+def _type_cast(s1, s2):
     global flag_for_error
+    s1 = s1.upper()
+    s2 = s2.upper()
     if s1 == s2:
         return s1
-
     if (s1 not in BASIC_TYPES) or (s2 not in BASIC_TYPES):
         flag_for_error = TYPE_CAST_ERR
         raise Exception("Type Cast not possible")
@@ -51,8 +53,12 @@ def type_cast(s1, s2):
         return s2
     else:
         flag_for_error = UNKNOWN_ERR
-        raise Exception("Type Cast not possible")
+        raise Exception("Type Cast not possible: UNKNOWN")
         # return "error"
+
+
+def type_cast(s1, s2):
+    return _type_cast(s1, s2).lower()
 
 
 def cast_value_to_type(val, type):
@@ -80,7 +86,7 @@ def _get_conversion_function(p, tcast):
 
 def _get_conversion_function_expr(p, tcast):
     if p["type"] == tcast:
-        return {"code": []}
+        return {"value": p["value"], "code": []}
     else:
         nvar = get_tmp_var()
         arg = {"value": nvar, "type": tcast, "kind": "FUNCTION CALL"}
@@ -93,8 +99,10 @@ def _get_conversion_function_expr(p, tcast):
                     p["value"],
                     {"value": get_default_value(tcast), "type": tcast, "kind": "CONSTANT"},
                 ],  # FIXME: We might need the entry for p["value"]
+                nvar,
             ]
         ]
+        return arg
 
 
 def resolve_function_name_uniform_types(fname, plist, totype=None):
@@ -172,7 +180,7 @@ def p_identifier(p):
 
 def p_f_const(p):
     """f_const : F_CONSTANT"""
-    p[0] = {"value": p[1], "code": [], "type": "float", "kind": "CONSTANT"}
+    p[0] = {"value": p[1], "code": [], "type": "double", "kind": "CONSTANT"}
 
 
 def p_i_const(p):
@@ -556,8 +564,68 @@ def p_conditional_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO: Translate to an IF Statement
-        p[0] = ("conditional_expression",) + tuple(p[-len(p) + 1 :])
+        p[0] = {"code": []}
+        r1 = p[3]["type"]
+        r2 = p[5]["type"]
+        tcast = type_cast(r1, r2)
+
+        vname = get_tmp_var(tcast)
+
+        fname = get_tmp_closure(tcast)
+        push_scope(new_scope(get_current_symtab()))
+
+        cond_code = []
+        elseLabel = get_tmp_label()
+        if len(p[1]["code"]) > 0:
+            cond_code += p[1]["code"]
+        if p[1]["value"] is not None:
+            expr = _get_conversion_function_expr(p[1], "int")
+            if len(expr["code"]) > 0:
+                cond_code += expr["code"]
+            cond_code += [["IF", expr["value"], "==", "0", "GOTO", elseLabel]]
+
+        succ_code = []
+        if len(p[3]["code"]) > 0:
+            expr = _get_conversion_function_expr(p[3], tcast)
+            succ_code += p[3]["code"]
+        else:
+            expr = _get_conversion_function(p[3], tcast)
+        if len(expr["code"]) > 0:
+            succ_code += expr["code"]
+        succ_code += (
+            [["RETURN", expr["value"]]]
+            if len(p[3]["code"]) > 0
+            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr["value"]]])
+        )
+
+        fail_code = []
+        if len(p[5]["code"]) > 0:
+            expr = _get_conversion_function_expr(p[5], tcast)
+            fail_code += p[5]["code"]
+        else:
+            expr = _get_conversion_function(p[5], tcast)
+        if len(expr["code"]) > 0:
+            fail_code += expr["code"]
+        fail_code += (
+            [["RETURN", expr["value"]]]
+            if len(p[5]["code"]) > 0
+            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr["value"]]])
+        )
+
+        p[0]["code"] += [
+            ["BEGINFUNCTION", tcast, fname],
+            cond_code,
+            succ_code,
+            ["LABEL", elseLabel],
+            fail_code,
+            ["ENDFUNCTION"],
+            ["FUNCTION CALL", tcast, fname + "()", [], vname],
+        ]
+
+        pop_scope()
+
+        p[0]["type"] = tcast
+        p[0]["value"] = vname
 
 
 def p_assignment_expression(p):
@@ -1071,7 +1139,7 @@ def p_selection_statement(p):
             expr = _get_conversion_function_expr(p[3], "int")
             if len(expr["code"]) > 0:
                 p[0]["code"] += expr["code"]
-            p[0]["code"] += [["IF", p[3]["value"], "==", "0", "GOTO", elseLabel]]
+            p[0]["code"] += [["IF", expr["value"], "==", "0", "GOTO", elseLabel]]
         if len(p[5]["code"]) > 0:
             p[0]["code"] += p[5]["code"]
         if len(p) == 6:
@@ -1104,7 +1172,7 @@ def p_iteration_statement(p):
             expr = _get_conversion_function_expr(p[3], "int")
             if len(expr["code"]) > 0:
                 code += expr["code"]
-            code += [["IF", p[3]["value"], "==", "0", "GOTO", endLabel]]
+            code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
         if len(p[5]["code"]) > 0:
             code += p[5]["code"]
 
@@ -1118,7 +1186,7 @@ def p_iteration_statement(p):
             expr = _get_conversion_function_expr(p[5], "int")
             if len(expr["code"]) > 0:
                 code += expr["code"]
-            code += [["IF", p[5]["value"], "==", "0", "GOTO", endLabel]]
+            code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
 
     elif p[1] == "for":
         if len(p[3]["code"]) > 0:
@@ -1130,7 +1198,7 @@ def p_iteration_statement(p):
             expr = _get_conversion_function_expr(p[4], "int")
             if len(expr["code"]) > 0:
                 code += expr["code"]
-            code += [["IF", p[4]["value"], "==", "0", "GOTO", endLabel]]
+            code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
         if len(p[len(p) - 1]["code"]) > 0:
             code += p[len(p) - 1]["code"]
         if len(p) == 7 and len(p[4]["code"]) > 0:
@@ -1200,6 +1268,9 @@ def p_function_definition(p):
             kind=1,
         )
         p[0] = p[3]
+        p[0]["code"] = (
+            [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]] + p[3]["code"] + [["ENDFUNCTION"]]
+        )
 
         # Ensure return type is same as RETURN value
         no_return = True
