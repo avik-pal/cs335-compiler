@@ -133,13 +133,14 @@ class SymbolTable:
             entry["kind"] = kind
 
             if kind == 0:
-                # TODO: Support custom types
+                # TODO: Support custom types sizes
                 # Variable Identifier
-                try:
-                    entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
-                except KeyError:
-                    # TODO: Proper error message with line number and such
-                    raise Exception(f"{entry['type']} is not a valid data type")
+                # try:
+                #     entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
+                # except KeyError:
+                #     # TODO: Proper error message with line number and such
+                #     raise Exception(f"{entry['type']} is not a valid data type")
+                entry["size"] = -1
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
                 entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
 
@@ -191,13 +192,14 @@ class SymbolTable:
                 # Enum
                 entry["field2var"] = dict()
                 # Insert all the fields as variables
-                for var in entry["field names"]:
-                    nentry = self.insert(
+                for i, var in enumerate(entry["field names"]):
+                    _, nentry = self.insert(
                         {
                             "name": var,
-                            "type": "int",
+                            "type": f"enum {name}",# "int",
                             "is_array": False,
                             "dimensions": [],
+                            "value": entry["field values"][i]
                         }
                     )
                     entry["field2var"][var] = nentry
