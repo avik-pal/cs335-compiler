@@ -142,6 +142,22 @@ class SymbolTable:
                     raise Exception(f"{entry['type']} is not a valid data type")
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
                 entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
+
+                if entry["is_array"]:
+                    dims = entry["dimensions"]
+                    ndims = []
+                    for dim in dims:
+                        if isinstance(dim, str):
+                            _l = self.lookup(dim)
+                            if _l["type"] != "int":
+                                raise Exception
+                            ndims.append(dim)
+                        else:
+                            if dim["type"] != "int":
+                                raise Exception
+                            ndims.append(dim["value"])
+                    entry["dimensions"] = ndims
+
                 self._symtab_variables[name] = entry
 
             elif kind == 1:
@@ -311,7 +327,7 @@ class SymbolTable:
         for k, v in self._symtab_variables.items():
             print(
                 f"Name: {k}, Type: {v['type']}, Size: {v['size']}, Value: {v['value']}"
-                + ("" if not v["is_array"] else f"Dimensions: {v['dimensions']}")
+                + ("" if not v["is_array"] else f", Dimensions: {v['dimensions']}")
             )
         print("-" * 51)
         print(" " * 20 + " Functions " + " " * 20)

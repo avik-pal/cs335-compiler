@@ -703,22 +703,68 @@ def p_declaration(p):
     """declaration : declaration_specifiers SEMICOLON
     | declaration_specifiers init_declarator_list SEMICOLON"""
     symTab = get_current_symtab()
+    p[0] = {"code": [], "value": ""}
     if len(p) == 3:
-        # TODO
-        p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
+        pass
+        # p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
     else:
-        # TODO: Handle arrays, structs, etc. Right now only handles basic variables
+        # TODO: Handle structs, etc. Right now only handles basic variables
         for _p in p[2]:
+            if len(_p["code"]) > 0:
+                p[0]["code"] += _p["code"]
+
+            if "store" in _p:
+                if not _p.get("is_array", True):
+                    if len(_p["code"]) > 0:
+                        expr = _get_conversion_function_expr(_p["store"], p[1]["value"])
+                        if len(expr["code"]) > 0:
+                            p[0]["code"] += expr["code"]
+                    else:
+                        expr = _get_conversion_function(_p["store"], p[1]["value"])
+                        if len(expr["code"]) > 0:
+                            p[0]["code"] += expr["code"]
+                    vname = get_tmp_var()
+                    p[0]["code"] += [
+                        [
+                            "FUNCTION CALL",
+                            p[1]["value"],
+                            f"__store({p[1]['value']}*,{p[1]['value']})",
+                            [
+                                {"value": _p["value"], "type": p[1]["value"]},
+                                {"value": expr["value"], "type": p[1]["value"]},
+                            ],
+                            vname,
+                        ]
+                    ]
+                    # p[0]["value"] = vname
+                else:
+                    # For array initialization
+                    # TODO: Multidimensional array initialization
+                    for i, (item, t) in enumerate(zip(_p["store"]["value"], _p["store"]["types"])):
+                        expr = _get_conversion_function({"value": item, "type": t, "code": []}, p[1]["value"])
+                        if len(expr["code"]) > 0:
+                            p[0]["code"] += expr["code"]
+                        vname = get_tmp_var()
+                        p[0]["code"] += [
+                            [
+                                "FUNCTION CALL",
+                                p[1]["value"],
+                                f"__store({p[1]['value']}*,{p[1]['value']})",
+                                [
+                                    {"value": _p["value"], "type": p[1]["value"], "index": i},
+                                    {"value": expr["value"], "type": p[1]["value"]},
+                                ],
+                                vname,
+                            ]
+                        ]
+                    # p[0]["value"] = vname
+
             valid, entry = symTab.insert(
                 {
                     "name": _p["value"],
                     "type": p[1]["value"],
-                    "is_array": False,
-                    "dimensions": [],
-                    "value": cast_value_to_type(
-                        _p.get("store", get_default_value(p[1]["value"])),
-                        p[1]["value"],
-                    ),
+                    "is_array": _p.get("is_array", False),
+                    "dimensions": _p.get("dimensions", []),
                 },
                 kind=0,
             )
@@ -755,8 +801,13 @@ def p_init_declarator(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO: Might require different handling for struct or array {1, 2, 3} type initialization
-        p[0] = {"value": p[1]["value"], "code": [], "store": p[3]["value"]}
+        p[0] = {
+            "value": p[1]["value"],
+            "code": p[3]["code"],
+            "store": {"value": p[3]["value"], "types": p[3]["types"]},
+            "is_array": p[1].get("is_array", False),
+            "dimensions": p[1].get("dimensions", []),
+        }
         # p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
 
 
@@ -919,7 +970,7 @@ def p_enumerator(p):
 def p_type_qualifier(p):
     """type_qualifier : CONST
     | VOLATILE"""
-    p[0] = ("type_qualifier",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
 
 
 def p_declarator(p):
@@ -944,14 +995,25 @@ def p_direct_declarator_1(p):
         p[0] = {"value": p[1], "code": []}
     elif len(p) == 4:
         if p[1] == "(":
-            # TODO: Rule 2
-            p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
+            p[0] = p[2]
+        elif p[1] == "[":
+            # TODO
+            p[0] = ("direct_declarator_1.1",) + tuple(p[-len(p) + 1 :])
         else:
             # Rule 5: No parameter function
             p[0] = {"value": p[1]["value"], "code": [], "parameters": []}
     else:
-        # TODO
-        p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
+        p[0] = {
+            "code": p[1]["code"],
+            "value": p[1]["value"],
+            "is_array": True,
+            "dimensions": p[1].get("dimensions", []),
+        }
+        if len(p[3]["code"]) > 0:
+            # TODO: Type casting might be needed
+            p[0]["code"] += p[3]["code"]
+        p[0]["dimensions"] += [p[3]["value"] if p[3]["kind"] != "CONSTANT" else p[3]]
+        # p[0]["text"] = ("direct_declarator_1.2",) + tuple(p[-len(p) + 1 :])
 
 
 def p_direct_declarator_2(p):
@@ -967,7 +1029,7 @@ def p_direct_declarator_2(p):
 
 def p_direct_declarator_3(p):
     """direct_declarator : direct_declarator LEFT_BRACKET identifier_list RIGHT_BRACKET"""
-    p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
+    p[0] = ("direct_declarator_3",) + tuple(p[-len(p) + 1 :])
 
 
 def p_pointer(p):
@@ -1053,14 +1115,32 @@ def p_initializer(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("initializer",) + tuple(p[-len(p) + 1 :])
+        p[0] = {"code": [], "value": [], "types": []}
+        for _p in p[2]:
+            if len(_p["code"]) > 0:
+                p[0]["code"] += _p["code"]
+            if "type" not in _p:
+                p[0]["value"].append(_p["value"])
+                p[0]["types"].append(_p["types"])
+            else:
+                p[0]["value"].append(_p["value"] if _p["kind"] != "CONSTANT" else _p)
+                p[0]["types"].append(_p["type"])
+        # if all(map(lambda x: x == p[0]["types"][0], p[0]["types"])):
+        #     p[0]["type"] = p[0]["types"][0]
+        # else:
+        #     # FIXME: Type inference by casting maybe?
+        #     p[0]["type"] = "all"
+        # p[0] = ("initializer",) + tuple(p[-len(p) + 1 :])
 
 
 def p_initializer_list(p):
     """initializer_list : initializer
     | initializer_list COMMA initializer"""
-    p[0] = ("initializer_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
+    # p[0] = ("initializer_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_statement(p):
@@ -1090,8 +1170,9 @@ def p_compound_statement_1(p):
     elif len(p) == 4:
         p[0] = p[2]
     else:
-        # Declarations should not be shown in AST
         p[0] = p[3]
+        if len(p[2]["code"]) > 0:
+            p[0]["code"] = p[2]["code"] + p[3]["code"]
 
 
 def p_compound_statement_2(p):
@@ -1102,7 +1183,12 @@ def p_compound_statement_2(p):
 def p_declaration_list(p):
     """declaration_list : declaration
     | declaration_list declaration"""
-    p[0] = ("declaration_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        p[0] = p[2]
+        p[0]["code"] = p[1]["code"] + p[2]["code"]
+    # p[0] = ("declaration_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_statement_list(p):
@@ -1334,7 +1420,7 @@ def populate_global_symbol_table() -> None:
     table = get_current_symtab()
 
     # Some of the binary operators
-    for op in ("+", "-", "/"):
+    for op in ("+", "-", "/", "*"):
         for _type in BASIC_TYPES:
             _type = _type.lower()
             table.insert(
