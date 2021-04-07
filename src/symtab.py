@@ -119,7 +119,7 @@ class SymbolTable:
         entry["value"] = value
 
     def insert(self, entry: dict, kind: int = 0) -> Tuple[bool, Union[dict, List[dict]]]:
-        # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions"}
+        # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "pointer_lvl"}
         # Functions (FN) -> {"name", "return type", "parameter types"}
         # Structs (ST)   -> {"name", "alt name" (via typedef), "field names", "field types"}
         # Classes (CL)   -> {"name", ... TBD}
@@ -131,12 +131,22 @@ class SymbolTable:
         prev_entry = self.lookup_current_table(name, kind, entry.get("alt name", None))
         if prev_entry is None:
             entry["kind"] = kind
-
+            entry['pointer_lvl'] = entry.get('pointer_lvl', 0)
             if kind == 0:
                 # TODO: Support custom types sizes
                 if not self.check_type(entry["type"]):
                     raise Exception(f"{entry['type']} is not a valid data type")
-                entry["size"] = -1
+                try:
+                    entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
+                    if entry['pointer_lvl'] > 0 :
+                        entry["size"] = 8
+                except KeyError:
+                #     # TODO: Proper error message with line number and such
+                    raise Exception(f"{entry['type']} is not a valid data type")
+                # entry["size"] = -1
+                entry["value"] = entry.get("value", get_default_value(entry["type"]))
+                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
+
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
                 entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
 
@@ -221,7 +231,7 @@ class SymbolTable:
             return True, entry
         return False, prev_entry
         # After Storage
-        # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "kind", "size", "offset"}
+        # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "kind", "size", "offset", "pointer_lvl"}
         # Functions (FN) -> {"name", "return type", "parameter types", "kind", "local scope"}
 
     def _check_type_in_current_table(self, typename: str) -> bool:

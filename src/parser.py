@@ -59,8 +59,22 @@ def _type_cast(s1, s2):
 
 
 def type_cast(s1, s2):
-    return _type_cast(s1, s2).lower()
-
+    if s1.get("pointer_lvl",0) > 0 and s2.get("pointer_lvl",0) > 0:
+        raise Exception("Can not cast pointer to pointer!")
+    elif s1.get("pointer_lvl",0) > 0 :
+        if s2['type'].upper() in INTEGER_TYPES:
+            return s1
+        else:
+            print(F"Can not cast {s2['type']} to pointer!")
+            raise Exception(F"Can not cast {s2['type']} to pointer!")
+    elif s2.get("pointer_lvl",0) > 0 :
+        if s1['type'].upper() in INTEGER_TYPES:
+            return s2
+        else:
+            raise Exception(F"Can not cast {s1['type']} to pointer!")
+    else:
+        return { 'type': _type_cast(s1['type'], s2['type']).lower(),
+                "pointer_lvl" : 0}
 
 def cast_value_to_type(val, type):
     # TODO: Throw an error if typecast is not possible
@@ -68,36 +82,36 @@ def cast_value_to_type(val, type):
 
 
 def _get_conversion_function(p, tcast):
-    if p["type"] == tcast:
+    if p["type"] == tcast['type']:
         return p
     else:
         nvar = get_tmp_var()
-        arg = {"value": nvar, "type": tcast, "kind": "FUNCTION CALL"}
+        arg = {"value": nvar, "type": tcast['type'], "kind": "FUNCTION CALL"}
         arg["code"] = [
             [
                 "FUNCTION CALL",
-                tcast,
-                f"__convert({p['type']},{tcast})",
-                [p, {"value": get_default_value(tcast), "type": tcast, "kind": "CONSTANT"}],
+                tcast['type'],
+                f"__convert({p['type']},{tcast['type']})",
+                [p, {"value": get_default_value(tcast['type']), "type": tcast['type'], "kind": "CONSTANT"}],
             ]
         ]
         return arg
 
 
 def _get_conversion_function_expr(p, tcast):
-    if p["type"] == tcast:
+    if p["type"] == tcast['type']:
         return {"value": p["value"], "code": []}
     else:
         nvar = get_tmp_var()
-        arg = {"value": nvar, "type": tcast, "kind": "FUNCTION CALL"}
+        arg = {"value": nvar, "type": tcast['type'], "kind": "FUNCTION CALL"}
         arg["code"] = [
             [
                 "FUNCTION CALL",
-                tcast,
-                f"__convert({p['type']},{tcast})",
+                tcast['type'],
+                f"__convert({p['type']},{tcast['type']})",
                 [
                     p["value"],
-                    {"value": get_default_value(tcast), "type": tcast, "kind": "CONSTANT"},
+                    {"value": get_default_value(tcast['type']), "type": tcast['type'], "kind": "CONSTANT"},
                 ],  # FIXME: We might need the entry for p["value"]
                 nvar,
             ]
@@ -124,14 +138,14 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
         )
 
     if totype is None:
-        t1, t2 = plist[0]["type"], plist[1]["type"]
-        tcast = type_cast(t1, t2)
+        # t1, t2 = plist[0]["type"], plist[1]["type"]
+        tcast = type_cast(plist[0], plist[1])
         for t in plist[2:]:
             tcast = type_cast(t, tcast)
     else:
         tcast = totype
 
-    funcname = f"{fname}(" + ",".join([tcast] * len(plist)) + ")"
+    funcname = f"{fname}(" + ",".join([tcast['type']] * len(plist)) + ")"
     entry = get_current_symtab().lookup(funcname)
     if entry is None:
         raise Exception
@@ -173,15 +187,29 @@ def p_identifier(p):
     """identifier : IDENTIFIER"""
     symTab = get_current_symtab()
     entry = symTab.lookup(p[1])
+    
+    # FIXME: 
+    if type(entry) is list:
+        entry = entry[0]
     if entry is None:
         raise Exception  # undeclared identifier used
-    p[0] = {
-        "value": p[1],
-        "code": [],
-        "type": entry["type"],
-        "kind": "IDENTIFIER",
-        # "entry": entry,  # FIXME: Add this back in the final code
-    }
+    # print(entry)
+    if entry["kind"] == 1 :
+        p[0] = {
+            "value": p[1],
+            "code": [],
+            "type": entry["return type"],
+            "kind": "IDENTIFIER",
+            # "entry": entry,  # FIXME: Add this back in the final code
+        }
+    else:
+        p[0] = {
+            "value": p[1],
+            "code": [],
+            "type": entry["type"],
+            "kind": "IDENTIFIER",
+            # "entry": entry,  # FIXME: Add this back in the final code
+        }
 
 
 def p_f_const(p):
@@ -308,7 +336,7 @@ def p_postfix_expression(p):
                 if entry is None:
                     raise Exception
 
-                nvar = get_tmp_var(p[1]["type"])
+                nvar = get_tmp_var(p[1])
                 p[0] = {
                     "value": nvar,
                     "type": p[1]["type"],
@@ -381,6 +409,18 @@ def p_unary_expression(p):
             }
 
             p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
+
+        elif p[1].startswith('*'):
+            # print(p[1])
+            p[0] = p[2]
+            p[0]['deref'] = p[0].get('deref',0)+len(p[1])
+            p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
+
+        elif p[1].startswith('&'):
+            p[0] = p[2]
+            p[0]['addr'] = p[0].get('addr',0)+len(p[1])
+            p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
+            # print(p[0])
 
         else:
             # TODO: depends on cast expression
@@ -649,13 +689,13 @@ def p_conditional_expression(p):
         p[0] = p[1]
     else:
         p[0] = {"code": []}
-        r1 = p[3]["type"]
-        r2 = p[5]["type"]
-        tcast = type_cast(r1, r2)
+        # r1 = p[3]["type"]
+        # r2 = p[5]["type"]
+        tcast = type_cast(p[3], p[5])
 
-        vname = get_tmp_var(tcast)
+        vname = get_tmp_var(tcast['type'])
 
-        fname = get_tmp_closure(tcast)
+        fname = get_tmp_closure(tcast['type'])
         push_scope(new_scope(get_current_symtab()))
 
         cond_code = []
@@ -663,7 +703,7 @@ def p_conditional_expression(p):
         if len(p[1]["code"]) > 0:
             cond_code += p[1]["code"]
         if p[1]["value"] is not None:
-            expr = _get_conversion_function_expr(p[1], "int")
+            expr = _get_conversion_function_expr(p[1], {'type': "int", 'pointer_lvl':0})
             if len(expr["code"]) > 0:
                 cond_code += expr["code"]
             cond_code += [["IF", expr["value"], "==", "0", "GOTO", elseLabel]]
@@ -697,18 +737,19 @@ def p_conditional_expression(p):
         )
 
         p[0]["code"] += [
-            ["BEGINFUNCTION", tcast, fname],
+            ["BEGINFUNCTION", tcast['type'], fname],
             cond_code,
             succ_code,
             ["LABEL", elseLabel],
             fail_code,
             ["ENDFUNCTION"],
-            ["FUNCTION CALL", tcast, fname + "()", [], vname],
+            ["FUNCTION CALL", tcast['type'], fname + "()", [], vname],
         ]
 
         pop_scope()
 
-        p[0]["type"] = tcast
+        p[0]["type"] = tcast['type']
+        p[0]['pointer_lvl'] = tcast['pointer_lvl']
         p[0]["value"] = vname
 
 
@@ -720,7 +761,7 @@ def p_assignment_expression(p):
     else:
         if p[2] == "=":
             # TODO: Check invalid type conversions
-            arg = _get_conversion_function(p[3], p[1]["type"])
+            arg = _get_conversion_function(p[3], p[1])
             p[0] = {
                 "value": f"__store({p[1]['type']}*,{p[1]['type']})",
                 "type": p[1]["type"],
@@ -736,7 +777,7 @@ def p_assignment_expression(p):
             # FIXME (M4): Order of type conversion for +=, -=, etc.
             fname, fentry, args = resolve_function_name_uniform_types(p[2][:-1], [p[1], p[3]])
             expr = {"value": fname, "type": fentry["return type"], "arguments": args, "kind": "FUNCTION CALL"}
-            arg = _get_conversion_function(expr, p[1]["type"])
+            arg = _get_conversion_function(expr, p[1])
             p[0] = {
                 "value": f"__store({p[1]['type']}*,{p[1]['type']})",
                 "type": p[1]["type"],
@@ -770,9 +811,9 @@ def p_expression(p):
     """expression : assignment_expression
     | expression COMMA assignment_expression"""
     if len(p) == 2:
-        p[0] = {"value": p[1]["value"], "type": p[1]["type"], "kind": "EXPRESSION", "code": p[1]["code"]}
+        p[0] = {"value": p[1]["value"], "type": p[1]["type"], "pointer_lvl": p[1].get("pointer_lvl",0), "kind": "EXPRESSION", "code": p[1]["code"]}
     else:
-        p[0] = {"value": p[3]["value"], "type": p[3]["type"], "kind": "EXPRESSION", "code": p[1]["code"] + p[3]}
+        p[0] = {"value": p[3]["value"], "type": p[3]["type"], "pointer_lvl": p[3]["pointer_lvl"], "kind": "EXPRESSION", "code": p[1]["code"] + p[3]}
         # p[0] = p[1] + p[3]
         # p[0] = ("expression",) + tuple(p[-len(p) + 1 :])
 
@@ -807,11 +848,11 @@ def p_declaration(p):
             if "store" in _p:
                 if not _p.get("is_array", True):
                     if len(_p["code"]) > 0:
-                        expr = _get_conversion_function_expr(_p["store"], tinfo)
+                        expr = _get_conversion_function_expr(_p["store"],{"type":tinfo})
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     else:
-                        expr = _get_conversion_function(_p["store"], tinfo)
+                        expr = _get_conversion_function(_p["store"], {"type":tinfo})
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     vname = get_tmp_var()
@@ -860,6 +901,7 @@ def p_declaration(p):
                     "type": tinfo,
                     "is_array": _p.get("is_array", False),
                     "dimensions": _p.get("dimensions", []),
+                    "pointer_lvl": _p.get("pointer_lvl", 0),
                 },
                 kind=0,
             )
@@ -895,6 +937,7 @@ def p_init_declarator(p):
     | declarator EQ initializer"""
     if len(p) == 2:
         p[0] = p[1]
+
     else:
         if p[1].get("is_array", False):
             p[0] = {
@@ -903,17 +946,19 @@ def p_init_declarator(p):
                 "store": {"value": p[3]["value"], "types": p[3]["types"]},
                 "is_array": p[1].get("is_array", False),
                 "dimensions": p[1].get("dimensions", []),
+                "pointer_lvl": p[1].get("pointer_lvl",0) 
             }
         else:
             p[0] = {
                 "value": p[1]["value"],
                 "code": p[3]["code"],
-                "store": {"value": p[3]["value"], "type": p[3]["type"], "code": []},
+                "store": {"value": p[3]["value"], 'type': p[3]['type'], "code": []},
                 "is_array": p[1].get("is_array", False),
                 "dimensions": p[1].get("dimensions", []),
+                "pointer_lvl": p[1].get("pointer_lvl",0) 
             }
         # p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
-
+    
 
 def p_storage_class_specifier(p):
     """storage_class_specifier : TYPEDEF
@@ -1211,8 +1256,8 @@ def p_declarator(p):
     """declarator : pointer direct_declarator
     | direct_declarator"""
     if len(p) == 3:
-        # TODO
-        p[0] = ("declarator",) + tuple(p[-len(p) + 1 :])
+        p[0] = p[2]
+        p[0]["pointer_lvl"] = len(p[1])
     else:
         p[0] = p[1]
 
@@ -1271,7 +1316,11 @@ def p_pointer(p):
     | MULTIPLY type_qualifier_list
     | MULTIPLY pointer
     | MULTIPLY type_qualifier_list pointer"""
-    p[0] = ("pointer",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 3:
+        p[0] = p[2] + p[1]
+    else:
+        p[0] = p[1]
+
 
 
 def p_type_qualifier_list(p):
@@ -1469,7 +1518,7 @@ def p_selection_statement(p):
         if len(p[3]["code"]) > 0:
             p[0]["code"] += p[3]["code"]
         if p[3]["value"] is not None:
-            expr = _get_conversion_function_expr(p[3], "int")
+            expr = _get_conversion_function_expr(p[3], {'type': "int", 'pointer_lvl':0})
             if len(expr["code"]) > 0:
                 p[0]["code"] += expr["code"]
             p[0]["code"] += [["IF", expr["value"], "==", "0", "GOTO", elseLabel]]
@@ -1507,7 +1556,7 @@ def p_iteration_statement(p):
         if len(p[3]["code"]) > 0:
             code += p[3]["code"]
         if p[3]["value"] != "":
-            expr = _get_conversion_function_expr(p[3], "int")
+            expr = _get_conversion_function_expr(p[3], {'type': "int", 'pointer_lvl':0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
@@ -1521,7 +1570,7 @@ def p_iteration_statement(p):
         if len(p[5]["code"]) > 0:
             code += p[5]["code"]
         if p[5]["value"] != "":
-            expr = _get_conversion_function_expr(p[5], "int")
+            expr = _get_conversion_function_expr(p[5], {'type': "int", 'pointer_lvl':0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
@@ -1533,7 +1582,7 @@ def p_iteration_statement(p):
         if len(p[4]["code"]) > 0:
             code += p[4]["code"]
         if p[4]["value"] != "":
-            expr = _get_conversion_function_expr(p[4], "int")
+            expr = _get_conversion_function_expr(p[4], {'type': "int", 'pointer_lvl':0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
