@@ -133,6 +133,7 @@ class SymbolTable:
             entry["kind"] = kind
 
             if kind == 0:
+                # TODO: Support custom types
                 # Variable Identifier
                 try:
                     entry["size"] = DATATYPE2SIZE[entry["type"].upper()]

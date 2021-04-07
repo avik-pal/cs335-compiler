@@ -583,26 +583,17 @@ def p_declaration(p):
                 raise Exception(f"Variable {_p['value']} already declared with type {entry['type']}")
 
 
-def p_declaration_specifiers_1(p):
+def p_declaration_specifiers(p):
     """declaration_specifiers : storage_class_specifier
-    | storage_class_specifier declaration_specifiers"""
-    p[0] = ("declaration_specifiers",) + tuple(p[-len(p) + 1 :])
-
-
-def p_declaration_specifiers_2(p):
-    """declaration_specifiers : type_specifier
-    | type_specifier declaration_specifiers"""
+    | storage_class_specifier declaration_specifiers
+    | type_specifier
+    | type_specifier declaration_specifiers
+    | type_qualifier
+    | type_qualifier declaration_specifiers"""
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = ("declaration_specifiers",) + tuple(p[-len(p) + 1 :])
-
-
-def p_declaration_specifiers_3(p):
-    """declaration_specifiers : type_qualifier
-    | type_qualifier declaration_specifiers"""
-    p[0] = ("declaration_specifiers",) + tuple(p[-len(p) + 1 :])
+        p[0] = {"value": p[1]["value"] + " " + p[2]["value"], "code": []}
 
 
 def p_init_declarator_list(p):
