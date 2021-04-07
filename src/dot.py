@@ -1,4 +1,5 @@
 from graphviz import Digraph
+import networkx as nx
 
 
 def generate_graph_from_ast(ast, filename="AST"):
@@ -57,3 +58,8 @@ def reduce_ast(ast):
     else:
         current_ast = ast
     return current_ast
+
+
+def parse_code(tree):
+    G = nx.DiGraph()
+    nx.draw(G)

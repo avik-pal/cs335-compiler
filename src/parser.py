@@ -5,7 +5,7 @@ import lex
 import ply.yacc as yacc
 import argparse
 
-from dot import generate_graph_from_ast, reduce_ast
+from dot import generate_graph_from_ast, parse_code, reduce_ast
 from symtab import (
     BASIC_TYPES,
     pop_scope,
@@ -22,6 +22,7 @@ from symtab import (
     BASIC_TYPES,
     FLOATING_POINT_TYPES,
     INTEGER_TYPES,
+    SYMBOL_TABLES,
 )
 
 flag_for_error = 0
@@ -62,8 +63,7 @@ def type_cast(s1, s2):
 
 
 def cast_value_to_type(val, type):
-    # TODO
-    # Throw an error if typecast is not possible
+    # TODO: Throw an error if typecast is not possible
     return val
 
 
@@ -143,6 +143,8 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
 
 LAST_POPPED_TABLE = None
 INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
+JUMP_LABELS = []
+LAST_FUNCTION_DECLARATION = None
 
 tokens = lex.tokens
 
@@ -210,7 +212,6 @@ def p_postfix_expression(p):
         p[0] = p[1]
 
     elif len(p) == 3:
-        # VERIFY: Should always have a "type" field
         symTab = get_current_symtab()
         funcname = p[2] + f"({p[1]['type']})"
         entry = symTab.lookup(funcname)
@@ -280,7 +281,6 @@ def p_postfix_expression(p):
     elif len(p) == 5:
         if p[2] == "(":
             # function call
-            # TODO: Depends on the argument expression list
             symTab = get_current_symtab()
             funcname = p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")"
             entry = symTab.lookup(funcname)
@@ -303,21 +303,19 @@ def p_postfix_expression(p):
         elif p[2] == "[":
             if p[3]["type"] == "int":
                 symTab = get_current_symtab()
-                funcname = "__get_array_element"+f"({p[1]['type']}*,int)"
+                funcname = "__get_array_element" + f"({p[1]['type']}*,int)"
                 entry = symTab.lookup(funcname)
                 if entry is None:
                     raise Exception
-                
+
                 nvar = get_tmp_var(p[1]["type"])
                 p[0] = {
                     "value": nvar,
                     "type": p[1]["type"],
-                    "code": ["FUNCTION CALL", p[1]["type"], funcname, [p[1],p[3]], nvar]
+                    "code": ["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar],
                 }
             else:
-                raise Exception    
-            # pass
-            # #TODO
+                raise Exception
 
     else:
         p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
@@ -328,13 +326,13 @@ def p_argument_expression_list(p):
     | argument_expression_list COMMA assignment_expression"""
     # p[0] = ("argument_expression_list",) + tuple(p[-len(p) + 1 :])
 
-    p[0] = {"code": [], "type": [], "value":[]}
+    p[0] = {"code": [], "type": [], "value": []}
 
     if len(p) == 2:
         ind = 1
     else:
         ind = 3
-        
+
     p[0]["code"].append(p[ind]["code"])
     p[0]["type"].append(p[ind]["type"])
     p[0]["value"].append(p[ind]["value"])
@@ -731,7 +729,7 @@ def p_assignment_expression(p):
             del p[0]["arguments"]
 
         else:
-            # FIXME: Order of type conversion for +=, -=, etc.
+            # FIXME (M4): Order of type conversion for +=, -=, etc.
             fname, fentry, args = resolve_function_name_uniform_types(p[2][:-1], [p[1], p[3]])
             expr = {"value": fname, "type": fentry["return type"], "arguments": args, "kind": "FUNCTION CALL"}
             arg = _get_conversion_function(expr, p[1]["type"])
@@ -784,13 +782,20 @@ def p_constant_expression(p):
 def p_declaration(p):
     """declaration : declaration_specifiers SEMICOLON
     | declaration_specifiers init_declarator_list SEMICOLON"""
+    global LAST_FUNCTION_DECLARATION
     symTab = get_current_symtab()
     p[0] = {"code": [], "value": ""}
     if len(p) == 3:
         pass
         # p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
     else:
-        # TODO: Handle structs, etc. Right now only handles basic variables
+        # TODO: Handle static variables
+        tinfo = p[1]["value"]
+        is_static = False
+        if tinfo[:min(6, len(tinfo))] == "static":
+            tinfo = tinfo[7:]
+            is_static = True
+
         for _p in p[2]:
             if len(_p["code"]) > 0:
                 p[0]["code"] += _p["code"]
@@ -798,22 +803,22 @@ def p_declaration(p):
             if "store" in _p:
                 if not _p.get("is_array", True):
                     if len(_p["code"]) > 0:
-                        expr = _get_conversion_function_expr(_p["store"], p[1]["value"])
+                        expr = _get_conversion_function_expr(_p["store"], tinfo)
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     else:
-                        expr = _get_conversion_function(_p["store"], p[1]["value"])
+                        expr = _get_conversion_function(_p["store"], tinfo)
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     vname = get_tmp_var()
                     p[0]["code"] += [
                         [
                             "FUNCTION CALL",
-                            p[1]["value"],
+                            tinfo,
                             f"__store({p[1]['value']}*,{p[1]['value']})",
                             [
-                                {"value": _p["value"], "type": p[1]["value"]},
-                                {"value": expr["value"], "type": p[1]["value"]},
+                                {"value": _p["value"], "type": tinfo},
+                                {"value": expr["value"], "type": tinfo},
                             ],
                             vname,
                         ]
@@ -823,27 +828,32 @@ def p_declaration(p):
                     # For array initialization
                     # TODO: Multidimensional array initialization
                     for i, (item, t) in enumerate(zip(_p["store"]["value"], _p["store"]["types"])):
-                        expr = _get_conversion_function({"value": item, "type": t, "code": []}, p[1]["value"])
+                        expr = _get_conversion_function({"value": item, "type": t, "code": []}, tinfo)
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                         vname = get_tmp_var()
                         p[0]["code"] += [
                             [
                                 "FUNCTION CALL",
-                                p[1]["value"],
+                                tinfo,
                                 f"__store({p[1]['value']}*,{p[1]['value']})",
                                 [
-                                    {"value": _p["value"], "type": p[1]["value"], "index": i},
-                                    {"value": expr["value"], "type": p[1]["value"]},
+                                    {"value": _p["value"], "type": tinfo, "index": i},
+                                    {"value": expr["value"], "type": tinfo},
                                 ],
                                 vname,
                             ]
                         ]
                     # p[0]["value"] = vname
+
+            # if is_static:
+            #     print(LAST_FUNCTION_DECLARATION)
+            #     vname = _p["value"] + ""
+
             valid, entry = symTab.insert(
                 {
                     "name": _p["value"],
-                    "type": p[1]["value"],
+                    "type": tinfo,
                     "is_array": _p.get("is_array", False),
                     "dimensions": _p.get("dimensions", []),
                 },
@@ -907,7 +917,7 @@ def p_storage_class_specifier(p):
     | STATIC
     | AUTO
     | REGISTER"""
-    p[0] = p[1]
+    p[0] = {"value": p[1], "code": []}
 
 
 def p_type_specifier(p):
@@ -949,7 +959,7 @@ def p_type_specifier_custom_types(p):
         else:
             if not symTab.check_type("struct " + p[1]["name"]):
                 raise Exception(f"struct {p[1]['name']} is not a valid type")
-        p[0] = {"value": p[1]["name"], "code": []}
+        p[0] = {"value": "struct " + p[1]["name"], "code": []}
     
     elif p[1]["kind"] == 5:
         if p[1]["insert"]:
@@ -965,7 +975,7 @@ def p_type_specifier_custom_types(p):
         else:
             if not symTab.check_type("union " + p[1]["name"]):
                 raise Exception(f"union {p[1]['name']} is not a valid type")
-        p[0] = {"value": p[1]["name"], "code": []}
+        p[0] = {"value": "union " + p[1]["name"], "code": []}
     
     elif p[1]["kind"] == 4:
         if p[1]["insert"]:
@@ -982,7 +992,7 @@ def p_type_specifier_custom_types(p):
                 raise Exception(f"{p[1]['value']} is not a valid type")
         p[0] = {"value": p[1]["value"], "code": []}
     else:
-        p[0] = ("custom_type", p[1])
+        raise Exception("Unsupported Custom Type")
 
 
 def p_inheritance_specifier(p):
@@ -1049,10 +1059,10 @@ def p_struct_or_union_specifier(p):
     """struct_or_union_specifier : struct_or_union IDENTIFIER LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
     | struct_or_union LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
     | struct_or_union IDENTIFIER"""
-    if len(p) in [5,6]:
+    if len(p) in [5, 6]:
         if p[1] == 'struct':
             p[0] = {
-                "name" : p[2] if len(p) is 6 else get_tmp_var(),
+                "name" : p[2] if len(p) == 6 else get_tmp_var(),
                 "alt_name": None,
                 "field names": p[len(p) - 2]["field names"],
                 "field types": p[len(p) - 2]["field types"],
@@ -1062,7 +1072,7 @@ def p_struct_or_union_specifier(p):
             }
         else:
             p[0] = {
-                "name" : p[2] if len(p) is 6 else get_tmp_var(),
+                "name" : p[2] if len(p) == 6 else get_tmp_var(),
                 "alt_name": p[2],
                 "field names": p[len(p) - 2]["field names"],
                 "field types": p[len(p) - 2]["field types"],
@@ -1378,8 +1388,19 @@ def p_labeled_statement(p):
     """labeled_statement : IDENTIFIER COLON statement
     | CASE constant_expression COLON statement
     | DEFAULT COLON statement"""
-    # TODO
-    p[0] = ("labeled_statement",) + tuple(p[-len(p) + 1 :])
+    # TODO (M4): Handle code properly
+    # TODO: store the identifiers in the symbol table as labels
+    if len(p) == 4:
+        if p[1] == "default":
+            # p[0] = {"code": [["LABEL", get_tmp_label()]] + p[3]["code"]}
+            p[0] = {"code": [["CASE", "DEFAULT"]] + p[3]["code"]}
+        else:
+            # TODO: Store p[1]
+            p[0] = {"code": [["LABEL", p[1]]] + p[3]["code"]}
+    else:
+        # TODO (M4): Assign labels
+        p[0] = {"code": p[2]["code"] + [["CASE", p[2]["value"]]] + p[4]["code"]}
+    # p[0] = ("labeled_statement",) + tuple(p[-len(p) + 1 :])
 
 
 def p_compound_statement_1(p):
@@ -1459,8 +1480,14 @@ def p_selection_statement(p):
                 p[0]["code"] += p[7]["code"]
             p[0]["code"] += [["LABEL", finishLabel]]
     else:
-        # TODO
-        p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
+        # TODO (M4): Write as goto statements to different labels
+        print()
+        print(p[3])
+        print()
+        print(p[5])
+        print()
+        # p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
+        p[0] = {"code": p[3]["code"] + [["BEGINSWITCH", p[3]["value"]]] + p[5]["code"] + [["ENDSWITCH"]]}
 
 
 def p_iteration_statement(p):
@@ -1524,14 +1551,17 @@ def p_jump_statement(p):
     | BREAK SEMICOLON
     | RETURN SEMICOLON
     | RETURN expression SEMICOLON"""
-    # TODO
+    # TODO (M4): Write the code field for these properly
+    global JUMP_LABELS
     p[0] = {"code": []}
     if p[1] == "goto":
+        # TODO (M4): Store labels in the symbol table
         p[0]["code"] += [["GOTO", p[2]["value"]]]
     elif p[1] == "continue":
-        p[0] = ("jump_statement",) + tuple(p[-len(p) + 1 :])
+        # TODO (M4): Check that it is being used only inside a loop
+        p[0]["code"] += [["CONTINUE"]]
     elif p[1] == "break":
-        p[0] = ("jump_statement",) + tuple(p[-len(p) + 1 :])
+        p[0]["code"] += [["BREAK"]]
     elif p[1] == "return":
         # Return type matching done in p_function_definition
         if len(p) == 3:
@@ -1561,6 +1591,7 @@ def p_function_definition(p):
     | declaration_specifiers declarator compound_statement
     | declarator declaration_list compound_statement
     | declarator compound_statement"""
+    global LAST_FUNCTION_DECLARATION
     symTab = get_current_symtab()
     if len(p) == 4:
         # TODO: Again arrays as parameters wont work for now
@@ -1577,6 +1608,8 @@ def p_function_definition(p):
         p[0]["code"] = (
             [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]] + p[3]["code"] + [["ENDFUNCTION"]]
         )
+
+        LAST_FUNCTION_DECLARATION = entry["name resolution"]
 
         # Ensure return type is same as RETURN value
         no_return = True
@@ -1700,7 +1733,7 @@ def populate_global_symbol_table() -> None:
                 1,
             )
 
-    #for getting array elements from basic types
+    # for getting array elements from basic types
     for _type in BASIC_TYPES:
         _type = _type.lower()
         table.insert(
@@ -1733,11 +1766,15 @@ if __name__ == "__main__":
             populate_global_symbol_table()
 
             tree = yacc.parse(data)
+
+            pop_scope()
+
             print()
             print(tree)
             print()
 
-            pop_scope()
+            parse_code(tree)
+
             # if args.output[-4:] == ".dot":
             #     args.output = args.output[:-4]
             # if args.trim:

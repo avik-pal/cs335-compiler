@@ -134,12 +134,8 @@ class SymbolTable:
 
             if kind == 0:
                 # TODO: Support custom types sizes
-                # Variable Identifier
-                # try:
-                #     entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
-                # except KeyError:
-                #     # TODO: Proper error message with line number and such
-                #     raise Exception(f"{entry['type']} is not a valid data type")
+                if not self.check_type(entry["type"]):
+                    raise Exception(f"{entry['type']} is not a valid data type")
                 entry["size"] = -1
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
                 entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
@@ -193,18 +189,21 @@ class SymbolTable:
                 entry["field2var"] = dict()
                 # Insert all the fields as variables
                 for i, var in enumerate(entry["field names"]):
+                    entry["field2var"][var] = {}
+                self._symtab_enums[name] = entry
+                self._custom_types[f"enum {name}"] = entry
+
+                for i, var in enumerate(entry["field names"]):
                     _, nentry = self.insert(
                         {
                             "name": var,
-                            "type": f"enum {name}",# "int",
+                            "type": f"enum {name}",
                             "is_array": False,
                             "dimensions": [],
-                            "value": entry["field values"][i]
+                            "value": entry["field values"][i],
                         }
                     )
-                    entry["field2var"][var] = nentry
-                self._symtab_enums[name] = entry
-                self._custom_types[f"enum {name}"] = entry
+                    entry["field2var"][var].update(nentry)
 
             elif kind == 5:
                 # Union
@@ -227,7 +226,6 @@ class SymbolTable:
 
     def _check_type_in_current_table(self, typename: str) -> bool:
         global DATATYPE2SIZE
-
         is_basic_type = typename.upper() in DATATYPE2SIZE if not isinstance(typename, (list, tuple)) else False
         return typename in self._custom_types if not is_basic_type else is_basic_type
 
@@ -327,6 +325,8 @@ class SymbolTable:
         print(" " * 20 + " Variables " + " " * 20)
         print("-" * 51)
         for k, v in self._symtab_variables.items():
+            if v["name"][:min(2, len(k))] == "__":
+                continue
             print(
                 f"Name: {k}, Type: {v['type']}, Size: {v['size']}, Value: {v['value']}"
                 + ("" if not v["is_array"] else f", Dimensions: {v['dimensions']}")
@@ -334,10 +334,13 @@ class SymbolTable:
         print("-" * 51)
         print(" " * 20 + " Functions " + " " * 20)
         print("-" * 51)
-        for k, v in self._symtab_functions.items():
-            print(
-                f"Name: {v['name']}, Return: {v['return type']}, Parameters: {v['parameter types']}, Name Resolution: {k}"
-            )
+        if self.table_number != 0:
+            for k, v in self._symtab_functions.items():
+                if v["name"][:min(1, len(k))] == "__":
+                    continue
+                print(
+                    f"Name: {v['name']}, Return: {v['return type']}, Parameters: {v['parameter types']}, Name Resolution: {k}"
+                )
         print("-" * 100)
         print()
 
@@ -348,8 +351,8 @@ SYMBOL_TABLES = []
 def pop_scope() -> SymbolTable:
     global SYMBOL_TABLES
     s = SYMBOL_TABLES.pop()
-    if s.table_name != "GLOBAL":
-        s.display()
+    # if s.table_name != "GLOBAL":
+    s.display()
     print(
         "[DEBUG INFO]  POP SYMBOL TABLE: ",
         s.table_number,
@@ -374,14 +377,13 @@ def get_current_symtab() -> Union[None, SymbolTable]:
 
 
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int]) -> int:
-    if len(dimensions)==0:
+    if len(dimensions) == 0:
         return dsize
     else:
         prod = 1
         for dim in dimensions:
             prod *= dim
-        return prod*dsize
-
+        return prod * dsize
 
 
 TMP_VAR_COUNTER = 0
