@@ -291,8 +291,23 @@ def p_postfix_expression(p):
             pass
 
         elif p[2] == "[":
-            pass
-            # TODO
+            if p[3]["type"] == "int":
+                symTab = get_current_symtab()
+                funcname = "__get_array_element"+f"({p[1]['type']}*,int)"
+                entry = symTab.lookup(funcname)
+                if entry is None:
+                    raise Exception
+                
+                nvar = get_tmp_var(p[1]["type"])
+                p[0] = {
+                    "value": nvar,
+                    "type": p[1]["type"],
+                    "code": ["FUNCTION CALL", p[1]["type"], funcname, [p[1],p[3]], nvar]
+                }
+            else:
+                raise Exception    
+            # pass
+            # #TODO
 
     else:
         p[0] = ("postfix_expression",) + tuple(p[-len(p) + 1 :])
@@ -1535,6 +1550,18 @@ def populate_global_symbol_table() -> None:
                 },
                 1,
             )
+
+    #for getting array elements from basic types
+    for _type in BASIC_TYPES:
+        _type = _type.lower()
+        table.insert(
+            {
+                "name": "__get_array_element",
+                "return type": _type,
+                "parameter types": [f"{_type}*", "int"],
+            },
+            1,
+        )
 
 
 def get_args():
