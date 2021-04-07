@@ -5,22 +5,24 @@ int main() {
 		c++;
         if(a==b)
             z = (1 == 1 ? a : b);
-            z++;
+        z++;
     }
 	else
 		b++;
 
-	switch(c)
-    {
-        case 1:
-            a--;
-            break;
+	// switch(c)
+    // {
+    //     case 1:
+    //         a--;
+    //         break;
 
-        case 2:
-            z = a+b;
-            break;
+    //     case 2:
+    //         z = a+b;
+    //         break;
 
-        default:
-            c++;
-    }
+    //     default:
+    //         c++;
+    // }
+
+    return 0;
 }

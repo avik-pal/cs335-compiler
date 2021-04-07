@@ -154,13 +154,17 @@ def p_primary_expression(p):
     | f_const
     | i_const
     | c_const
-    | STRING_LITERAL
+    | str_literal
     | LEFT_BRACKET expression RIGHT_BRACKET"""
-    # TODO: String Literal
     if len(p) == 4:
         p[0] = p[2]
     else:
         p[0] = p[len(p) - 1]
+
+
+def p_str_literal(p):
+    """str_literal : STRING_LITERAL"""
+    p[0] = {"value": p[1], "code": [], "type": "char*", "kind": "CONSTANT"}
 
 
 def p_identifier(p):
@@ -801,13 +805,22 @@ def p_init_declarator(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        p[0] = {
-            "value": p[1]["value"],
-            "code": p[3]["code"],
-            "store": {"value": p[3]["value"], "types": p[3]["types"]},
-            "is_array": p[1].get("is_array", False),
-            "dimensions": p[1].get("dimensions", []),
-        }
+        if p[1].get("is_array", False):
+            p[0] = {
+                "value": p[1]["value"],
+                "code": p[3]["code"],
+                "store": {"value": p[3]["value"], "types": p[3]["types"]},
+                "is_array": p[1].get("is_array", False),
+                "dimensions": p[1].get("dimensions", []),
+            }
+        else:
+            p[0] = {
+                "value": p[1]["value"],
+                "code": p[3]["code"],
+                "store": {"value": p[3]["value"], "type": p[3]["type"], "code": []},
+                "is_array": p[1].get("is_array", False),
+                "dimensions": p[1].get("dimensions", []),
+            }
         # p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
 
 
@@ -817,7 +830,7 @@ def p_storage_class_specifier(p):
     | STATIC
     | AUTO
     | REGISTER"""
-    p[0] = ("storage_class_specifier",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
 
 
 def p_type_specifier(p):
@@ -1246,7 +1259,6 @@ def p_iteration_statement(p):
     | DO statement WHILE LEFT_BRACKET expression RIGHT_BRACKET SEMICOLON
     | FOR LEFT_BRACKET expression_statement expression_statement RIGHT_BRACKET statement
     | FOR LEFT_BRACKET expression_statement expression_statement expression RIGHT_BRACKET statement"""
-    # TODO
     beginLabel = get_tmp_label()
     endLabel = get_tmp_label()
     code = []
