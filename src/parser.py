@@ -846,7 +846,7 @@ def p_declaration(p):
                 p[0]["code"] += _p["code"]
 
             if "store" in _p:
-                if not _p.get("is_array", True):
+                if not _p.get("is_array", False):
                     if len(_p["code"]) > 0:
                         expr = _get_conversion_function_expr(_p["store"],{"type":tinfo})
                         if len(expr["code"]) > 0:
@@ -939,7 +939,7 @@ def p_init_declarator(p):
         p[0] = p[1]
 
     else:
-        if p[1].get("is_array", False):
+        if "types" in p[3]:
             p[0] = {
                 "value": p[1]["value"],
                 "code": p[3]["code"],

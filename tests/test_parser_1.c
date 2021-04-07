@@ -1,14 +1,14 @@
 int main() {
     int c, a, b;
     double z;
-	// if(c==0) {
-	// 	c++;
-    //     if(a==b)
-    //         z = (1 == 1 ? a : b);
-    //     z++;
-    // }
-	// else
-	// 	b++;
+	if(c==0) {
+		c++;
+        if(a==b)
+            z = (1 == 1 ? a : b);
+        z++;
+    }
+	else
+		b++;
 
 	switch(c)
     {
