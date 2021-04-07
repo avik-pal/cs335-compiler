@@ -62,23 +62,39 @@ def cast_value_to_type(val, type):
 
 
 def _get_conversion_function(p, tcast):
-    return (
-        p
-        if p["type"] == tcast
-        else {
-            "value": f"__convert({p['type']},{tcast})",
-            "type": tcast,
-            "arguments": [
-                p,
-                {
-                    "value": get_default_value(tcast),
-                    "type": tcast,
-                    "kind": "CONSTANT",
-                },
-            ],
-            "kind": "FUNCTION CALL",
-        }
-    )
+    if p["type"] == tcast:
+        return p
+    else:
+        nvar = get_tmp_var()
+        arg = {"value": nvar, "type": tcast, "kind": "FUNCTION CALL"}
+        arg["code"] = [
+            [
+                "FUNCTION CALL",
+                tcast,
+                f"__convert({p['type']},{tcast})",
+                [p, {"value": get_default_value(tcast), "type": tcast, "kind": "CONSTANT"}],
+            ]
+        ]
+        return arg
+
+
+def _get_conversion_function_expr(p, tcast):
+    if p["type"] == tcast:
+        return {"code": []}
+    else:
+        nvar = get_tmp_var()
+        arg = {"value": nvar, "type": tcast, "kind": "FUNCTION CALL"}
+        arg["code"] = [
+            [
+                "FUNCTION CALL",
+                tcast,
+                f"__convert({p['type']},{tcast})",
+                [
+                    p["value"],
+                    {"value": get_default_value(tcast), "type": tcast, "kind": "CONSTANT"},
+                ],  # FIXME: We might need the entry for p["value"]
+            ]
+        ]
 
 
 def resolve_function_name_uniform_types(fname, plist, totype=None):
@@ -150,6 +166,7 @@ def p_identifier(p):
         "code": [],
         "type": entry["type"],
         "kind": "IDENTIFIER",
+        # "entry": entry,  # FIXME: Add this back in the final code
     }
 
 
@@ -862,7 +879,7 @@ def p_direct_declarator_1(p):
             # TODO: Rule 2
             p[0] = ("direct_declarator",) + tuple(p[-len(p) + 1 :])
         else:
-            # Rule 7: No parameter function
+            # Rule 5: No parameter function
             p[0] = {"value": p[1]["value"], "code": [], "parameters": []}
     else:
         # TODO
@@ -1051,6 +1068,9 @@ def p_selection_statement(p):
         if len(p[3]["code"]) > 0:
             p[0]["code"] += p[3]["code"]
         if p[3]["value"] is not None:
+            expr = _get_conversion_function_expr(p[3], "int")
+            if len(expr["code"]) > 0:
+                p[0]["code"] += expr["code"]
             p[0]["code"] += [["IF", p[3]["value"], "==", "0", "GOTO", elseLabel]]
         if len(p[5]["code"]) > 0:
             p[0]["code"] += p[5]["code"]
@@ -1073,26 +1093,54 @@ def p_iteration_statement(p):
     | FOR LEFT_BRACKET expression_statement expression_statement RIGHT_BRACKET statement
     | FOR LEFT_BRACKET expression_statement expression_statement expression RIGHT_BRACKET statement"""
     # TODO
-    # NOTE: We translate all loops to its equivalent while loop for easy handling
-    # beginLabel = get_tmp_label()
-    # endLabel = get_tmp_label()
-    # if p[1] == "while":
-    #     p[0] = {
-    #         "value": None, "kind": "LOOP",
-    #         "code": [
-    #             ["LABEL", beginLabel],
-    #             [p[3]["code"]],
-    #             []
-    #         ]
-    #     }
-    # elif p[1] == "do":
-    #     pass
-    # elif p[1] == "for":
-    #     if len(p) == 6:
-    #         pass
-    #     elif len(p) == 7:
-    #         pass
-    p[0] = ("iteration_statement",) + tuple(p[-len(p) + 1 :])
+    beginLabel = get_tmp_label()
+    endLabel = get_tmp_label()
+    code = []
+    if p[1] == "while":
+        code += [["LABEL", beginLabel]]
+        if len(p[3]["code"]) > 0:
+            code += p[3]["code"]
+        if p[3]["value"] != "":
+            expr = _get_conversion_function_expr(p[3], "int")
+            if len(expr["code"]) > 0:
+                code += expr["code"]
+            code += [["IF", p[3]["value"], "==", "0", "GOTO", endLabel]]
+        if len(p[5]["code"]) > 0:
+            code += p[5]["code"]
+
+    elif p[1] == "do":
+        code += [["LABEL", beginLabel]]
+        if len(p[2]["code"]) > 0:
+            code += p[2]["code"]
+        if len(p[5]["code"]) > 0:
+            code += p[5]["code"]
+        if p[5]["value"] != "":
+            expr = _get_conversion_function_expr(p[5], "int")
+            if len(expr["code"]) > 0:
+                code += expr["code"]
+            code += [["IF", p[5]["value"], "==", "0", "GOTO", endLabel]]
+
+    elif p[1] == "for":
+        if len(p[3]["code"]) > 0:
+            code += p[3]["code"]
+        code += [["LABEL", beginLabel]]
+        if len(p[4]["code"]) > 0:
+            code += p[4]["code"]
+        if p[4]["value"] != "":
+            expr = _get_conversion_function_expr(p[4], "int")
+            if len(expr["code"]) > 0:
+                code += expr["code"]
+            code += [["IF", p[4]["value"], "==", "0", "GOTO", endLabel]]
+        if len(p[len(p) - 1]["code"]) > 0:
+            code += p[len(p) - 1]["code"]
+        if len(p) == 7 and len(p[4]["code"]) > 0:
+            code += p[4]["code"]
+
+    else:
+        p[0] = ("iteration_statement",) + tuple(p[-len(p) + 1 :])
+
+    code += [["GOTO", beginLabel], ["LABEL", endLabel]]
+    p[0] = {"code": code}
 
 
 def p_jump_statement(p):
@@ -1106,13 +1154,15 @@ def p_jump_statement(p):
     if p[1] == "goto":
         p[0]["code"] += [["GOTO", p[2]["value"]]]
     elif p[1] == "continue":
-        pass
+        p[0] = ("jump_statement",) + tuple(p[-len(p) + 1 :])
     elif p[1] == "break":
-        pass
+        p[0] = ("jump_statement",) + tuple(p[-len(p) + 1 :])
     elif p[1] == "return":
-        # Handle return type matching
-        pass
-    # p[0] = ("jump_statement",) + tuple(p[-len(p) + 1 :])
+        # Return type matching done in p_function_definition
+        if len(p) == 3:
+            p[0]["code"] += [["RETURN"]]
+        else:
+            p[0]["code"] += [["RETURN", p[2]]]
 
 
 def p_translation_unit(p):
@@ -1141,7 +1191,7 @@ def p_function_definition(p):
     if len(p) == 4:
         # TODO: Again arrays as parameters wont work for now
         #       Recursive functions wont work for now
-        symTab.insert(
+        valid, entry = symTab.insert(
             {
                 "name": p[2]["value"],
                 "return type": p[1]["value"],
@@ -1150,6 +1200,19 @@ def p_function_definition(p):
             kind=1,
         )
         p[0] = p[3]
+
+        # Ensure return type is same as RETURN value
+        no_return = True
+        for code in p[3]["code"]:
+            if len(code) > 0 and code[0] == "RETURN":
+                if len(code) == 1 and p[1]["value"] != "void":
+                    raise Exception("Return type not matching declared type")
+                elif p[1]["value"] != code[1]["type"]:
+                    raise Exception("Return type not matching declared type")
+                no_return = False
+        if no_return and p[1]["value"] != "void":
+            raise Exception("Return type not matching declared type")
+
     else:
         # TODO
         p[0] = ("function_definition",) + tuple(p[-len(p) + 1 :])

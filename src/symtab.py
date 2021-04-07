@@ -148,6 +148,7 @@ class SymbolTable:
                 # Function
                 entry["local scope"] = None
                 self._symtab_functions[name] = entry
+                self._symtab_functions[name]["name resolution"] = name
                 if entry["name"] in self._function_names:
                     self._function_names[entry["name"]].append(name)
                 else:
