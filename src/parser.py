@@ -840,7 +840,6 @@ def p_declaration(p):
                             ]
                         ]
                     # p[0]["value"] = vname
-
             valid, entry = symTab.insert(
                 {
                     "name": _p["value"],
@@ -936,7 +935,39 @@ def p_type_specifier_custom_types(p):
     | enum_specifier
     | TYPE_NAME"""
     symTab = get_current_symtab()
-    if "enum" in p[1]["value"]:
+    if p[1]["kind"] == 2:
+        if p[1]["insert"]:
+            symTab.insert(
+                {
+                    "name": p[1]["name"],
+                    "alt name": p[1]["alt_name"],
+                    "field names": p[1]["field names"],
+                    "field types": p[1]["field types"]
+                },
+                kind = 2,
+            )
+        else:
+            if not symTab.check_type("struct " + p[1]["name"]):
+                raise Exception(f"struct {p[1]['name']} is not a valid type")
+        p[0] = {"value": p[1]["name"], "code": []}
+    
+    elif p[1]["kind"] == 5:
+        if p[1]["insert"]:
+            symTab.insert(
+                {
+                    "name": p[1]["name"],
+                    "alt name": p[1]["alt_name"],
+                    "field names": p[1]["field names"],
+                    "field types": p[1]["field types"]
+                },
+                kind = 5,
+            )
+        else:
+            if not symTab.check_type("union " + p[1]["name"]):
+                raise Exception(f"union {p[1]['name']} is not a valid type")
+        p[0] = {"value": p[1]["name"], "code": []}
+    
+    elif p[1]["kind"] == 4:
         if p[1]["insert"]:
             symTab.insert(
                 {
@@ -1018,24 +1049,68 @@ def p_struct_or_union_specifier(p):
     """struct_or_union_specifier : struct_or_union IDENTIFIER LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
     | struct_or_union LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
     | struct_or_union IDENTIFIER"""
-    p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
+    if len(p) in [5,6]:
+        if p[1] == 'struct':
+            p[0] = {
+                "name" : p[2] if len(p) is 6 else get_tmp_var(),
+                "alt_name": None,
+                "field names": p[len(p) - 2]["field names"],
+                "field types": p[len(p) - 2]["field types"],
+                "kind": 2,
+                "insert": True,
+                "code" : []
+            }
+        else:
+            p[0] = {
+                "name" : p[2] if len(p) is 6 else get_tmp_var(),
+                "alt_name": p[2],
+                "field names": p[len(p) - 2]["field names"],
+                "field types": p[len(p) - 2]["field types"],
+                "kind": 5,
+                "insert": True,
+                "code" : []
+            }
+    else:
+        p[0] = {
+            "name": p[2],
+            "kind" : 2 if p[1] == 'struct' else 5,
+            "insert": False,
+            "code": []
+        }
+    #p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_or_union(p):
     """struct_or_union : STRUCT
     | UNION"""
-    p[0] = ("struct_or_union",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
+    #p[0] = ("struct_or_union",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declaration_list(p):
     """struct_declaration_list : struct_declaration
     | struct_declaration_list struct_declaration"""
-    p[0] = ("struct_declaration_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        variables = p[1]["field names"] + p[2]["field names"]
+        types = p[1]["field types"] + p[2]["field types"]
+        p[0] = {
+            "field names":  variables,
+            "field types":  types
+        }
+    #p[0] = ("struct_declaration_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declaration(p):
     """struct_declaration : specifier_qualifier_list struct_declarator_list SEMICOLON"""
-    p[0] = ("struct_declaration",) + tuple(p[-len(p) + 1 :])
+    variables = [var["value"] for var in p[2]]
+    types = [p[1]["value"]]*len(variables)
+    p[0] = {
+        "field names":  variables,
+        "field types":  types
+    }
+    #p[0] = ("struct_declaration",) + tuple(p[-len(p) + 1 :])
 
 
 def p_specifier_qualifier_list(p):
@@ -1043,20 +1118,32 @@ def p_specifier_qualifier_list(p):
     | type_specifier
     | type_qualifier specifier_qualifier_list
     | type_qualifier"""
-    p[0] = ("specifier_qualifier_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        p[0] = {"value": p[1]["value"] + " " + p[2]["value"], "code": []}
+    #p[0] = ("specifier_qualifier_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declarator_list(p):
     """struct_declarator_list : struct_declarator
     | struct_declarator_list COMMA struct_declarator"""
-    p[0] = ("struct_declarator_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
+        #p[0] = ("struct_declarator_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declarator(p):
     """struct_declarator : declarator
     | COLON constant_expression
     | declarator COLON constant_expression"""
-    p[0] = ("struct_declarator",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2 :
+        p[0] = p[1]
+    else:
+        # TODO
+        p[0] = ("struct_declarator",) + tuple(p[-len(p) + 1 :])
 
 
 def p_enum_specifier(p):
@@ -1076,9 +1163,9 @@ def p_enum_specifier(p):
                 names.append(_x)
                 values.append(cval)
                 cval += 1
-        p[0] = {"value": f"enum {p[2]}", "code": [], "fnames": names, "fvalues": values, "insert": True}
+        p[0] = {"value": f"enum {p[2]}", "code": [], "fnames": names, "fvalues": values, "kind": 4, "insert": True}
     else:
-        p[0] = {"value": f"enum {p[2]}", "code": [], "insert": False}
+        p[0] = {"value": f"enum {p[2]}", "code": [], "kind": 4, "insert": False}
     # p[0] = ("enum_specifier",) + tuple(p[-len(p) + 1 :])
 
 
@@ -1647,7 +1734,7 @@ if __name__ == "__main__":
 
             tree = yacc.parse(data)
             print()
-            print(tree[0])
+            print(tree)
             print()
 
             pop_scope()
