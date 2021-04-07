@@ -842,11 +842,7 @@ def p_type_specifier(p):
     | FLOAT
     | DOUBLE
     | SIGNED
-    | UNSIGNED
-    | struct_or_union_specifier
-    | class_definition
-    | enum_specifier
-    | TYPE_NAME"""
+    | UNSIGNED"""
     # p[0] = ("type_specifier",) + tuple(p[-len(p) + 1 :])
 
     # Check if it is a valid type
@@ -854,6 +850,30 @@ def p_type_specifier(p):
     if not symTab.check_type(p[1]):
         raise Exception(f"{p[1]} is not a valid type")
     p[0] = {"value": p[1], "code": []}
+
+
+def p_type_specifier_custom_types(p):
+    """type_specifier : struct_or_union_specifier
+    | class_definition
+    | enum_specifier
+    | TYPE_NAME"""
+    symTab = get_current_symtab()
+    if "enum" in p[1]["value"]:
+        if p[1]["insert"]:
+            symTab.insert(
+                {
+                    "name": p[1]["value"].split(" ")[-1],
+                    "field names": p[1]["fnames"],
+                    "field values": p[1]["fvalues"],
+                },
+                kind=4,
+            )
+        else:
+            if not symTab.check_type(p[1]["value"]):
+                raise Exception(f"{p[1]['value']} is not a valid type")
+        p[0] = {"value": p[1]["value"], "code": []}
+    else:
+        p[0] = ("custom_type", p[1])
 
 
 def p_inheritance_specifier(p):
@@ -965,19 +985,41 @@ def p_enum_specifier(p):
     """enum_specifier : ENUM LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
     | ENUM IDENTIFIER LEFT_CURLY_BRACKET enumerator_list RIGHT_CURLY_BRACKET
     | ENUM IDENTIFIER"""
-    p[0] = ("enum_specifier",) + tuple(p[-len(p) + 1 :])
+    if len(p) in [5, 6]:
+        name = p[2] if len(p) == 6 else get_tmp_var()
+        names, values = [], []
+        cval = 0
+        for _x in p[4]:
+            if isinstance(_x, tuple):
+                names.append(_x[0])
+                values.append(int(_x[1]["value"]))
+                cval = values[-1] + 1
+            else:
+                names.append(_x)
+                values.append(cval)
+                cval += 1
+        p[0] = {"value": f"enum {p[2]}", "code": [], "fnames": names, "fvalues": values, "insert": True}
+    else:
+        p[0] = {"value": f"enum {p[2]}", "code": [], "insert": False}
+    # p[0] = ("enum_specifier",) + tuple(p[-len(p) + 1 :])
 
 
 def p_enumerator_list(p):
     """enumerator_list : enumerator
     | enumerator_list COMMA enumerator"""
-    p[0] = ("enumerator_list",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1] + [p[3]]
 
 
 def p_enumerator(p):
     """enumerator : IDENTIFIER
     | IDENTIFIER EQ constant_expression"""
-    p[0] = ("enumerator",) + tuple(p[-len(p) + 1 :])
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        p[0] = (p[1], p[3])
 
 
 def p_type_qualifier(p):
@@ -1171,6 +1213,7 @@ def p_labeled_statement(p):
     """labeled_statement : IDENTIFIER COLON statement
     | CASE constant_expression COLON statement
     | DEFAULT COLON statement"""
+    # TODO
     p[0] = ("labeled_statement",) + tuple(p[-len(p) + 1 :])
 
 
@@ -1190,7 +1233,8 @@ def p_compound_statement_1(p):
 
 def p_compound_statement_2(p):
     """compound_statement : lbrace declaration_list rbrace"""
-    p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[2]
 
 
 def p_declaration_list(p):
