@@ -1413,7 +1413,6 @@ def p_translation_unit(p):
         p[0] = [p[1]]
     else:
         p[0] = p[1] + [p[2]]
-    print(p[0])
 
 
 def p_external_declaration(p):
@@ -1600,6 +1599,9 @@ if __name__ == "__main__":
             populate_global_symbol_table()
 
             tree = yacc.parse(data)
+            print()
+            print(tree[0])
+            print()
 
             pop_scope()
             # if args.output[-4:] == ".dot":
