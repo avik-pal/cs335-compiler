@@ -30,7 +30,7 @@ We implemented the parser for an (extended) ANSI C version which outputs a dot f
 
 We test it using the testcases present in the `tests/` sub-directory. The procedure to run the program is as follows:
 ```bash
-$ python src/parser/parser.py tests/test_parser_1.c --trim -o ast.dot
+$ python src/parser.py tests/test_parser_1.c --trim -o ast.dot
 # --trim produces a smaller AST meant for humans (though it preserves all the important information needed)
 # -o is used to redirect output to a file
 # Both are optional
