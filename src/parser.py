@@ -131,14 +131,14 @@ def _get_type_info(p):
     # print(p)
     final_type = p["type"] + "*" * p.get("pointer_lvl", 0)
     if p.get("is_array", False):
-        for i,d in enumerate(p["dimensions"]):
-            if d == "variable" :
-                final_type+="[]"
+        for i, d in enumerate(p["dimensions"]):
+            if d == "variable":
+                final_type += "[]"
             elif type(d) is str:
-                final_type+=f"[{d}]"
+                final_type += f"[{d}]"
             else:
-                final_type+=f"[{d['value']}]"
-    return final_type 
+                final_type += f"[{d['value']}]"
+    return final_type
 
 
 def _get_conversion_function(p, tcast):
@@ -227,8 +227,9 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
 
     return funcname, entry, args
 
-def _array_init(p, values,types, dim,arr,idx):
-    if(len(dim) == 1):
+
+def _array_init(p, values, types, dim, arr, idx):
+    if len(dim) == 1:
         # print(dim[0])
         count = 0
         tinfo = {"type": p[1]["value"], "pointer_lvl": arr.get("pointer_lvl", 0)}
@@ -289,29 +290,30 @@ def _array_init(p, values,types, dim,arr,idx):
                 if ret < 0:
                     return -1
         return 1
-             
+
+
 def _get_type_entry(type):
-    entry ={}
+    entry = {}
     entry["pointer_lvl"] = type.count("*")
     if entry["pointer_lvl"] > 0:
-        entry["type"] =  type.split("*")[0]
-    if type.count("[")>0:
+        entry["type"] = type.split("*")[0]
+    if type.count("[") > 0:
         entry["is_array"] = True
         split1 = type.split("[")
-        if not entry.get("type",False):
+        if not entry.get("type", False):
             entry["type"] = split1[0]
-        
+
         entry["dimensions"] = []
         for d in split1[1:]:
-            split2 =  d.split(']')
-            if split2[0] is not '':
+            split2 = d.split("]")
+            if split2[0] != "":
                 entry["dimensions"] += [{"value": split2[0], "type": "int"}]
             else:
                 entry["dimensions"] += ["variable"]
     else:
         entry["is_array"] = False
-        if not entry.get("type",False):
-            entry["type"] =  type
+        if not entry.get("type", False):
+            entry["type"] = type
     return entry
 
 
@@ -375,7 +377,7 @@ def p_identifier(p):
             "type": entry["type"],
             "pointer_lvl": entry.get("pointer_lvl", 0),
             "kind": "IDENTIFIER",
-            "is_array": entry.get("is_array",False),
+            "is_array": entry.get("is_array", False),
             "dimensions": entry.get("dimensions", [])
             # "entry": entry,  # FIXME: Add this back in the final code
         }
@@ -612,8 +614,8 @@ def p_argument_expression_list(p):
         p[0]["type"] += p[1]["type"]
         p[0]["value"] += p[1]["value"]
     # print(f"arg_expr_list {p[1]}")
-    if p[ind].get("is_array",False):
-        p[ind]["dimensions"][0] =  "variable"
+    if p[ind].get("is_array", False):
+        p[ind]["dimensions"][0] = "variable"
     p[0]["code"].append(p[ind]["code"])
     p[0]["type"].append(_get_type_info(p[ind]))
     p[0]["value"].append(p[ind]["value"])
@@ -756,8 +758,8 @@ def p_unary_expression(p):
         if p[1] == "sizeof":
             p[0] = {
                 "type": "int",
-                "value": compute_storage_size({"value": p[3]["value"], "type":p[3]["value"]}, None),
-                "code": p[3]["code"] 
+                "value": compute_storage_size({"value": p[3]["value"], "type": p[3]["value"]}, None),
+                "code": p[3]["code"],
             }
 
     # p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
@@ -1812,14 +1814,14 @@ def p_direct_declarator_1(p):
             # print(f"direct_declarator {p[1]}{p[2]}{p[3]}")
             # p[0] = ("direct_declarator_1.1",) + tuple(p[-len(p) + 1 :])
             p[0] = {
-            "code": p[1]["code"],
-            "value": p[1]["value"],
-            "is_array": True,
-            "dimensions": p[1].get("dimensions", []),
+                "code": p[1]["code"],
+                "value": p[1]["value"],
+                "is_array": True,
+                "dimensions": p[1].get("dimensions", []),
             }
             print(p[0])
             if "variable" not in p[0]["dimensions"]:
-                #smth
+                # smth
                 p[0]["dimensions"].append("variable")
             else:
                 err_msg = "Invalid array declaration"
@@ -1851,7 +1853,7 @@ def p_direct_declarator_2(p):
     p[0] = {
         "value": p[1]["value"],
         "code": [],
-        "parameters": [(_get_type_info(_p) , _p["value"]) for _p in p[3]],
+        "parameters": [(_get_type_info(_p), _p["value"]) for _p in p[3]],
     }
     INITIALIZE_PARAMETERS_IN_NEW_SCOPE = p[0]["parameters"]
 
@@ -1899,9 +1901,10 @@ def p_parameter_list(p):
 
 def p_parameter_declaration_1(p):
     """parameter_declaration : declaration_specifiers declarator"""
-    
+
     p[0] = p[2]
     p[0]["type"] = p[1]["value"]
+
 
 def p_parameter_declaration_2(p):
     """parameter_declaration : declaration_specifiers abstract_declarator
@@ -2343,13 +2346,11 @@ def p_lbrace(p):
     global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
     if not INITIALIZE_PARAMETERS_IN_NEW_SCOPE is None:
         for param in INITIALIZE_PARAMETERS_IN_NEW_SCOPE:
-            entry =  _get_type_entry(param[0])
-            
-            entry['name'] =  param[1]
+            entry = _get_type_entry(param[0])
+
+            entry["name"] = param[1]
             print(entry)
-            symTab.insert(
-                entry
-            )
+            symTab.insert(entry)
         INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
     # p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
 
@@ -2509,7 +2510,6 @@ def populate_global_symbol_table() -> None:
                 },
                 1,
             )
-
 
 
 def get_args():
