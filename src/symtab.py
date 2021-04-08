@@ -131,6 +131,8 @@ class SymbolTable:
 
         name = self._get_proper_name(entry, kind)
         prev_entry = self.lookup_current_table(name, kind, entry.get("alt name", None))
+        # if entry['name'] == 'arr':
+        #     print(f"Symtab {entry} {prev_entry}")
         if prev_entry is None:
             entry["kind"] = kind
             entry["pointer_lvl"] = entry.get("pointer_lvl", 0)
@@ -413,13 +415,15 @@ def compute_storage_size(entry, typeentry) -> int:
     if _c > 0:
         t = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         return compute_storage_size({"type": t, "pointer_lvl": _c}, get_current_symtab().lookup_type(t))
-
+    global DATATYPE2SIZE
     if entry.get("is_array", False):
-        raise NotImplementedError
+        if len(entry['dimensions']) == 1 :
+            return DATATYPE2SIZE[entry["type"].upper()] 
+        else:
+            raise NotImplementedError
     if entry.get("pointer_lvl", 0) > 0:
         return 8
     if typeentry is None:
-        global DATATYPE2SIZE
         s = DATATYPE2SIZE[entry["type"].upper()]
         return s
     if entry["type"].startswith("enum "):

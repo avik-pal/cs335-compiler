@@ -375,23 +375,16 @@ def p_postfix_expression(p):
             p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["value"] = nvar
             del p[0]["arguments"]
-
+        # Array indexing
         elif p[2] == "[":
             if p[3]["type"] == "int":
                 symTab = get_current_symtab()
-                funcname = "__get_array_element" + f"({p[1]['type']}*,int)"
-                entry = symTab.lookup(funcname)
-                if entry is None:
-                    err_msg = "Error at line number " + str(p.lineno(1)) + ": No such function in symbol table"
-                    GLOBAL_ERROR_LIST.append(err_msg)
-                    raise SyntaxError
-                    # raise Exception
-
-                nvar = get_tmp_var(p[1])
+                funcname = "__get_array_element" + f"({_get_type_info(p[1])}*,int)"
+                nvar = get_default_value(_get_type_info(p[1]))
                 p[0] = {
                     "value": nvar,
                     "type": p[1]["type"],
-                    "code": ["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar],
+                    "code": [ ["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar] ] ,
                 }
             else:
                 err_msg = "Error at line number " + str(p.lineno(3)) + ": Not an integr index"
@@ -930,7 +923,7 @@ def p_declaration(p):
         for _p in p[2]:
             if len(_p["code"]) > 0:
                 p[0]["code"] += _p["code"]
-
+            # print(_p)
             if "store" in _p:
                 if not _p.get("is_array", False):
                     _p["type"] = p[1]["value"]
@@ -1013,6 +1006,7 @@ def p_declaration(p):
                     kind=0,
                 )
             if not valid:
+                # print(f"Error at {_p}")
                 err_msg = (
                     "Error at line number "
                     + str(p.lineno(2))
@@ -1405,6 +1399,7 @@ def p_direct_declarator_1(p):
             p[0] = p[2]
         elif p[1] == "[":
             # TODO
+            # print(p[2], p[0])
             p[0] = ("direct_declarator_1.1",) + tuple(p[-len(p) + 1 :])
         else:
             # Rule 5: No parameter function
@@ -1420,12 +1415,13 @@ def p_direct_declarator_1(p):
             # TODO: Type casting might be needed
             p[0]["code"] += p[3]["code"]
         p[0]["dimensions"] += [p[3]["value"] if p[3]["kind"] != "CONSTANT" else p[3]]
+        # print(f"direct_declarator {p[0]}")
         # p[0]["text"] = ("direct_declarator_1.2",) + tuple(p[-len(p) + 1 :])
 
 
 def p_direct_declarator_2(p):
     """direct_declarator : direct_declarator LEFT_BRACKET parameter_type_list RIGHT_BRACKET"""
-    print(p[3])
+    # print(p[3])
     global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
     p[0] = {
         "value": p[1]["value"],
@@ -1796,6 +1792,7 @@ def p_function_definition(p):
         # Ensure return type is same as RETURN value
         no_return = True
         for code in p[3]["code"]:
+            print(code)
             if len(code) > 0 and code[0] == "RETURN":
                 if len(code) == 1 and p[1]["value"] != "void":
                     err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
