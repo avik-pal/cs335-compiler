@@ -1613,7 +1613,7 @@ def p_struct_declaration_list(p):
 def p_struct_declaration(p):
     """struct_declaration : specifier_qualifier_list struct_declarator_list SEMICOLON"""
     variables = [var["value"] for var in p[2]]
-    types = [p[1]["value"]]*len(variables)
+    types = [p[1]["value"] + "*" * _a.get("pointer_lvl", 0) for _a in p[2]]
     values = [get_default_value(p[1]["value"])]*len(variables)
     p[0] = {
         "field names":  variables,
@@ -1631,6 +1631,7 @@ def p_specifier_qualifier_list(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
+        print("2", p[1], p[2])
         p[0] = {"value": p[1]["value"] + " " + p[2]["value"], "code": []}
     # p[0] = ("specifier_qualifier_list",) + tuple(p[-len(p) + 1 :])
 
