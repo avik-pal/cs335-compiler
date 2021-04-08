@@ -1,2 +1,5 @@
 graphviz
 ply
+matplotlib
+pydot
+networkx
