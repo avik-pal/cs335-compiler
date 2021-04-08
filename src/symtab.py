@@ -1,6 +1,6 @@
 from typing import Union, List, Tuple
 import csv
-
+import os
 
 DATATYPE2SIZE = {
     "VOID": 0,
@@ -371,12 +371,17 @@ class SymbolTable:
         print()
 
         # printing symbol tables in csv
+        if num_display_invocations==0:
+            if os.path.isfile("symtables.csv"):
+                os.remove("symtables.csv")
+
         with open("symtables.csv", mode="a+") as sym_file:
             sym_writer = csv.writer(sym_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
             if num_display_invocations == 0:
                 sym_writer.writerow(
                     [
                         "SYMBOL TABLE",
+                        "FUNCTION SCOPE",
                         "VARIABLE/FUNCTION",
                         "NAME",
                         "TYPE",
@@ -397,6 +402,7 @@ class SymbolTable:
                     sym_writer.writerow(
                         [
                             f"{self.table_name}",
+                            f"{self.func_scope}",
                             "Variable",
                             f"{k}",
                             f"{v['type'] + '*' * v['pointer_lvl']}",
@@ -412,6 +418,7 @@ class SymbolTable:
                     sym_writer.writerow(
                         [
                             f"{self.table_name}",
+                            f"{self.func_scope}",
                             "Variable",
                             f"{k}",
                             f"{v['type'] + '*' * v['pointer_lvl']}",
@@ -430,6 +437,7 @@ class SymbolTable:
                 sym_writer.writerow(
                     [
                         f"{self.table_name}",
+                        f"{self.func_scope}",
                         "Function",
                         f"{v['name']}",
                         "",
