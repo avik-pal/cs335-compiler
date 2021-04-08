@@ -576,6 +576,7 @@ def p_postfix_expression(p):
             del p[0]["arguments"]
         # Array indexing
         elif p[2] == "[":
+            # TODO: Support for multi-dimensional array indexing
             if p[3]["type"] == "int":
                 symTab = get_current_symtab()
                 temp_dict = copy.deepcopy(p[1])
