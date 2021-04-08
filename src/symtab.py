@@ -275,9 +275,9 @@ class SymbolTable:
         if f"struct {symname}" in self._symtab_structs:
             return self._symtab_typedefs[self._symtab_structs[f"struct {symname}"]]
         if symname in self._symtab_typedefs:
-            return self._symtab.typedefs[symname]
+            return self._symtab_typedefs[symname]
         if alt_name in self._symtab_typedefs:
-            return self._symtab.typedefs[alt_name]
+            return self._symtab_typedefs[alt_name]
         return None
 
     def _search_for_class(self, symname: str) -> Union[None, dict]:
@@ -482,7 +482,7 @@ def get_default_value(type: str):
     elif type.upper() in FLOATING_POINT_TYPES:
         return 0.0
     elif type.upper() in CHARACTER_TYPES:
-        return None
+        return ''
     elif type[-1] == '*':
         return "NULL"
     else:

@@ -1,12 +1,12 @@
 int main() {
-    int c = 2, *a, b;
+    int c = 2, a, b;
     double z;
-    a = &c;
-    *c = 2;
-	if((*a)==0) {
+    // a = &c;
+    // *c = 2;
+	if(a==0) {
 		c++;
-        if((*a)==b)
-            z = (1 == 1 ? *a : b);
+        if(a==b)
+            z = (1 == 1 ? a : b);
         z++;
     }
 	else
@@ -15,11 +15,12 @@ int main() {
 	switch(c)
     {
         case 1:
-            (*a)--;
+            a--;
+            1 + 1;
             break;
 
         case 2:
-            z = (*a)+b;
+            z = a+b;
             break;
 
         default:

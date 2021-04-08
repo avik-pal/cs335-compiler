@@ -94,15 +94,15 @@ def _resolve_fcall_graph(G, scopes, args):
 def _internal_code_parser(G, scopes, code):
     global in_function
     for line in code:
-        print(line)
         _f = line[0]
+        print(line)
         if _f == "BEGINFUNCTION":
             in_function += 1
             v = _add_new_node(G, line[-1])
             G.add_edge(scopes[-1], v)
             scopes.append(v)
         elif _f == "ENDFUNCTION":
-            scopes = scopes[:-1]
+            scopes.pop()
             in_function -= 1
         elif _f == "FUNCTION CALL":
             v1 = _add_new_node(G, "=")
@@ -113,8 +113,37 @@ def _internal_code_parser(G, scopes, code):
             G.add_edge(v1, v3)
             scopes.append(v3)
             _resolve_fcall_graph(G, scopes, line[3])
-            scopes = scopes[:-1]
-        
+            scopes.pop()
+        elif _f == "IF":
+            v1 = _add_new_node(G, "IF")
+            v2 = _add_new_node(G, f"{line[1]} = 0")
+            v3 = _add_new_node(G, f"GOTO")
+            v4 = _add_new_node(G, line[-1])
+            G.add_edge(scopes[-1], v1)
+            G.add_edge(v1, v2)
+            G.add_edge(v1, v3)
+            G.add_edge(v3, v4)
+        elif _f == "GOTO":
+            v1 = _add_new_node(G, "GOTO")
+            v2 = _add_new_node(G, line[-1])
+            G.add_edge(scopes[-1], v1)
+            G.add_edge(v1, v2)
+        elif _f == "LABEL":
+            v1 = _add_new_node(G, "LABEL")
+            v2 = _add_new_node(G, line[-1])
+            G.add_edge(scopes[-1], v1)
+            G.add_edge(v1, v2)
+        elif _f == "BEGINSWITCH":
+            v = _add_new_node(G, f"SWITCH {line[-1]}")
+            G.add_edge(scopes[-1], v)
+            scopes.append(v)
+        elif _f == "ENDSWITCH":
+            scopes.pop()
+        elif _f == "RETURN":
+            v = _add_new_node(G, f"RETURN {line[-1]['value']}")
+            G.add_edge(scopes[-1], v)
+        else:
+            G.add_edge(scopes[-1], " ".join(line))          
 
 
 def parse_code(tree):
