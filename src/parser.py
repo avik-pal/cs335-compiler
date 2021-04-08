@@ -2518,7 +2518,6 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=str, default=None, help="Input file")
     parser.add_argument("-o", "--output", type=str, default="AST", help="Output file")
-    parser.add_argument("-t", "--trim", action="store_true", help="Trimmed ast")
     return parser
 
 
