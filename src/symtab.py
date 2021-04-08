@@ -96,6 +96,7 @@ class SymbolTable:
         self._symtab_classes = dict()
         self._symtab_enums = dict()
         self._custom_types = dict()
+        self._symtab_labels = dict()
         self._paramtab = []
         self.parent = parent
         self.table_number = TABLENUMBER
@@ -125,6 +126,7 @@ class SymbolTable:
         # Classes (CL)   -> {"name", ... TBD}
         # Enums (EN)     -> {"name", "field names", "field values"}
         # Unions (UN)    -> {"name", "alt name" (via typedef), "field names", "field types"}
+        # Labels (LB)    -> {"name"}
         global DATATYPE2SIZE
 
         name = self._get_proper_name(entry, kind)
@@ -225,6 +227,9 @@ class SymbolTable:
                 self._custom_types[f"union {name}"] = entry
                 self._custom_types[entry["alt name"]] = entry
 
+            elif kind == 6:
+                self._symtab_labels[name] = entry
+
             else:
                 raise Exception(f"{kind} is not a valid kind of identifier")
 
@@ -254,6 +259,9 @@ class SymbolTable:
         # Takes struct ___ / union ___ and converts it to a proper label
         tname = self._translate_type(typename)
         return self.parent.translate_type(typename) if self.parent is not None and not tname else tname
+
+    def _search_for_label(self, symname: str) -> Union[None, dict]:
+        return self._symtab_labels.get(symname, None)
 
     def _search_for_variable(self, symname: str) -> Union[None, dict]:
         return self._symtab_variables.get(symname, None)
@@ -303,6 +311,7 @@ class SymbolTable:
         res = self._search_for_class(symname) if res is None else res
         res = self._search_for_enum(symname) if res is None else res
         res = self._search_for_union(symname, alt_name) if res is None else res
+        res = self._search_for_label(symname) if res is None else res
         return self.lookup_parameter(symname) if res is None and paramtab_check else res
 
     def lookup_parameter(self, paramname: str) -> Union[None, list, dict]:
@@ -344,13 +353,12 @@ class SymbolTable:
         print("-" * 51)
         print(" " * 20 + " Functions " + " " * 20)
         print("-" * 51)
-        if self.table_number != 0:
-            for k, v in self._symtab_functions.items():
-                if v["name"][: min(1, len(k))] == "__":
-                    continue
-                print(
-                    f"Name: {v['name']}, Return: {v['return type']}, Parameters: {v['parameter types']}, Name Resolution: {k}"
-                )
+        for k, v in self._symtab_functions.items():
+            if v["name"][: min(1, len(k))] == "__" or not v["name"][0].isalpha():
+                continue
+            print(
+                f"Name: {v['name']}, Return: {v['return type']}, Parameters: {v['parameter types']}, Name Resolution: {k}"
+            )
         print("-" * 100)
         print()
 

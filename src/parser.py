@@ -67,7 +67,7 @@ def _type_cast(s1, s2):
 
 
 def type_cast(s1, s2):
-    # print(s1, s2)
+    # print(s1)
     # print(s2)
     if s1.get("pointer_lvl", 0) > 0 and s2.get("pointer_lvl", 0) > 0:
         err_msg = "Can not cast pointer to pointer"
@@ -103,6 +103,7 @@ def _get_type_info(p):
 
 def _get_conversion_function(p, tcast):
     t1, t2 = _get_type_info(p), _get_type_info(tcast)
+    # print(t1, t2, p)
     if t1 == t2:
         return p
     else:
@@ -893,6 +894,7 @@ def p_declaration(p):
     global LAST_FUNCTION_DECLARATION
     symTab = get_current_symtab()
     p[0] = {"code": [], "value": ""}
+    # print(p[1], len(p), p[2], p.lineno(1))
     if len(p) == 3:
         pass
         # p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
@@ -912,12 +914,14 @@ def p_declaration(p):
                 if not _p.get("is_array", False):
                     _p["type"] = p[1]["value"]
                     if len(_p["code"]) > 0:
+                        _tcast = type_cast(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
                         expr = _get_conversion_function_expr(
                             _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
                         )
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     else:
+                        _tcast = type_cast(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
                         expr = _get_conversion_function(
                             _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
                         )
@@ -1030,7 +1034,12 @@ def p_init_declarator(p):
             p[0] = {
                 "value": p[1]["value"],
                 "code": p[3]["code"],
-                "store": {"value": p[3]["value"], "type": p[3]["type"], "code": []},
+                "store": {
+                    "value": p[3]["value"],
+                    "type": p[3]["type"],
+                    "code": [],
+                    "pointer_lvl": p[3].get("pointer_lvl", 0),
+                },
                 "is_array": p[1].get("is_array", False),
                 "dimensions": p[1].get("dimensions", []),
                 "pointer_lvl": p[1].get("pointer_lvl", 0),
@@ -1156,12 +1165,12 @@ def p_access_specifier(p):
     """access_specifier : PRIVATE
     | PUBLIC
     | PROTECTED"""
-    p[0] = ("access_specifier",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
 
 
 def p_class(p):
     """class : CLASS"""
-    p[0] = ("class",) + tuple(p[-len(p) + 1 :])
+    p[0] = p[1]
 
 
 def p_class_definition_head(p):
@@ -1383,6 +1392,7 @@ def p_direct_declarator_1(p):
 
 def p_direct_declarator_2(p):
     """direct_declarator : direct_declarator LEFT_BRACKET parameter_type_list RIGHT_BRACKET"""
+    print(p[3])
     global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
     p[0] = {
         "value": p[1]["value"],
@@ -1528,12 +1538,13 @@ def p_labeled_statement(p):
     | DEFAULT COLON statement"""
     # TODO (M4): Handle code properly
     # TODO: store the identifiers in the symbol table as labels
+    symTab = get_current_symtab()
     if len(p) == 4:
         if p[1] == "default":
             # p[0] = {"code": [["LABEL", get_tmp_label()]] + p[3]["code"]}
             p[0] = {"code": [["CASE", "DEFAULT"]] + p[3]["code"]}
         else:
-            # TODO: Store p[1]
+            valid, entry = symTab.insert({"name": p[1]}, kind = 6)
             p[0] = {"code": [["LABEL", p[1]]] + p[3]["code"]}
     else:
         # TODO (M4): Assign labels
@@ -1692,8 +1703,10 @@ def p_jump_statement(p):
     # TODO (M4): Write the code field for these properly
     global JUMP_LABELS
     p[0] = {"code": []}
+    symTab = get_current_symtab()
     if p[1] == "goto":
-        # TODO (M4): Store labels in the symbol table
+        if symTab.lookup(p[2]["value"]) is None:
+            raise Exception("Label not present")
         p[0]["code"] += [["GOTO", p[2]["value"]]]
     elif p[1] == "continue":
         # TODO (M4): Check that it is being used only inside a loop
@@ -1742,6 +1755,8 @@ def p_function_definition(p):
             },
             kind=1,
         )
+        if not valid:
+            raise Exception(f"Failed to create function named {p[2]['value']}")
         p[0] = p[3]
         p[0]["code"] = (
             [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]] + p[3]["code"] + [["ENDFUNCTION"]]
@@ -1912,7 +1927,7 @@ if __name__ == "__main__":
             push_scope(new_scope(get_current_symtab()))
             populate_global_symbol_table()
 
-            tree = yacc.parse(data)
+            tree = yacc.parse(data, tracking=True)
 
             pop_scope()
 

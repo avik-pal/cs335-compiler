@@ -1,4 +1,5 @@
 // testing loops
+int main(int);
 
 int main()
 {
