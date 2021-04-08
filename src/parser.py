@@ -247,7 +247,6 @@ def _array_init(p, values, types, dim, arr, idx):
             return -1
         else:
             for i in range(count, dim[0]):
-                print(arr)
                 vname = get_tmp_var(_get_type_info(tinfo))
                 p[0]["code"] += [
                     [
@@ -1083,7 +1082,6 @@ def p_assignment_expression(p):
         p[0] = p[1]
     else:
         if p[2] == "=":
-            # TODO: Check invalid type conversions
             arg = _get_conversion_function(p[3], p[1])
             p[0] = {
                 "value": f"__store({p[1]['type']}*,{p[1]['type']})",
@@ -1091,7 +1089,6 @@ def p_assignment_expression(p):
                 "arguments": [p[1], arg],
                 "kind": "FUNCTION CALL",
             }
-            arg["code"] = []
             nvar = get_tmp_var(p[0]["type"])
             p[0]["code"] = (
                 p[1]["code"] + arg["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
