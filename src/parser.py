@@ -39,6 +39,8 @@ def _type_cast(s1, s2):
     s2 = s2.upper()
     if s1 == s2:
         return s1
+    if s1.count("*") != s2.count("*"):
+        raise Exception("Pointer level mismatch. Type Casting not supported")
     if (s1 not in BASIC_TYPES) or (s2 not in BASIC_TYPES):
         flag_for_error = TYPE_CAST_ERR
         err_msg = "Type Cast not possible"
@@ -65,67 +67,73 @@ def _type_cast(s1, s2):
 
 
 def type_cast(s1, s2):
-    print(s1, s2)
+    # print(s1, s2)
     # print(s2)
-    if s1.get("pointer_lvl",0) > 0 and s2.get("pointer_lvl",0) > 0:
+    if s1.get("pointer_lvl", 0) > 0 and s2.get("pointer_lvl", 0) > 0:
         err_msg = "Can not cast pointer to pointer"
         GLOBAL_ERROR_LIST.append(err_msg)
         raise SyntaxError
-    elif s1.get("pointer_lvl",0) > 0 :
-        if s2['type'].upper() in INTEGER_TYPES:
+    elif s1.get("pointer_lvl", 0) > 0:
+        if s2["type"].upper() in INTEGER_TYPES:
             return s1
         else:
-            err_msg = F"Can not cast {s2['type']} to pointer!"
+            err_msg = f"Can not cast {s2['type']} to pointer!"
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
 
-    elif s2.get("pointer_lvl",0) > 0 :
-        if s1['type'].upper() in INTEGER_TYPES:
+    elif s2.get("pointer_lvl", 0) > 0:
+        if s1["type"].upper() in INTEGER_TYPES:
             return s2
         else:
-            err_msg = F"Can not cast {s1['type']} to pointer!"
+            err_msg = f"Can not cast {s1['type']} to pointer!"
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
     else:
-        return { 'type': _type_cast(s1['type'], s2['type']).lower(),
-                "pointer_lvl" : 0}
+        return {"type": _type_cast(s1["type"], s2["type"]).lower(), "pointer_lvl": 0}
+
 
 def cast_value_to_type(val, type):
     # TODO: Throw an error if typecast is not possible
     return val
 
 
+def _get_type_info(p):
+    return p["type"] + "*" * p.get("pointer_lvl", 0)
+
+
 def _get_conversion_function(p, tcast):
-    if p["type"] == tcast['type']:
+    t1, t2 = _get_type_info(p), _get_type_info(tcast)
+    if t1 == t2:
         return p
     else:
         nvar = get_tmp_var()
-        arg = {"value": nvar, "type": tcast['type'], "kind": "FUNCTION CALL"}
+        arg = {"value": nvar, "type": t2, "kind": "FUNCTION CALL"}
         arg["code"] = [
             [
                 "FUNCTION CALL",
-                tcast['type'],
-                f"__convert({p['type']},{tcast['type']})",
-                [p, {"value": get_default_value(tcast['type']), "type": tcast['type'], "kind": "CONSTANT"}],
+                t2,
+                f"__convert({t1},{t2})",
+                [p, {"value": get_default_value(t2), "type": t2, "kind": "CONSTANT"}],
             ]
         ]
         return arg
 
 
 def _get_conversion_function_expr(p, tcast):
-    if p["type"] == tcast['type']:
+    t1, t2 = _get_type_info(p), _get_type_info(tcast)
+    if t1 == t2:
         return {"value": p["value"], "code": []}
     else:
         nvar = get_tmp_var()
-        arg = {"value": nvar, "type": tcast['type'], "kind": "FUNCTION CALL"}
+        arg = {"value": nvar, "type": t2, "kind": "FUNCTION CALL"}
         arg["code"] = [
             [
                 "FUNCTION CALL",
-                tcast['type'],
-                f"__convert({p['type']},{tcast['type']})",
+                t1,
+                f"__convert({t1},{t2})",
                 [
                     p["value"],
-                    {"value": get_default_value(tcast['type']), "type": tcast['type'], "kind": "CONSTANT"},
+                    {"value": get_default_value(t2), "type": t2, "kind": "CONSTANT"},
                 ],  # FIXME: We might need the entry for p["value"]
                 nvar,
             ]
@@ -150,7 +158,6 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
             entry,
             [_get_conversion_function(plist[0], totype) if totype is not None else plist[0]],
         )
-
     if totype is None:
         # t1, t2 = plist[0]["type"], plist[1]["type"]
         tcast = type_cast(plist[0], plist[1])
@@ -159,10 +166,10 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
     else:
         tcast = totype
 
-    funcname = f"{fname}(" + ",".join([tcast['type']] * len(plist)) + ")"
+    funcname = f"{fname}(" + ",".join([_get_type_info(tcast)] * len(plist)) + ")"
     entry = get_current_symtab().lookup(funcname)
     if entry is None:
-        raise Exception
+        raise Exception(f"{funcname} function is not declared!!")
 
     args = [_get_conversion_function(p, tcast) for p in plist]
 
@@ -201,21 +208,21 @@ def p_identifier(p):
     """identifier : IDENTIFIER"""
     symTab = get_current_symtab()
     entry = symTab.lookup(p[1])
-    
-    # FIXME: 
+
+    # FIXME:
     if type(entry) is list:
         entry = entry[0]
     if entry is None:
-        err_msg = "Error at line number "+str(p.lineno(1))+": Undeclared identifier used"
+        err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared identifier used"
         GLOBAL_ERROR_LIST.append(err_msg)
         raise SyntaxError
         # raise Exception  # undeclared identifier used
-    if entry["kind"] == 1 :
+    if entry["kind"] == 1:
         p[0] = {
             "value": p[1],
             "code": [],
             "type": entry["return type"],
-            "pointer_lvl" : entry.get("pointer_lvl",0),
+            "pointer_lvl": entry.get("pointer_lvl", 0),
             "kind": "IDENTIFIER",
             # "entry": entry,  # FIXME: Add this back in the final code
         }
@@ -224,7 +231,7 @@ def p_identifier(p):
             "value": p[1],
             "code": [],
             "type": entry["type"],
-            "pointer_lvl" : entry.get("pointer_lvl",0),
+            "pointer_lvl": entry.get("pointer_lvl", 0),
             "kind": "IDENTIFIER",
             # "entry": entry,  # FIXME: Add this back in the final code
         }
@@ -263,10 +270,10 @@ def p_postfix_expression(p):
         entry = symTab.lookup(funcname)
         if entry is None:
             # Uncessary for this case
-            err_msg = "Error at line number "+str(p.lineno(2))+": No entry found in symbol table"
+            err_msg = "Error at line number " + str(p.lineno(2)) + ": No entry found in symbol table"
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
-            #raise Exception
+            # raise Exception
         p[0] = {
             "value": funcname,
             "type": entry["return type"],
@@ -286,33 +293,33 @@ def p_postfix_expression(p):
             symTab = get_current_symtab()
             entry = symTab.lookup(p[1]["value"])
             if entry is None:
-                err_msg = "Error at line number "+str(p.lineno(1))+": Undeclared identifier used"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared identifier used"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception  # undeclared identifier
+                # raise Exception  # undeclared identifier
             struct_entry = symTab.lookup(entry["type"])  # not needed if already checked at time of storing
             if struct_entry is None:
-                err_msg = "Error at line number "+str(p.lineno(1))+": Undeclared struct used"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared struct used"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception  # undeclared struct used
+                # raise Exception  # undeclared struct used
             else:
                 # check if p[1] is a struct
                 if struct_entry["kind"] == 2:
                     if p[3] not in struct_entry["field names"]:
-                        err_msg = "Error at line number "+str(p.lineno(3))+": Wrong field name used"
+                        err_msg = "Error at line number " + str(p.lineno(3)) + ": Wrong field name used"
                         GLOBAL_ERROR_LIST.append(err_msg)
                         raise SyntaxError
-                        #raise Exception  # wrong field name
+                        # raise Exception  # wrong field name
                     else:
                         p[0]["type"] = struct_entry["field type"][struct_entry["field names"].index(p[3])]
                         p[0]["value"] = entry["values"][p[3]]
                         p[0]["code"] = []
                 else:
-                    err_msg = "Error at line number "+str(p.lineno(1))+": No such struct definition"
+                    err_msg = "Error at line number " + str(p.lineno(1)) + ": No such struct definition"
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
-                    #raise Exception  # no struct defn found
+                    # raise Exception  # no struct defn found
 
         elif p[2] == "->":
             # p[1] is a pointer to struct
@@ -326,7 +333,7 @@ def p_postfix_expression(p):
             funcname = p[1]["value"] + "()"
             entry = symTab.lookup(funcname)
             if entry is None:
-                err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": No such function in symbol table"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception
@@ -349,10 +356,10 @@ def p_postfix_expression(p):
             funcname = p[1]["value"] + "(" + ",".join(p[3]["type"]) + ")"
             entry = symTab.lookup(funcname)
             if entry is None:
-                err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": No such function in symbol table"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception  # no function
+                # raise Exception  # no function
 
             args = p[3]["value"]
             p[0] = {
@@ -373,10 +380,10 @@ def p_postfix_expression(p):
                 funcname = "__get_array_element" + f"({p[1]['type']}*,int)"
                 entry = symTab.lookup(funcname)
                 if entry is None:
-                    err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                    err_msg = "Error at line number " + str(p.lineno(1)) + ": No such function in symbol table"
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
-                    #raise Exception
+                    # raise Exception
 
                 nvar = get_tmp_var(p[1])
                 p[0] = {
@@ -385,7 +392,7 @@ def p_postfix_expression(p):
                     "code": ["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar],
                 }
             else:
-                err_msg = "Error at line number "+str(p.lineno(3))+": Not an integr index"
+                err_msg = "Error at line number " + str(p.lineno(3)) + ": Not an integr index"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception
@@ -409,7 +416,6 @@ def p_argument_expression_list(p):
         p[0]["type"] += p[1]["type"]
         p[0]["value"] += p[1]["value"]
 
-
     p[0]["code"].append(p[ind]["code"])
     p[0]["type"].append(p[ind]["type"])
     p[0]["value"].append(p[ind]["value"])
@@ -432,10 +438,10 @@ def p_unary_expression(p):
             entry = symTab.lookup(funcname)
 
             if entry is None:
-                err_msg = "Error at line number "+str(p.lineno(1))+": No such function in symbol table"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": No such function in symbol table"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception
+                # raise Exception
 
             p[0] = {
                 "value": funcname,
@@ -458,15 +464,15 @@ def p_unary_expression(p):
 
             p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
 
-        elif p[1].startswith('*'):
+        elif p[1].startswith("*"):
             # print(p[1])
             p[0] = p[2]
-            p[0]['deref'] = p[0].get('deref',0)+len(p[1])
+            p[0]["deref"] = p[0].get("deref", 0) + len(p[1])
             p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
 
-        elif p[1].startswith('&'):
+        elif p[1].startswith("&"):
             p[0] = p[2]
-            p[0]['addr'] = p[0].get('addr',0)+len(p[1])
+            p[0]["addr"] = p[0].get("addr", 0) + len(p[1])
             p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
             # print(p[0])
 
@@ -483,9 +489,6 @@ def p_unary_expression(p):
 
             p[0]["code"] = [[p[0]["value"]], p[3]["code"]]
 
-
-
-            
     # p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
 
 
@@ -741,9 +744,9 @@ def p_conditional_expression(p):
         # r2 = p[5]["type"]
         tcast = type_cast(p[3], p[5])
 
-        vname = get_tmp_var(tcast['type'])
+        vname = get_tmp_var(tcast["type"])
 
-        fname = get_tmp_closure(tcast['type'])
+        fname = get_tmp_closure(tcast["type"])
         push_scope(new_scope(get_current_symtab()))
 
         cond_code = []
@@ -751,7 +754,7 @@ def p_conditional_expression(p):
         if len(p[1]["code"]) > 0:
             cond_code += p[1]["code"]
         if p[1]["value"] is not None:
-            expr = _get_conversion_function_expr(p[1], {'type': "int", 'pointer_lvl':0})
+            expr = _get_conversion_function_expr(p[1], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 cond_code += expr["code"]
             cond_code += [["IF", expr["value"], "==", "0", "GOTO", elseLabel]]
@@ -785,19 +788,19 @@ def p_conditional_expression(p):
         )
 
         p[0]["code"] += [
-            ["BEGINFUNCTION", tcast['type'], fname],
+            ["BEGINFUNCTION", tcast["type"], fname],
             cond_code,
             succ_code,
             ["LABEL", elseLabel],
             fail_code,
             ["ENDFUNCTION"],
-            ["FUNCTION CALL", tcast['type'], fname + "()", [], vname],
+            ["FUNCTION CALL", tcast["type"], fname + "()", [], vname],
         ]
 
         pop_scope()
 
-        p[0]["type"] = tcast['type']
-        p[0]['pointer_lvl'] = tcast['pointer_lvl']
+        p[0]["type"] = tcast["type"]
+        p[0]["pointer_lvl"] = tcast["pointer_lvl"]
         p[0]["value"] = vname
 
 
@@ -859,9 +862,21 @@ def p_expression(p):
     """expression : assignment_expression
     | expression COMMA assignment_expression"""
     if len(p) == 2:
-        p[0] = {"value": p[1]["value"], "type": p[1]["type"], "pointer_lvl": p[1].get("pointer_lvl",0), "kind": "EXPRESSION", "code": p[1]["code"]}
+        p[0] = {
+            "value": p[1]["value"],
+            "type": p[1]["type"],
+            "pointer_lvl": p[1].get("pointer_lvl", 0),
+            "kind": "EXPRESSION",
+            "code": p[1]["code"],
+        }
     else:
-        p[0] = {"value": p[3]["value"], "type": p[3]["type"], "pointer_lvl": p[3]["pointer_lvl"], "kind": "EXPRESSION", "code": p[1]["code"] + p[3]}
+        p[0] = {
+            "value": p[3]["value"],
+            "type": p[3]["type"],
+            "pointer_lvl": p[3]["pointer_lvl"],
+            "kind": "EXPRESSION",
+            "code": p[1]["code"] + p[3],
+        }
         # p[0] = p[1] + p[3]
         # p[0] = ("expression",) + tuple(p[-len(p) + 1 :])
 
@@ -885,7 +900,7 @@ def p_declaration(p):
         # TODO: Handle static variables
         tinfo = p[1]["value"]
         is_static = False
-        if tinfo[:min(6, len(tinfo))] == "static":
+        if tinfo[: min(6, len(tinfo))] == "static":
             tinfo = tinfo[7:]
             is_static = True
 
@@ -895,20 +910,26 @@ def p_declaration(p):
 
             if "store" in _p:
                 if not _p.get("is_array", False):
+                    _p["type"] = p[1]["value"]
                     if len(_p["code"]) > 0:
-                        expr = _get_conversion_function_expr(_p["store"],{'type':tinfo})
+                        expr = _get_conversion_function_expr(
+                            _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
+                        )
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     else:
-                        expr = _get_conversion_function(_p["store"], {'type':tinfo})
+                        expr = _get_conversion_function(
+                            _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
+                        )
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     vname = get_tmp_var()
+                    __t = _get_type_info(_p)
                     p[0]["code"] += [
                         [
                             "FUNCTION CALL",
                             tinfo,
-                            f"__store({p[1]['value']}*,{p[1]['value']})",
+                            f"__store({__t}*,{__t})",
                             [
                                 {"value": _p["value"], "type": tinfo},
                                 {"value": expr["value"], "type": tinfo},
@@ -920,23 +941,24 @@ def p_declaration(p):
                 else:
                     # For array initialization
                     # TODO: Multidimensional array initialization
-                    for i, (item, t) in enumerate(zip(_p["store"]["value"], _p["store"]["types"])):
-                        expr = _get_conversion_function({"value": item, "type": t, "code": []}, tinfo)
-                        if len(expr["code"]) > 0:
-                            p[0]["code"] += expr["code"]
-                        vname = get_tmp_var()
-                        p[0]["code"] += [
-                            [
-                                "FUNCTION CALL",
-                                tinfo,
-                                f"__store({p[1]['value']}*,{p[1]['value']})",
-                                [
-                                    {"value": _p["value"], "type": tinfo, "index": i},
-                                    {"value": expr["value"], "type": tinfo},
-                                ],
-                                vname,
-                            ]
-                        ]
+                    # for i, (item, t) in enumerate(zip(_p["store"]["value"], _p["store"]["types"])):
+                    #     expr = _get_conversion_function({"value": item, "type": t, "code": []}, tinfo)
+                    #     if len(expr["code"]) > 0:
+                    #         p[0]["code"] += expr["code"]
+                    #     vname = get_tmp_var()
+                    #     p[0]["code"] += [
+                    #         [
+                    #             "FUNCTION CALL",
+                    #             tinfo,
+                    #             f"__store({p[1]['value']}*,{p[1]['value']})",
+                    #             [
+                    #                 {"value": _p["value"], "type": tinfo, "index": i},
+                    #                 {"value": expr["value"], "type": tinfo},
+                    #             ],
+                    #             vname,
+                    #         ]
+                    #     ]
+                    raise Exception
                     # p[0]["value"] = vname
 
             # if is_static:
@@ -954,10 +976,15 @@ def p_declaration(p):
                 kind=0,
             )
             if not valid:
-                err_msg = "Error at line number "+str(p.lineno(2))+": "+f"Variable {_p['value']} already declared with type {entry['type']}"
+                err_msg = (
+                    "Error at line number "
+                    + str(p.lineno(2))
+                    + ": "
+                    + f"Variable {_p['value']} already declared with type {entry['type']}"
+                )
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception(f"Variable {_p['value']} already declared with type {entry['type']}")
+                # raise Exception(f"Variable {_p['value']} already declared with type {entry['type']}")
 
 
 def p_declaration_specifiers(p):
@@ -997,19 +1024,19 @@ def p_init_declarator(p):
                 "store": {"value": p[3]["value"], "types": p[3]["types"]},
                 "is_array": p[1].get("is_array", False),
                 "dimensions": p[1].get("dimensions", []),
-                "pointer_lvl": p[1].get("pointer_lvl",0) 
+                "pointer_lvl": p[1].get("pointer_lvl", 0),
             }
         else:
             p[0] = {
                 "value": p[1]["value"],
                 "code": p[3]["code"],
-                "store": {"value": p[3]["value"], 'type': p[3]['type'], "code": []},
+                "store": {"value": p[3]["value"], "type": p[3]["type"], "code": []},
                 "is_array": p[1].get("is_array", False),
                 "dimensions": p[1].get("dimensions", []),
-                "pointer_lvl": p[1].get("pointer_lvl",0) 
+                "pointer_lvl": p[1].get("pointer_lvl", 0),
             }
         # p[0] = ("init_declarator",) + tuple(p[-len(p) + 1 :])
-    
+
 
 def p_storage_class_specifier(p):
     """storage_class_specifier : TYPEDEF
@@ -1035,7 +1062,7 @@ def p_type_specifier(p):
     # Check if it is a valid type
     symTab = get_current_symtab()
     if not symTab.check_type(p[1]):
-        err_msg = "Error at line number "+str(p.lineno(1))+": "+f"{p[1]} is not a valid type"
+        err_msg = "Error at line number " + str(p.lineno(1)) + ": " + f"{p[1]} is not a valid type"
         GLOBAL_ERROR_LIST.append(err_msg)
         raise SyntaxError
         # raise Exception(f"{p[1]} is not a valid type")
@@ -1055,18 +1082,20 @@ def p_type_specifier_custom_types(p):
                     "name": p[1]["name"],
                     "alt name": p[1]["alt_name"],
                     "field names": p[1]["field names"],
-                    "field types": p[1]["field types"]
+                    "field types": p[1]["field types"],
                 },
-                kind = 2,
+                kind=2,
             )
         else:
             if not symTab.check_type("struct " + p[1]["name"]):
-                err_msg = "Error at line number "+str(p.lineno(1))+": "+f"struct {p[1]['name']} is not a valid type"
+                err_msg = (
+                    "Error at line number " + str(p.lineno(1)) + ": " + f"struct {p[1]['name']} is not a valid type"
+                )
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception(f"struct {p[1]['name']} is not a valid type")
+                # raise Exception(f"struct {p[1]['name']} is not a valid type")
         p[0] = {"value": "struct " + p[1]["name"], "code": []}
-    
+
     elif p[1]["kind"] == 5:
         if p[1]["insert"]:
             symTab.insert(
@@ -1074,18 +1103,20 @@ def p_type_specifier_custom_types(p):
                     "name": p[1]["name"],
                     "alt name": p[1]["alt_name"],
                     "field names": p[1]["field names"],
-                    "field types": p[1]["field types"]
+                    "field types": p[1]["field types"],
                 },
-                kind = 5,
+                kind=5,
             )
         else:
             if not symTab.check_type("union " + p[1]["name"]):
-                err_msg = "Error at line number "+str(p.lineno(1))+": "+f"union {p[1]['name']} is not a valid type"
+                err_msg = (
+                    "Error at line number " + str(p.lineno(1)) + ": " + f"union {p[1]['name']} is not a valid type"
+                )
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception(f"union {p[1]['name']} is not a valid type")
+                # raise Exception(f"union {p[1]['name']} is not a valid type")
         p[0] = {"value": "union " + p[1]["name"], "code": []}
-    
+
     elif p[1]["kind"] == 4:
         if p[1]["insert"]:
             symTab.insert(
@@ -1098,16 +1129,16 @@ def p_type_specifier_custom_types(p):
             )
         else:
             if not symTab.check_type(p[1]["value"]):
-                err_msg = "Error at line number "+str(p.lineno(1))+": "+f"{p[1]['value']} is not a valid type"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": " + f"{p[1]['value']} is not a valid type"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
-                #raise Exception(f"{p[1]['value']} is not a valid type")
+                # raise Exception(f"{p[1]['value']} is not a valid type")
         p[0] = {"value": p[1]["value"], "code": []}
     else:
-        err_msg = "Error at line number "+str(p.lineno(1))+": Unsupported Custom Type"
+        err_msg = "Error at line number " + str(p.lineno(1)) + ": Unsupported Custom Type"
         GLOBAL_ERROR_LIST.append(err_msg)
         raise SyntaxError
-        #raise Exception("Unsupported Custom Type")
+        # raise Exception("Unsupported Custom Type")
 
 
 def p_inheritance_specifier(p):
@@ -1175,41 +1206,36 @@ def p_struct_or_union_specifier(p):
     | struct_or_union LEFT_CURLY_BRACKET struct_declaration_list RIGHT_CURLY_BRACKET
     | struct_or_union IDENTIFIER"""
     if len(p) in [5, 6]:
-        if p[1] == 'struct':
+        if p[1] == "struct":
             p[0] = {
-                "name" : p[2] if len(p) == 6 else get_tmp_var(),
+                "name": p[2] if len(p) == 6 else get_tmp_var(),
                 "alt_name": None,
                 "field names": p[len(p) - 2]["field names"],
                 "field types": p[len(p) - 2]["field types"],
                 "kind": 2,
                 "insert": True,
-                "code" : []
+                "code": [],
             }
         else:
             p[0] = {
-                "name" : p[2] if len(p) == 6 else get_tmp_var(),
+                "name": p[2] if len(p) == 6 else get_tmp_var(),
                 "alt_name": p[2],
                 "field names": p[len(p) - 2]["field names"],
                 "field types": p[len(p) - 2]["field types"],
                 "kind": 5,
                 "insert": True,
-                "code" : []
+                "code": [],
             }
     else:
-        p[0] = {
-            "name": p[2],
-            "kind" : 2 if p[1] == 'struct' else 5,
-            "insert": False,
-            "code": []
-        }
-    #p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
+        p[0] = {"name": p[2], "kind": 2 if p[1] == "struct" else 5, "insert": False, "code": []}
+    # p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_or_union(p):
     """struct_or_union : STRUCT
     | UNION"""
     p[0] = p[1]
-    #p[0] = ("struct_or_union",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("struct_or_union",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declaration_list(p):
@@ -1220,22 +1246,16 @@ def p_struct_declaration_list(p):
     else:
         variables = p[1]["field names"] + p[2]["field names"]
         types = p[1]["field types"] + p[2]["field types"]
-        p[0] = {
-            "field names":  variables,
-            "field types":  types
-        }
-    #p[0] = ("struct_declaration_list",) + tuple(p[-len(p) + 1 :])
+        p[0] = {"field names": variables, "field types": types}
+    # p[0] = ("struct_declaration_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declaration(p):
     """struct_declaration : specifier_qualifier_list struct_declarator_list SEMICOLON"""
     variables = [var["value"] for var in p[2]]
-    types = [p[1]["value"]]*len(variables)
-    p[0] = {
-        "field names":  variables,
-        "field types":  types
-    }
-    #p[0] = ("struct_declaration",) + tuple(p[-len(p) + 1 :])
+    types = [p[1]["value"]] * len(variables)
+    p[0] = {"field names": variables, "field types": types}
+    # p[0] = ("struct_declaration",) + tuple(p[-len(p) + 1 :])
 
 
 def p_specifier_qualifier_list(p):
@@ -1247,7 +1267,7 @@ def p_specifier_qualifier_list(p):
         p[0] = p[1]
     else:
         p[0] = {"value": p[1]["value"] + " " + p[2]["value"], "code": []}
-    #p[0] = ("specifier_qualifier_list",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("specifier_qualifier_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declarator_list(p):
@@ -1257,14 +1277,14 @@ def p_struct_declarator_list(p):
         p[0] = [p[1]]
     else:
         p[0] = p[1] + [p[3]]
-        #p[0] = ("struct_declarator_list",) + tuple(p[-len(p) + 1 :])
+        # p[0] = ("struct_declarator_list",) + tuple(p[-len(p) + 1 :])
 
 
 def p_struct_declarator(p):
     """struct_declarator : declarator
     | COLON constant_expression
     | declarator COLON constant_expression"""
-    if len(p) == 2 :
+    if len(p) == 2:
         p[0] = p[1]
     else:
         # TODO
@@ -1386,7 +1406,6 @@ def p_pointer(p):
         p[0] = p[2] + p[1]
     else:
         p[0] = p[1]
-
 
 
 def p_type_qualifier_list(p):
@@ -1584,7 +1603,7 @@ def p_selection_statement(p):
         if len(p[3]["code"]) > 0:
             p[0]["code"] += p[3]["code"]
         if p[3]["value"] is not None:
-            expr = _get_conversion_function_expr(p[3], {'type': "int", 'pointer_lvl':0})
+            expr = _get_conversion_function_expr(p[3], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 p[0]["code"] += expr["code"]
             p[0]["code"] += [["IF", expr["value"], "==", "0", "GOTO", elseLabel]]
@@ -1622,7 +1641,7 @@ def p_iteration_statement(p):
         if len(p[3]["code"]) > 0:
             code += p[3]["code"]
         if p[3]["value"] != "":
-            expr = _get_conversion_function_expr(p[3], {'type': "int", 'pointer_lvl':0})
+            expr = _get_conversion_function_expr(p[3], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
@@ -1636,7 +1655,7 @@ def p_iteration_statement(p):
         if len(p[5]["code"]) > 0:
             code += p[5]["code"]
         if p[5]["value"] != "":
-            expr = _get_conversion_function_expr(p[5], {'type': "int", 'pointer_lvl':0})
+            expr = _get_conversion_function_expr(p[5], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
@@ -1648,7 +1667,7 @@ def p_iteration_statement(p):
         if len(p[4]["code"]) > 0:
             code += p[4]["code"]
         if p[4]["value"] != "":
-            expr = _get_conversion_function_expr(p[4], {'type': "int", 'pointer_lvl':0})
+            expr = _get_conversion_function_expr(p[4], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
@@ -1735,21 +1754,21 @@ def p_function_definition(p):
         for code in p[3]["code"]:
             if len(code) > 0 and code[0] == "RETURN":
                 if len(code) == 1 and p[1]["value"] != "void":
-                    err_msg = "Error at line number "+str(p.lineno(1))+": Return type not matching declared type"
+                    err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
-                    #raise Exception("Return type not matching declared type")
+                    # raise Exception("Return type not matching declared type")
                 elif len(code) > 1 and p[1]["value"] != code[1]["type"]:
-                    err_msg = "Error at line number "+str(p.lineno(1))+": Return type not matching declared type"
+                    err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
-                    #raise Exception("Return type not matching declared type")
+                    # raise Exception("Return type not matching declared type")
                 no_return = False
         if no_return and p[1]["value"] != "void":
-            err_msg = "Error at line number "+str(p.lineno(1))+": Return type not matching declared type"
+            err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
-            #raise Exception("Return type not matching declared type")
+            # raise Exception("Return type not matching declared type")
 
     else:
         # TODO

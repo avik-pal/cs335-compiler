@@ -131,17 +131,17 @@ class SymbolTable:
         prev_entry = self.lookup_current_table(name, kind, entry.get("alt name", None))
         if prev_entry is None:
             entry["kind"] = kind
-            entry['pointer_lvl'] = entry.get('pointer_lvl', 0)
+            entry["pointer_lvl"] = entry.get("pointer_lvl", 0)
             if kind == 0:
                 # TODO: Support custom types sizes
                 if not self.check_type(entry["type"]):
                     raise Exception(f"{entry['type']} is not a valid data type")
                 try:
                     entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
-                    if entry['pointer_lvl'] > 0 :
+                    if entry["pointer_lvl"] > 0:
                         entry["size"] = 8
                 except KeyError:
-                #     # TODO: Proper error message with line number and such
+                    #     # TODO: Proper error message with line number and such
                     raise Exception(f"{entry['type']} is not a valid data type")
                 # entry["size"] = -1
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
@@ -335,10 +335,10 @@ class SymbolTable:
         print(" " * 20 + " Variables " + " " * 20)
         print("-" * 51)
         for k, v in self._symtab_variables.items():
-            if v["name"][:min(2, len(k))] == "__":
+            if v["name"][: min(2, len(k))] == "__":
                 continue
             print(
-                f"Name: {k}, Type: {v['type']}, Size: {v['size']}, Value: {v['value']}"
+                f"Name: {k}, Type: {v['type'] + '*' * v['pointer_lvl']}, Size: {v['size']}, Value: {v['value']}"
                 + ("" if not v["is_array"] else f", Dimensions: {v['dimensions']}")
             )
         print("-" * 51)
@@ -346,7 +346,7 @@ class SymbolTable:
         print("-" * 51)
         if self.table_number != 0:
             for k, v in self._symtab_functions.items():
-                if v["name"][:min(1, len(k))] == "__":
+                if v["name"][: min(1, len(k))] == "__":
                     continue
                 print(
                     f"Name: {v['name']}, Return: {v['return type']}, Parameters: {v['parameter types']}, Name Resolution: {k}"

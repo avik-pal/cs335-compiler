@@ -3,19 +3,18 @@
 int main()
 {
     int i = 0;
-    int n = 10;
+    // int n = 10;
     int sum = 0;
-    signed int d = 2;
-    for (i = 0; i< n; i++)
+    // signed int d = 2;
+    for (; i< 10;)
     {
-        sum += i;
+        sum = sum + i;
     }
 
-    while (i>0)
-    {
-        i--;
-        sum -= i;
-    }
-
+    // while (i>0)
+    // {
+    //     i--;
+    //     sum -= i;
+    // }
     return 0;
 }
