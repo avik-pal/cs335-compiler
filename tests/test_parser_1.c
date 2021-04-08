@@ -1,4 +1,12 @@
+void karray(int c, double s) {
+    static double k;
+    k = 1.0;
+    return;
+}
+
+
 int main() {
+    static int k;
     int c = 2, a, b;
     double z;
     // a = &c;
@@ -11,6 +19,8 @@ int main() {
     }
 	else
 		b++;
+
+    k += 1;
 
 	switch(c)
     {

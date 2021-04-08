@@ -140,7 +140,7 @@ def _internal_code_parser(G, scopes, code):
         elif _f == "ENDSWITCH":
             scopes.pop()
         elif _f == "RETURN":
-            v = _add_new_node(G, f"RETURN {line[-1]['value']}")
+            v = _add_new_node(G, f"RETURN" + ("" if len(line) == 1 else f" {line[-1]['value']}"))
             G.add_edge(scopes[-1], v)
         else:
             G.add_edge(scopes[-1], " ".join(line))          

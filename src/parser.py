@@ -290,12 +290,15 @@ def p_identifier(p):
     entry = symTab.lookup(p[1])
 
     # FIXME:
+    global LAST_FUNCTION_DECLARATION
     if type(entry) is list:
         entry = entry[0]
     if entry is None:
-        err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared identifier used"
-        GLOBAL_ERROR_LIST.append(err_msg)
-        raise SyntaxError
+        entry = symTab.lookup(p[1] + ".static." + LAST_FUNCTION_DECLARATION)
+        if entry is None:
+            err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared identifier used"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
         # raise Exception  # undeclared identifier used
     if entry["kind"] == 1:
         p[0] = {
@@ -1111,9 +1114,10 @@ def p_declaration(p):
         if tinfo.startswith("static"):
             tinfo = tinfo[7:]
             is_static = True
-            err_msg = "Error at line number " + str(p.lineno(1)) + ": Static variables are not supported"
-            GLOBAL_ERROR_LIST.append(err_msg)
-            raise SyntaxError
+            # print(LAST_FUNCTION_DECLARATION)
+            # err_msg = "Error at line number " + str(p.lineno(1)) + ": Static variables are not supported"
+            # GLOBAL_ERROR_LIST.append(err_msg)
+            # raise SyntaxError
             #raise Exception("Static Variables are not supported")
 
         for _p in p[2]:
@@ -1211,7 +1215,7 @@ def p_declaration(p):
                 global SYMBOL_TABLES, STATIC_VARIABLE_MAPS
                 valid, entry = SYMBOL_TABLES[0].insert(
                     {
-                        "name": _p["value"] + ".static",
+                        "name": _p["value"] + ".static." + LAST_FUNCTION_DECLARATION,
                         "type": tinfo,
                         "is_array": _p.get("is_array", False),
                         "dimensions": _p.get("dimensions", []),
@@ -1219,6 +1223,7 @@ def p_declaration(p):
                     },
                     kind=0,
                 )
+                STATIC_VARIABLE_MAPS[(_p["value"], LAST_FUNCTION_DECLARATION)] = entry["name"]
 
             else:
                 if tinfo == "void":
@@ -2095,6 +2100,7 @@ def p_external_declaration(p):
 def p_function_definition_full(p):
     """function_definition_full : declaration_specifiers declarator"""
     symTab = get_current_symtab()
+    global LAST_FUNCTION_DECLARATION
     # TODO: Again arrays as parameters wont work for now
     #       Recursive functions wont work for now
     valid, entry = symTab.insert(
@@ -2115,6 +2121,7 @@ def p_function_definition_full(p):
         [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]]
     )
     p[0]["value"] = p[1]["value"]
+    LAST_FUNCTION_DECLARATION = entry["name resolution"]
 
 def p_function_definition(p):
     """function_definition : declaration_specifiers declarator declaration_list compound_statement
@@ -2146,7 +2153,7 @@ def p_function_definition(p):
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
             # raise Exception("Return type not matching declared type")
-
+        LAST_FUNCTION_DECLARATION = None
     else:
         # TODO
         p[0] = ("function_definition",) + tuple(p[-len(p) + 1 :])
