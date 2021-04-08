@@ -78,6 +78,7 @@ def _add_new_node(G, label):
 
 in_function = 1
 
+
 def _resolve_fcall_graph(G, scopes, args):
     for arg in args:
         if isinstance(arg, str):
@@ -119,7 +120,7 @@ def _internal_code_parser(G, scopes, code):
                 G.add_edge(v1, v3)
                 G.add_edge(v3, v4)
                 G.add_edge(v3, v5)
-            else:    
+            else:
                 v1 = _add_new_node(G, "=")
                 v2 = _add_new_node(G, line[-1])
                 v3 = _add_new_node(G, line[2])
@@ -158,7 +159,7 @@ def _internal_code_parser(G, scopes, code):
             v = _add_new_node(G, f"RETURN" + ("" if len(line) == 1 else f" {line[-1]['value']}"))
             G.add_edge(scopes[-1], v)
         else:
-            G.add_edge(scopes[-1], " ".join(line))          
+            G.add_edge(scopes[-1], " ".join(line))
 
 
 def parse_code(tree):

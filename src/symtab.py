@@ -80,6 +80,7 @@ TABLENUMBER = 0
 
 num_display_invocations = 0
 
+
 class SymbolTable:
     # kind = 0 for ID
     #        1 for FN
@@ -87,8 +88,9 @@ class SymbolTable:
     #        3 for CL
     #        4 for EN
     #        5 for UN
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, function_scope=None) -> None:
         global TABLENUMBER
+        self.func_scope = function_scope if TABLENUMBER != 0 else "GLOBAL"
         self._symtab_variables = dict()
         self._symtab_functions = dict()
         self._function_names = dict()
@@ -345,7 +347,7 @@ class SymbolTable:
         global num_display_invocations
         print()
         print("-" * 100)
-        print(f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}")
+        print(f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}, FUNCTION SCOPE: {self.func_scope}")
         print("-" * 51)
         print(" " * 20 + " Variables " + " " * 20)
         print("-" * 51)
@@ -368,30 +370,77 @@ class SymbolTable:
         print("-" * 100)
         print()
 
-        #printing symbol tables in csv
-        with open('symtables.csv', mode= 'a+') as sym_file:
-            sym_writer = csv.writer(sym_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            if num_display_invocations is 0:
-                sym_writer.writerow(['SYMBOL TABLE', 'VARIABLE/FUNCTION', 'NAME', 'TYPE', 'SIZE', 'OFFSET', 'DIMENSIONS', 'RETURN TYPE', 'PARAMETERS', 'NAME RESOLUTION'])
+        # printing symbol tables in csv
+        with open("symtables.csv", mode="a+") as sym_file:
+            sym_writer = csv.writer(sym_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            if num_display_invocations == 0:
+                sym_writer.writerow(
+                    [
+                        "SYMBOL TABLE",
+                        "VARIABLE/FUNCTION",
+                        "NAME",
+                        "TYPE",
+                        "SIZE",
+                        "OFFSET",
+                        "DIMENSIONS",
+                        "RETURN TYPE",
+                        "PARAMETERS",
+                        "NAME RESOLUTION",
+                    ]
+                )
                 num_display_invocations += 1
             for k, v in self._symtab_variables.items():
                 if v["name"][: min(2, len(k))] == "__":
                     continue
-                
+
                 if not v["is_array"]:
-                    sym_writer.writerow([f"{self.table_name}","Variable",f"{k}", f"{v['type'] + '*' * v['pointer_lvl']}",
-                                    f"{v['size']}",f"{v['offset']}","","","",""])
+                    sym_writer.writerow(
+                        [
+                            f"{self.table_name}",
+                            "Variable",
+                            f"{k}",
+                            f"{v['type'] + '*' * v['pointer_lvl']}",
+                            f"{v['size']}",
+                            f"{v['offset']}",
+                            "",
+                            "",
+                            "",
+                            "",
+                        ]
+                    )
                 else:
-                    sym_writer.writerow([f"{self.table_name}","Variable",f"{k}", f"{v['type'] + '*' * v['pointer_lvl']}",
-                                    f"{v['size']}",f"{v['offset']}",f"{v['dimensions']}","","",""])
+                    sym_writer.writerow(
+                        [
+                            f"{self.table_name}",
+                            "Variable",
+                            f"{k}",
+                            f"{v['type'] + '*' * v['pointer_lvl']}",
+                            f"{v['size']}",
+                            f"{v['offset']}",
+                            f"{v['dimensions']}",
+                            "",
+                            "",
+                            "",
+                        ]
+                    )
 
             for k, v in self._symtab_functions.items():
                 if v["name"][: min(1, len(k))] == "__" or not v["name"][0].isalpha():
                     continue
-                sym_writer.writerow([f"{self.table_name}","Function",f"{v['name']}","","","","", f"{v['return type']}", f"{v['parameter types']}",f"{k}"])
-                     
-
-
+                sym_writer.writerow(
+                    [
+                        f"{self.table_name}",
+                        "Function",
+                        f"{v['name']}",
+                        "",
+                        "",
+                        "",
+                        "",
+                        f"{v['return type']}",
+                        f"{v['parameter types']}",
+                        f"{k}",
+                    ]
+                )
 
 
 SYMBOL_TABLES = []
@@ -418,8 +467,8 @@ def push_scope(s: SymbolTable) -> None:
     print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
 
 
-def new_scope(parent=None) -> SymbolTable:
-    return SymbolTable(parent)
+def new_scope(parent=None, function_scope=None) -> SymbolTable:
+    return SymbolTable(parent, function_scope)
 
 
 def get_current_symtab() -> Union[None, SymbolTable]:
@@ -431,10 +480,10 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry
     if not is_array:
         return dsize
     else:
-        offset = [ DATATYPE2SIZE[entry["type"].upper()] ]
+        offset = [DATATYPE2SIZE[entry["type"].upper()]]
         for i, d in enumerate(reversed(entry["dimensions"])):
-            if i is not  len(entry["dimensions"]) - 1 :
-                offset.append(offset[i]* int(d["value"]))
+            if i is not len(entry["dimensions"]) - 1:
+                offset.append(offset[i] * int(d["value"]))
         return offset
 
 
@@ -447,7 +496,7 @@ def compute_storage_size(entry, typeentry) -> int:
     if entry.get("is_array", False):
         prod = DATATYPE2SIZE[entry["type"].upper()]
         for d in entry["dimensions"]:
-            prod*=int(d["value"])
+            prod *= int(d["value"])
         return prod
 
     if entry.get("pointer_lvl", 0) > 0:
@@ -510,8 +559,8 @@ def get_default_value(type: str):
     elif type.upper() in FLOATING_POINT_TYPES:
         return 0.0
     elif type.upper() in CHARACTER_TYPES:
-        return ''
-    elif type[-1] == '*':
+        return ""
+    elif type[-1] == "*":
         return "NULL"
     else:
         return -1
