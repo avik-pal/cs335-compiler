@@ -1,12 +1,14 @@
-//Recursion
+//Recursion + static
 
 void f2()
 {
+    static int k;
     1 + 1;
 }
 
 int fact(int n)
 {
+    static double n;
     if (n==0)
         return 1;
     else
@@ -22,6 +24,8 @@ int f1(int n)
 // Driver Code
 int main()
 {
+    static int k;
+    static int n;
     fact(10);
     return 0;
 }
