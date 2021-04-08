@@ -114,6 +114,26 @@ def _internal_code_parser(G, scopes, code):
             scopes.append(v3)
             _resolve_fcall_graph(G, scopes, line[3])
             scopes = scopes[:-1]
+        elif _f == "IF":
+            v1 = _add_new_node(G, "IF")
+            v2 = _add_new_node(G, f"{line[1]} = 0")
+            v3 = _add_new_node(G, f"GOTO")
+            v4 = _add_new_node(G, line[-1])
+            G.add_edge(scopes[-1], v1)
+            G.add_edge(v1, v2)
+            G.add_edge(v1, v3)
+            G.add_edge(v3, v4)
+        elif _f == "GOTO":
+            v1 = _add_new_node(G, "GOTO")
+            v2 = _add_new_node(G, line[-1])
+            G.add_edge(scopes[-1], v1)
+            G.add_edge(v1, v2)
+        elif _f == "LABEL":
+            v1 = _add_new_node(G, "LABEL")
+            v2 = _add_new_node(G, line[-1])
+            G.add_edge(scopes[-1], v1)
+            G.add_edge(v1, v2)
+            
         
 
 
