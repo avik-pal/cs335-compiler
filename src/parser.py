@@ -590,7 +590,7 @@ def p_multiplicative_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -618,7 +618,7 @@ def p_additive_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -646,7 +646,7 @@ def p_shift_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -677,7 +677,7 @@ def p_relational_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -706,7 +706,7 @@ def p_equality_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -734,7 +734,7 @@ def p_and_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -762,7 +762,7 @@ def p_exclusive_or_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -790,7 +790,7 @@ def p_inclusive_or_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -818,7 +818,7 @@ def p_logical_and_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -846,7 +846,7 @@ def p_logical_or_expression(p):
             if len(_a["code"]) == 0:
                 continue
             codes += _a["code"]
-            del _a["code"]
+            _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -941,15 +941,29 @@ def p_assignment_expression(p):
                 "kind": "FUNCTION CALL",
             }
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = arg["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["value"] = nvar
             del p[0]["arguments"]
 
         else:
             # FIXME (M4): Order of type conversion for +=, -=, etc.
             fname, fentry, args = resolve_function_name_uniform_types(p[2][:-1], [p[1], p[3]])
-            expr = {"value": fname, "type": fentry["return type"], "arguments": args, "kind": "FUNCTION CALL"}
+            codes = []
+            for _a in args:
+                if len(_a["code"]) == 0:
+                    continue
+                codes += _a["code"]
+                _a["code"] = []
+            expr = {
+                "value": fname,
+                "type": fentry["return type"],
+                "arguments": args,
+                "kind": "FUNCTION CALL",
+                "code": [["FUNCTION CALL", fname, fentry["return type"], args, get_tmp_var()]]
+            }
             arg = _get_conversion_function(expr, p[1])
+            codes += arg["code"]
+            arg["code"] = []
             p[0] = {
                 "value": f"__store({p[1]['type']}*,{p[1]['type']})",
                 "type": p[1]["type"],
