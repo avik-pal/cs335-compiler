@@ -655,7 +655,7 @@ def p_unary_expression(p):
                                 "kind": p[2].get("kind", "CONSTANT"),
                             }
                         ],
-                        nvar
+                        nvar,
                     ]
                 ]
                 p[0]["pointer_lvl"] -= 1
@@ -678,7 +678,7 @@ def p_unary_expression(p):
                             "kind": p[2].get("kind", "CONSTANT"),
                         }
                     ],
-                    nvar
+                    nvar,
                 ]
             ]
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
@@ -692,8 +692,8 @@ def p_unary_expression(p):
         if p[1] == "sizeof":
             p[0] = {
                 "type": "int",
-                "value": compute_storage_size({"value": p[3]["value"], "type":p[3]["value"]},p[3]["value"]),
-                "code": p[3]["code"] 
+                "value": compute_storage_size({"value": p[3]["value"], "type": p[3]["value"]}, p[3]["value"]),
+                "code": p[3]["code"],
             }
 
     # p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
@@ -1043,9 +1043,9 @@ def p_conditional_expression(p):
         if len(expr["code"]) > 0:
             succ_code += expr["code"]
         succ_code += (
-            [["RETURN", expr["value"]]]
+            [["RETURN", expr]]
             if len(p[3]["code"]) > 0
-            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr["value"]]])
+            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr]])
         )
 
         fail_code = []
@@ -1057,20 +1057,19 @@ def p_conditional_expression(p):
         if len(expr["code"]) > 0:
             fail_code += expr["code"]
         fail_code += (
-            [["RETURN", expr["value"]]]
+            [["RETURN", expr]]
             if len(p[5]["code"]) > 0
-            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr["value"]]])
+            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr]])
         )
 
-        p[0]["code"] += [
-            ["BEGINFUNCTION", tcast["type"], fname],
-            cond_code,
-            succ_code,
-            ["LABEL", elseLabel],
-            fail_code,
-            ["ENDFUNCTION"],
-            ["FUNCTION CALL", tcast["type"], fname + "()", [], vname],
-        ]
+        p[0]["code"] += (
+            [["BEGINFUNCTION", tcast["type"], fname]]
+            + cond_code
+            + succ_code
+            + [["LABEL", elseLabel]]
+            + fail_code
+            + [["ENDFUNCTION"], ["FUNCTION CALL", tcast["type"], fname + "()", [], vname]]
+        )
 
         pop_scope()
 
@@ -1837,11 +1836,8 @@ def p_type_name(p):
         p[0] = p[1]
 
     else:
-        #TODO : should have a value field
-        p[0] = {
-            "value": p[1]["value"] + p[2],
-            "code" : []
-        }
+        # TODO : should have a value field
+        p[0] = {"value": p[1]["value"] + p[2], "code": []}
         pass
 
 
@@ -2220,8 +2216,14 @@ def p_function_definition(p):
         p[0]["code"] += p[2]["code"] + [["ENDFUNCTION"]]
 
         no_return = True
+        ignorecheck = False
         for code in p[2]["code"]:
-            if len(code) > 0 and code[0] == "RETURN":
+            print(code, ignorecheck, p[1]["value"])
+            if len(code) > 0 and code[0] == "BEGINFUNCTION":
+                ignorecheck = True
+            elif len(code) > 0 and code[0] == "ENDFUNCTION":
+                ignorecheck = False
+            elif len(code) > 0 and code[0] == "RETURN" and not ignorecheck:
                 if len(code) == 1 and p[1]["value"] != "void":
                     err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
                     GLOBAL_ERROR_LIST.append(err_msg)

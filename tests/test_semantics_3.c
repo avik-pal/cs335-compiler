@@ -26,6 +26,7 @@ int main()
 {
     static int k;
     static int n;
+    int k = 1 == 1 ? 1 : 2 * 5;
     fact(10);
     return 0;
 }

@@ -371,7 +371,7 @@ class SymbolTable:
         print()
 
         # printing symbol tables in csv
-        if num_display_invocations==0:
+        if num_display_invocations == 0:
             if os.path.isfile("symtables.csv"):
                 os.remove("symtables.csv")
 
