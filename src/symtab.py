@@ -145,12 +145,14 @@ class SymbolTable:
                 t = self.lookup_type(entry["type"])
                 entry["size"] = compute_storage_size(entry, t)
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
-                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"], entry, t)
+                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry.get("dimensions",[]), entry, t)
 
                 if entry["is_array"]:
                     dims = entry["dimensions"]
                     ndims = []
                     for dim in dims:
+                        if dim == "variable":
+                            continue
                         if isinstance(dim, str):
                             _l = self.lookup(dim)
                             if _l["type"] != "int":
@@ -489,9 +491,15 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry
     else:
         offset = [DATATYPE2SIZE[entry["type"].upper()]]
         for i, d in enumerate(reversed(entry["dimensions"])):
+<<<<<<< HEAD
+            if i is not  len(entry["dimensions"]) - 1 :
+                offset.append(offset[i]* int(d["value"]))
+        return offset[::-1]
+=======
             if i is not len(entry["dimensions"]) - 1:
                 offset.append(offset[i] * int(d["value"]))
         return offset
+>>>>>>> 7ab84afe3fd9117c23f3a02ac8954a7d21d0d786
 
 
 def compute_storage_size(entry, typeentry) -> int:
@@ -503,7 +511,13 @@ def compute_storage_size(entry, typeentry) -> int:
     if entry.get("is_array", False):
         prod = DATATYPE2SIZE[entry["type"].upper()]
         for d in entry["dimensions"]:
+<<<<<<< HEAD
+            if d == "variable":
+                return "var"
+            prod*=int(d["value"])
+=======
             prod *= int(d["value"])
+>>>>>>> 7ab84afe3fd9117c23f3a02ac8954a7d21d0d786
         return prod
     if entry.get("pointer_lvl", 0) > 0:
         return 8
