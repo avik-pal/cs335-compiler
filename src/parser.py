@@ -16,6 +16,7 @@ from symtab import (
     get_tmp_var,
     get_tmp_closure,
     get_default_value,
+    compute_storage_size,
     NUMERIC_TYPES,
     CHARACTER_TYPES,
     DATATYPE2SIZE,
@@ -629,13 +630,15 @@ def p_unary_expression(p):
             del p[0]["arguments"]
 
         elif p[1] == "sizeof":
-
+            symTab = get_current_symtab()
+            entry = symTab.lookup(p[2]["value"])
+            typeentry = symTab.lookup_type(entry["type"])
             p[0] = {
                 "type": "int",
-                "value": "SIZEOF",
+                "value": compute_storage_size(entry, typeentry),
             }
 
-            p[0]["code"] = [[p[0]["value"]], [p[2]]]
+            p[0]["code"] = p[2]["code"]
 
         elif p[1].startswith("*"):
             # print(p[1])
@@ -676,10 +679,9 @@ def p_unary_expression(p):
         if p[1] == "sizeof":
             p[0] = {
                 "type": "int",
-                "value": "SIZEOF",
+                "value": compute_storage_size({"value": p[3]["value"], "type":p[3]["value"]},p[3]["value"]),
+                "code": p[3]["code"] 
             }
-
-            p[0]["code"] = [[p[0]["value"]], [p[3]]]
 
     # p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
 
@@ -1828,6 +1830,10 @@ def p_type_name(p):
 
     else:
         #TODO : should have a value field
+        p[0] = {
+            "value": p[1]["value"] + p[2],
+            "code" : []
+        }
         pass
 
 
