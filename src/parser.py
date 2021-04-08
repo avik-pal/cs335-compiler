@@ -2474,14 +2474,13 @@ if __name__ == "__main__":
 
             pop_scope()
 
-            parse_code(tree)
+            if args.output[-4:] == ".dot":
+                args.output = args.output[:-4]
+
+            parse_code(tree, args.output)
 
             for err in GLOBAL_ERROR_LIST:
                 print(err)
 
-            # if args.output[-4:] == ".dot":
-            #     args.output = args.output[:-4]
-            # if args.trim:
-            #     generate_graph_from_ast(reduce_ast(tree), args.output)
-            # else:
-            #     generate_graph_from_ast(tree, args.output)
+            
+            

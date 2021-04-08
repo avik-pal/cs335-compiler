@@ -162,7 +162,7 @@ def _internal_code_parser(G, scopes, code):
             G.add_edge(scopes[-1], " ".join(line))
 
 
-def parse_code(tree):
+def parse_code(tree, output_file):
     global NODE_COUNTER, NODE_MAPPING
     G = nx.DiGraph()
 
@@ -184,5 +184,5 @@ def parse_code(tree):
 
     pos = graphviz_layout(G, prog="dot")
     # nx.draw(G, pos, with_labels = True, node_color="white")
-    write_dot(G, "AST.dot")
+    write_dot(G, output_file+".dot")
     # plt.show()
