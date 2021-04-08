@@ -4,7 +4,7 @@ from typing import cast
 import lex
 import ply.yacc as yacc
 import argparse
-
+import copy
 from dot import generate_graph_from_ast, parse_code, reduce_ast
 from symtab import (
     BASIC_TYPES,
@@ -614,11 +614,13 @@ def p_argument_expression_list(p):
         p[0]["type"] += p[1]["type"]
         p[0]["value"] += p[1]["value"]
     # print(f"arg_expr_list {p[1]}")
+    out_dict = copy.deepcopy(p[ind])
     if p[ind].get("is_array", False):
-        p[ind]["dimensions"][0] = "variable"
-    p[0]["code"].append(p[ind]["code"])
-    p[0]["type"].append(_get_type_info(p[ind]))
-    p[0]["value"].append(p[ind]["value"])
+       out_dict["dimensions"][0] = "variable"
+    p[0]["code"].append(out_dict["code"])
+    p[0]["type"].append(_get_type_info(out_dict))
+    p[0]["value"].append(out_dict["value"])
+    del out_dict
 
 
 def p_unary_expression(p):
