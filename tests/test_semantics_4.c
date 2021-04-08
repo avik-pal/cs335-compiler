@@ -1,15 +1,25 @@
-struct point
+int foo(int c, int d)
 {
-   int x;
-   int y;
-};
+    return c+d;
+}
+int foo(char c)
+{
+    return (int) c;
+}
+int foo(double c)
+{
+    return (int)c;
+}
 
-// Driver Code
-int main()
-{
-    struct point s;
-    struct point *ptr = &s;
-    ptr->x = 2;
-    ptr->y = 3;
-    return 0;
+int main(){
+
+	int a,b,c;
+	int x = 5;
+	char y = 'y';
+	double z = 9.57; 
+	a = foo(x,x);
+	b = foo(z);
+	c = foo(y);
+
+	return 0; 
 }
