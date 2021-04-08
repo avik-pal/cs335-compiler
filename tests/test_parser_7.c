@@ -13,4 +13,5 @@ int main(){
     temp = data.i;
     data.c = 'a';
     //printf("%d %c", data.i, data.c);
+    return 0;
 }

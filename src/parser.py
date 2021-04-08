@@ -328,16 +328,16 @@ def p_postfix_expression(p):
                 # raise Exception  # undeclared identifier
             struct_entry = symTab.lookup_type(entry["type"])  # not needed if already checked at time of storing
             if struct_entry is None:
-                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared struct used"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared Struct/Union used"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception  # undeclared struct used
             else:
                 # check if p[1] is a struct
                 #print(p[1],p[3])
-                if struct_entry["kind"] == 2:
+                if struct_entry["kind"] in [2,5]:
                     if p[3] not in struct_entry["field names"]:
-                        err_msg = "Error at line number " + str(p.lineno(3)) + ": Wrong field name used"
+                        err_msg = "Error at line number " + str(p.lineno(3)) + ": No such field exists"
                         GLOBAL_ERROR_LIST.append(err_msg)
                         raise SyntaxError
                         # raise Exception  # wrong field name
@@ -349,7 +349,7 @@ def p_postfix_expression(p):
                         }
                         #print(p[0])
                 else:
-                    err_msg = "Error at line number " + str(p.lineno(1)) + ": No such struct definition"
+                    err_msg = "Error at line number " + str(p.lineno(1)) + ": No such Struct/Union definition"
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
                     # raise Exception  # no struct defn found
@@ -1439,7 +1439,7 @@ def p_struct_or_union_specifier(p):
         else:
             p[0] = {
                 "name": p[2] if len(p) == 6 else get_tmp_var(),
-                "alt_name": p[2],
+                "alt_name": None,
                 "field names": p[len(p) - 2]["field names"],
                 "field types": p[len(p) - 2]["field types"],
                 "field values": p[len(p) - 2]["field values"],
@@ -1449,8 +1449,8 @@ def p_struct_or_union_specifier(p):
             }
     else:
         symTab = get_current_symtab()
-        struct_entry = symTab.lookup_type("struct "+ p[2])
-        if struct_entry is None:
+        struct_union_entry = symTab.lookup_type(p[1] + " " + p[2])
+        if struct_union_entry is None:
             raise Exception  # undeclared struct used
         else:
             p[0] = {
