@@ -42,6 +42,23 @@ $ dot -Tps AST.dot -o AST.ps
 $ xdg-open AST.ps
 ```
 
+#### Milestone 3
+
+**TAG: semantics**
+
+Continuing with our Python based implementation of the parser in Milestone 2, we have now added the functionality for symbol table and semantic checks.  Now,  our program generates ASTs that are consistent with semantic checking. We expect the requirements mentioned in the `requirements.txt` to be installed (can be setup using `pip install -r requirements.txt`).
+
+We test it using the testcases present in the `tests/` sub-directory. The procedure to run the program is as follows:
+```bash
+$ python src/parser/parser.py tests/test_semantics_1.c -o ast.dot
+# -o is used to redirect output to a file (optional parameter)
+```
+How to visualize the AST:
+```bash
+$ dot -Tps AST.dot -o AST.ps
+$ xdg-open AST.ps
+```
+
 ## Miscellaneous
 
 #### How to move from C yacc -> Python PLY yacc in < 1 mins?
