@@ -398,13 +398,14 @@ def get_current_symtab() -> Union[None, SymbolTable]:
 
 
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry, typeentry) -> int:
-    if not is_array:
-        return dsize
-    else:
-        prod = 1
-        for dim in dimensions:
-            prod *= dim
-        return prod * dsize
+    return dsize
+    # if not is_array:
+    #     return dsize
+    # else:
+    #     prod = 1
+    #     for dim in dimensions:
+    #         prod *= dim
+    #     return prod * dsize
 
 
 def compute_storage_size(entry, typeentry) -> int:
