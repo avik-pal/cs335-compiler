@@ -1368,7 +1368,7 @@ def p_declaration(p):
                     # For array initialization
                     # Added support for multidimensional array initialization
                     dim = []
-                    print(_p)
+                    # print(_p)
                     for d in _p["dimensions"]:
                         dim.append(int(d["value"]))
                     _array_init(p, _p["store"]["value"], _p["store"]["types"], dim, _p, [])
@@ -1717,7 +1717,7 @@ def p_specifier_qualifier_list(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        print("2", p[1], p[2])
+        # print("2", p[1], p[2])
         p[0] = {"value": p[1]["value"] + " " + p[2]["value"], "code": []}
     # p[0] = ("specifier_qualifier_list",) + tuple(p[-len(p) + 1 :])
 
@@ -2315,7 +2315,7 @@ def p_function_definition(p):
         no_return = True
         ignorecheck = False
         for code in p[2]["code"]:
-            print(code, ignorecheck, p[1]["value"])
+            # print(code, ignorecheck, p[1]["value"])
             if len(code) > 0 and code[0] == "BEGINFUNCTION":
                 ignorecheck = True
             elif len(code) > 0 and code[0] == "ENDFUNCTION":
@@ -2355,7 +2355,7 @@ def p_lbrace(p):
             entry = _get_type_entry(param[0])
 
             entry["name"] = param[1]
-            print(entry)
+            # print(entry)
             symTab.insert(entry)
         INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
     # p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
