@@ -714,7 +714,6 @@ def p_unary_expression(p):
             pass
 
     else:
-        print(p[3])
         if p[1] == "sizeof":
             p[0] = {
                 "type": "int",
