@@ -30,7 +30,7 @@ void printArray(int arr[], int n)
 int main()
 {
     int arr[5] = {12 + 4, 11, 13, 5, 6};
-    int n = 5;
+    int n = arr[1];
  
     insertionSort(arr, n);
     printArray(arr, n);

@@ -578,17 +578,20 @@ def p_postfix_expression(p):
         elif p[2] == "[":
             if p[3]["type"] == "int":
                 symTab = get_current_symtab()
-                funcname = "__get_array_element" + f"({_get_type_info(p[1])}*,int)"
-                nvar = get_tmp_var(_get_type_info(p[1]))
+                temp_dict = copy.deepcopy(p[1])
+                temp_dict["is_array"] = False
+                funcname = "__get_array_element" + f"({_get_type_info(temp_dict)}*,int)"
+                nvar = get_tmp_var(_get_type_info(temp_dict))
                 c1 = p[1]["code"]
                 c2 = p[3]["code"]
                 p[1]["code"] = []
                 p[3]["code"] = []
                 p[0] = {
                     "value": nvar,
-                    "type": p[1]["type"],
-                    "code": c1 + c2 + [["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar]],
+                    "type": temp_dict["type"],
+                    "code": c1 + c2 + [["FUNCTION CALL", temp_dict["type"], funcname, [p[1], p[3]], nvar]],
                 }
+                del temp_dict
             else:
                 err_msg = "Error at line number " + str(p.lineno(3)) + ": Not an integr index"
                 GLOBAL_ERROR_LIST.append(err_msg)
