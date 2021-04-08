@@ -400,14 +400,14 @@ def get_current_symtab() -> Union[None, SymbolTable]:
 
 
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry, typeentry) -> int:
-    return dsize
-    # if not is_array:
-    #     return dsize
-    # else:
-    #     prod = 1
-    #     for dim in dimensions:
-    #         prod *= dim
-    #     return prod * dsize
+    if not is_array:
+        return dsize
+    else:
+        offset = [ DATATYPE2SIZE[entry["type"].upper()] ]
+        for i, d in enumerate(reversed(entry["dimensions"])):
+            if i is not  len(entry["dimensions"]) - 1 :
+                offset.append(offset[i]* int(d["value"]))
+        return offset
 
 
 def compute_storage_size(entry, typeentry) -> int:
@@ -417,10 +417,11 @@ def compute_storage_size(entry, typeentry) -> int:
         return compute_storage_size({"type": t, "pointer_lvl": _c}, get_current_symtab().lookup_type(t))
     global DATATYPE2SIZE
     if entry.get("is_array", False):
-        if len(entry['dimensions']) == 1 :
-            return DATATYPE2SIZE[entry["type"].upper()] 
-        else:
-            raise NotImplementedError
+        prod = DATATYPE2SIZE[entry["type"].upper()]
+        for d in entry["dimensions"]:
+            prod*=int(d["value"])
+        return prod
+
     if entry.get("pointer_lvl", 0) > 0:
         return 8
     if typeentry is None:

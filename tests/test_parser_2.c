@@ -14,10 +14,10 @@ void printArray(int arr2[], int size)
 // Driver program to test above functions
 int main()
 {
-    int arr[10];
+    int arr[10][2][5] = {{{1,2},{12,3}}};
     int size;
     int n;
-    int x = arr[2];
+    // int x = arr[2];
     printArray(arr, n);
     return 0;
 }
