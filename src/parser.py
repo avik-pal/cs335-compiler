@@ -116,6 +116,7 @@ def _get_conversion_function(p, tcast):
                 t2,
                 f"__convert({t1},{t2})",
                 [p, {"value": get_default_value(t2), "type": t2, "kind": "CONSTANT"}],
+                nvar
             ]
         ]
         return arg
@@ -203,7 +204,7 @@ def p_primary_expression(p):
 
 def p_str_literal(p):
     """str_literal : STRING_LITERAL"""
-    p[0] = {"value": p[1], "code": [], "type": "char*", "kind": "CONSTANT"}
+    p[0] = {"value": p[1], "code": [], "type": "char", "pointer_lvl": 1, "kind": "CONSTANT"}
 
 
 def p_identifier(p):
@@ -572,7 +573,13 @@ def p_multiplicative_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
@@ -594,7 +601,13 @@ def p_additive_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
@@ -616,6 +629,13 @@ def p_shift_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -640,6 +660,13 @@ def p_relational_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -662,6 +689,13 @@ def p_equality_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -683,6 +717,13 @@ def p_and_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -704,6 +745,13 @@ def p_exclusive_or_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -725,6 +773,13 @@ def p_inclusive_or_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -746,6 +801,13 @@ def p_logical_and_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -767,6 +829,13 @@ def p_logical_or_expression(p):
             "kind": "FUNCTION CALL",
         }
         nvar = get_tmp_var(p[0]["type"])
+        codes = []
+        for _a in args:
+            if len(_a["code"]) == 0:
+                continue
+            codes += _a["code"]
+            del _a["code"]
+        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -1829,7 +1898,6 @@ def p_function_definition(p):
         # Ensure return type is same as RETURN value
         no_return = True
         for code in p[3]["code"]:
-            print(code)
             if len(code) > 0 and code[0] == "RETURN":
                 if len(code) == 1 and p[1]["value"] != "void":
                     err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
@@ -1869,6 +1937,7 @@ def p_lbrace(p):
                     "dimensions": [],
                 }
             )
+        INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
     p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
 
 
@@ -2003,10 +2072,6 @@ if __name__ == "__main__":
             tree = yacc.parse(data, tracking=True)
 
             pop_scope()
-
-            print()
-            print(tree)
-            print()
 
             parse_code(tree)
 

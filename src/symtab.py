@@ -245,16 +245,16 @@ class SymbolTable:
         return self.parent.check_type(typename) if self.parent is not None and not is_type else is_type
 
     def _translate_type(self, typename: str) -> Union[None, str]:
-        if typename[: min(6, len(typename))] == "struct":
-            return self._symtab_structs.get(typename, None)
-        if typename[: min(5, len(typename))] == "union":
-            return self._symtab_unions.get(typename, None)
+        if typename.startswith("struct"):
+            return self._symtab_structs.get(typename[7:], None)
+        if typename.startswith("union"):
+            return self._symtab_unions.get(typename[6:], None)
         return None
 
     def translate_type(self, typename: str) -> Union[None, str]:
         # Takes struct ___ / union ___ and converts it to a proper label
         tname = self._translate_type(typename)
-        return self.parent.translate_type(typename) if self.parent is not None and not tname else tname
+        return self.parent.translate_type(typename) if self.parent is not None and tname is None else tname
 
     def _search_for_label(self, symname: str) -> Union[None, dict]:
         return self._symtab_labels.get(symname, None)
