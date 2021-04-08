@@ -642,6 +642,7 @@ def p_unary_expression(p):
             p[0] = p[2]
             # p[0]["deref"] = p[0].get("deref", 0) + len(p[1])
             if p[2].get("pointer_lvl", 0) > 0:
+                nvar = get_tmp_var(_get_type_info(p[2]))
                 p[0]["code"] = [
                     [
                         "FUNCTION CALL",
@@ -654,6 +655,7 @@ def p_unary_expression(p):
                                 "kind": p[2].get("kind", "CONSTANT"),
                             }
                         ],
+                        nvar
                     ]
                 ]
                 p[0]["pointer_lvl"] -= 1
@@ -663,6 +665,7 @@ def p_unary_expression(p):
 
         elif p[1].startswith("&"):
             p[0] = p[2]
+            nvar = get_tmp_var(_get_type_info(p[2]))
             p[0]["code"] = [
                 [
                     "FUNCTION CALL",
@@ -675,6 +678,7 @@ def p_unary_expression(p):
                             "kind": p[2].get("kind", "CONSTANT"),
                         }
                     ],
+                    nvar
                 ]
             ]
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
