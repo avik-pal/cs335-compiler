@@ -409,6 +409,11 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry
 
 
 def compute_storage_size(entry, typeentry) -> int:
+    _c = entry["type"].count("*")
+    if _c > 0:
+        t = "".join(filter(lambda x: x != "*", entry["type"])).strip()
+        return compute_storage_size({"type": t, "pointer_lvl": _c}, get_current_symtab().lookup_type(t))
+
     if entry.get("is_array", False):
         raise NotImplementedError
     if entry.get("pointer_lvl", 0) > 0:
