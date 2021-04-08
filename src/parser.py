@@ -684,16 +684,42 @@ def p_unary_expression(p):
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
             # print(p[0])
 
+        elif p[1] == "+" or p[1] == "-":
+
+            symTab = get_current_symtab()
+            arg = p[2]["type"]
+            funcname = p[1] + f"({arg})"
+            entry = symTab.lookup(funcname)
+
+            if entry is None:
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": No such function in symbol table"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                # raise Exception
+
+            p[0] = {
+                "value": funcname,
+                "type": entry["return type"],
+                "arguments": [p[2]],
+                "kind": "FUNCTION CALL",
+            }
+
+            nvar = get_tmp_var(p[0]["type"])
+            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["value"] = nvar
+            del p[0]["arguments"]
+
         else:
             # TODO: depends on cast expression
             pass
 
     else:
+        print(p[3])
         if p[1] == "sizeof":
             p[0] = {
                 "type": "int",
-                "value": compute_storage_size({"value": p[3]["value"], "type": p[3]["value"]}, p[3]["value"]),
-                "code": p[3]["code"],
+                "value": compute_storage_size({"value": p[3]["value"], "type":p[3]["value"]}, None),
+                "code": p[3]["code"] 
             }
 
     # p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
@@ -717,7 +743,8 @@ def p_cast_expression(p):
         p[0] = p[1]
     else:
         # TODO: set correct pointer level
-        p[0] = _get_conversion_function_expr(p[4], {"type": p[2]["value"], "pointer_lvl": 0})
+        p_level = p[2].get("pointer_lvl", 0)
+        p[0] = _get_conversion_function_expr(p[4], {"type": p[2]["value"], "pointer_lvl": p_level})
 
         # p[0] = ("cast_expression",) + tuple(p[-len(p) + 1 :])
 
@@ -2409,6 +2436,20 @@ def populate_global_symbol_table() -> None:
             },
             1,
         )
+
+    # For unary operators + and - (for p_cast)
+    for op in ("+", "-"):
+        for _type in BASIC_TYPES:
+            _type = _type.lower()
+            table.insert(
+                {
+                    "name": op,
+                    "return type": _type,
+                    "parameter types": [_type],
+                },
+                1,
+            )
+
 
 
 def get_args():
