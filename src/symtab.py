@@ -80,7 +80,6 @@ TABLENUMBER = 0
 
 num_display_invocations = 0
 
-
 class SymbolTable:
     # kind = 0 for ID
     #        1 for FN
@@ -506,26 +505,29 @@ def compute_storage_size(entry, typeentry) -> int:
         for d in entry["dimensions"]:
             prod *= int(d["value"])
         return prod
-
     if entry.get("pointer_lvl", 0) > 0:
         return 8
-    if typeentry is None:
-        s = DATATYPE2SIZE[entry["type"].upper()]
-        return s
     if entry["type"].startswith("enum "):
         return 4
     if entry["type"].startswith("struct "):
         size = 0
         symTab = get_current_symtab()
+        temp ="".join(filter(lambda x: x != "*", entry["type"])).strip()
+        typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
             size += compute_storage_size({"type": t}, symTab.lookup_type(t))
         return size
     if entry["type"].startswith("union "):
         size = 0
         symTab = get_current_symtab()
+        temp ="".join(filter(lambda x: x != "*", entry["type"])).strip()
+        typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
             size = max(size, compute_storage_size({"type": t}, symTab.lookup_type(t)))
         return size
+    if typeentry is None:
+        s = DATATYPE2SIZE[entry["type"].upper()]
+        return s
     else:
         raise NotImplementedError
     return 0

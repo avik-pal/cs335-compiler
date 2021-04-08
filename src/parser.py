@@ -714,10 +714,11 @@ def p_unary_expression(p):
             pass
 
     else:
+        print(p[3])
         if p[1] == "sizeof":
             p[0] = {
                 "type": "int",
-                "value": compute_storage_size({"value": p[3]["value"], "type":p[3]["value"]},p[3]["value"]),
+                "value": compute_storage_size({"value": p[3]["value"], "type":p[3]["value"]}, None),
                 "code": p[3]["code"] 
             }
 
