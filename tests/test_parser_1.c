@@ -2,6 +2,7 @@ int main() {
     int c = 2, *a, b;
     double z;
     a = &c;
+    *c = 2;
 	if((*a)==0) {
 		c++;
         if((*a)==b)

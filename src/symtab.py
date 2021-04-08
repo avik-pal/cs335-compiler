@@ -478,5 +478,7 @@ def get_default_value(type: str):
         return 0.0
     elif type.upper() in CHARACTER_TYPES:
         return None
+    elif type[-1] == '*':
+        return "NULL"
     else:
         return -1

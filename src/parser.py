@@ -469,13 +469,32 @@ def p_unary_expression(p):
         elif p[1].startswith("*"):
             # print(p[1])
             p[0] = p[2]
-            p[0]["deref"] = p[0].get("deref", 0) + len(p[1])
-            p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
+            # p[0]["deref"] = p[0].get("deref", 0) + len(p[1])
+            if p[2].get('pointer_lvl',0) > 0:
+                p[0]["code"] = [
+                    [
+                        "FUNCTION CALL",
+                        p[0],
+                        f"__deref({p[2]})",
+                        [p, {"value": get_default_value( _get_type_info(p[2])), "type": _get_type_info(p[2]), "kind": p[2].get("kind", "CONSTANT")}],
+                    ]
+                ]
+                p[0]['pointer_lvl']-=1
+            else:
+                err_msg = "Cannot Dereference a non-pointer : %s" % ( (p[0]["value"]))
+                GLOBAL_ERROR_LIST.append(err_msg)
 
         elif p[1].startswith("&"):
             p[0] = p[2]
-            p[0]["addr"] = p[0].get("addr", 0) + len(p[1])
-            p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
+            p[0]["code"] = [
+                [
+                    "FUNCTION CALL",
+                    p[2],
+                    f"__get_addr({p[2]})",
+                    [p, {"value": get_default_value( _get_type_info(p[2])), "type": _get_type_info(p[2]), "kind": p[2].get("kind", "CONSTANT")}],
+                ]
+            ]
+            p[0]['pointer_lvl'] = p[0].get('pointer_lvl',0) + 1
             # print(p[0])
 
         else:
@@ -1905,6 +1924,17 @@ def populate_global_symbol_table() -> None:
             )
 
     # for getting array elements from basic types
+    for _type in BASIC_TYPES:
+        _type = _type.lower()
+        table.insert(
+            {
+                "name": "__get_array_element",
+                "return type": _type,
+                "parameter types": [f"{_type}*", "int"],
+            },
+            1,
+        )
+    # for unary operators on pointers
     for _type in BASIC_TYPES:
         _type = _type.lower()
         table.insert(
