@@ -244,15 +244,15 @@ class SymbolTable:
 
     def _translate_type(self, typename: str) -> Union[None, str]:
         if typename[: min(6, len(typename))] == "struct":
-            return self._symtab_structs.get(typename, None)
+            return self._symtab_structs.get(typename[7:], None)
         if typename[: min(5, len(typename))] == "union":
-            return self._symtab_unions.get(typename, None)
+            return self._symtab_unions.get(typename[7:], None)
         return None
 
     def translate_type(self, typename: str) -> Union[None, str]:
         # Takes struct ___ / union ___ and converts it to a proper label
         tname = self._translate_type(typename)
-        return self.parent.translate_type(typename) if self.parent is not None and not tname else tname
+        return self.parent.translate_type(typename) if self.parent is not None and tname is None else tname
 
     def _search_for_label(self, symname: str) -> Union[None, dict]:
         return self._symtab_labels.get(symname, None)
@@ -273,9 +273,9 @@ class SymbolTable:
         if f"struct {symname}" in self._symtab_structs:
             return self._symtab_typedefs[self._symtab_structs[f"struct {symname}"]]
         if symname in self._symtab_typedefs:
-            return self._symtab.typedefs[symname]
+            return self._symtab_typedefs[symname]
         if alt_name in self._symtab_typedefs:
-            return self._symtab.typedefs[alt_name]
+            return self._symtab_typedefs[alt_name]
         return None
 
     def _search_for_class(self, symname: str) -> Union[None, dict]:
@@ -477,6 +477,6 @@ def get_default_value(type: str):
     elif type.upper() in FLOATING_POINT_TYPES:
         return 0.0
     elif type.upper() in CHARACTER_TYPES:
-        return None
+        return ''
     else:
         return -1
