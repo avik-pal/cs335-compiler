@@ -1961,6 +1961,8 @@ def p_jump_statement(p):
         if len(p) == 3:
             p[0]["code"] += [["RETURN"]]
         else:
+            p[0]["code"] += p[2]["code"]
+            p[2]["code"] = []
             p[0]["code"] += [["RETURN", p[2]]]
 
 
@@ -1980,40 +1982,100 @@ def p_external_declaration(p):
     # p[0] = ("external_declaration",) + tuple(p[-len(p) + 1 :])
 
 
+# def p_function_definition(p):
+#     """function_definition : declaration_specifiers declarator declaration_list compound_statement
+#     | declaration_specifiers declarator compound_statement
+#     | declarator declaration_list compound_statement
+#     | declarator compound_statement"""
+#     global LAST_FUNCTION_DECLARATION
+#     symTab = get_current_symtab()
+#     if len(p) == 4:
+#         # TODO: Again arrays as parameters wont work for now
+#         #       Recursive functions wont work for now
+#         valid, entry = symTab.insert(
+#             {
+#                 "name": p[2]["value"],
+#                 "return type": p[1]["value"],
+#                 "parameter types": [_p[0] for _p in p[2]["parameters"]],
+#             },
+#             kind=1,
+#         )
+#         if not valid:
+#             err_msg = "Error at line number " + str(p.lineno(2)) + f": Failed to create function named {p[2]['value']}"
+#             GLOBAL_ERROR_LIST.append(err_msg)
+#             raise SyntaxError
+#             #raise Exception(f"Failed to create function named {p[2]['value']}")
+#         p[0] = p[3]
+#         p[0]["code"] = (
+#             [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]] + p[3]["code"] + [["ENDFUNCTION"]]
+#         )
+
+#         LAST_FUNCTION_DECLARATION = entry["name resolution"]
+#         # print(LAST_FUNCTION_DECLARATION)
+
+#         # Ensure return type is same as RETURN value
+#         no_return = True
+#         for code in p[3]["code"]:
+#             if len(code) > 0 and code[0] == "RETURN":
+#                 if len(code) == 1 and p[1]["value"] != "void":
+#                     err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
+#                     GLOBAL_ERROR_LIST.append(err_msg)
+#                     raise SyntaxError
+#                     # raise Exception("Return type not matching declared type")
+#                 elif len(code) > 1 and p[1]["value"] != code[1]["type"]:
+#                     err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
+#                     GLOBAL_ERROR_LIST.append(err_msg)
+#                     raise SyntaxError
+#                     # raise Exception("Return type not matching declared type")
+#                 no_return = False
+#         if no_return and p[1]["value"] != "void":
+#             err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
+#             GLOBAL_ERROR_LIST.append(err_msg)
+#             raise SyntaxError
+#             # raise Exception("Return type not matching declared type")
+
+#     else:
+#         # TODO
+#         p[0] = ("function_definition",) + tuple(p[-len(p) + 1 :])
+
+
+def p_function_definition_full(p):
+    """function_definition_full : declaration_specifiers declarator"""
+    symTab = get_current_symtab()
+    # TODO: Again arrays as parameters wont work for now
+    #       Recursive functions wont work for now
+    valid, entry = symTab.insert(
+        {
+            "name": p[2]["value"],
+            "return type": p[1]["value"],
+            "parameter types": [_p[0] for _p in p[2]["parameters"]],
+        },
+        kind=1,
+    )
+    if not valid:
+        err_msg = "Error at line number " + str(p.lineno(2)) + f": Failed to create function named {p[2]['value']}"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
+        #raise Exception(f"Failed to create function named {p[2]['value']}")
+    p[0] = {"code": [], "value": ""}
+    p[0]["code"] = (
+        [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]]
+    )
+    p[0]["value"] = p[1]["value"]
+
 def p_function_definition(p):
     """function_definition : declaration_specifiers declarator declaration_list compound_statement
-    | declaration_specifiers declarator compound_statement
+    | function_definition_full compound_statement
     | declarator declaration_list compound_statement
     | declarator compound_statement"""
     global LAST_FUNCTION_DECLARATION
     symTab = get_current_symtab()
-    if len(p) == 4:
-        # TODO: Again arrays as parameters wont work for now
-        #       Recursive functions wont work for now
-        valid, entry = symTab.insert(
-            {
-                "name": p[2]["value"],
-                "return type": p[1]["value"],
-                "parameter types": [_p[0] for _p in p[2]["parameters"]],
-            },
-            kind=1,
-        )
-        if not valid:
-            err_msg = "Error at line number " + str(p.lineno(2)) + f": Failed to create function named {p[2]['value']}"
-            GLOBAL_ERROR_LIST.append(err_msg)
-            raise SyntaxError
-            #raise Exception(f"Failed to create function named {p[2]['value']}")
-        p[0] = p[3]
-        p[0]["code"] = (
-            [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]] + p[3]["code"] + [["ENDFUNCTION"]]
-        )
+    if len(p) == 3:
+        p[0] = p[1]
+        p[0]["code"] += p[2]["code"] + [["ENDFUNCTION"]]
 
-        LAST_FUNCTION_DECLARATION = entry["name resolution"]
-        # print(LAST_FUNCTION_DECLARATION)
-
-        # Ensure return type is same as RETURN value
         no_return = True
-        for code in p[3]["code"]:
+        for code in p[2]["code"]:
             if len(code) > 0 and code[0] == "RETURN":
                 if len(code) == 1 and p[1]["value"] != "void":
                     err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"

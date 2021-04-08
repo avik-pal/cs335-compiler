@@ -1,13 +1,20 @@
 //#include<stdio.h>
 
-union Data{
-    int i;
-    char c;
-};
+// union Data{
+//     int i;
+//     char c;
+// };
 
 int main(){
-    union Data data;
+    // union Data data;
     int temp;
+
+    struct Data {
+        int i;
+        char c;
+    };
+
+    struct Data data;
 
     data.i = 3;
     temp = data.i;

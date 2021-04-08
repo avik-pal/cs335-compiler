@@ -93,10 +93,9 @@ def _resolve_fcall_graph(G, scopes, args):
 
 def _internal_code_parser(G, scopes, code):
     global in_function
-    print(scopes[-1])
     for line in code:
-        print(line, scopes)
         _f = line[0]
+        print(line)
         if _f == "BEGINFUNCTION":
             in_function += 1
             v = _add_new_node(G, line[-1])
@@ -144,10 +143,7 @@ def _internal_code_parser(G, scopes, code):
             v = _add_new_node(G, f"RETURN {line[-1]['value']}")
             G.add_edge(scopes[-1], v)
         else:
-            G.add_edge(scopes[-1], " ".join(line))
-        print(scopes)
-            
-        
+            G.add_edge(scopes[-1], " ".join(line))          
 
 
 def parse_code(tree):
