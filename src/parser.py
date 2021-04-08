@@ -41,7 +41,10 @@ def _type_cast(s1, s2):
     if s1 == s2:
         return s1
     if s1.count("*") != s2.count("*"):
-        raise Exception("Pointer level mismatch. Type Casting not supported")
+        err_msg = "Pointer level mismatch. Type Casting not supported"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
+        #raise Exception("Pointer level mismatch. Type Casting not supported")
     if (s1 not in BASIC_TYPES) or (s2 not in BASIC_TYPES):
         flag_for_error = TYPE_CAST_ERR
         err_msg = "Type Cast not possible"
@@ -149,13 +152,19 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
     if len(plist) == 0:
         entry = symTab.lookup(f"{fname}()")
         if entry is None:
-            raise Exception
+            err_msg = f"{fname}() : No such function in symbol table"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            #raise Exception
         return f"{fname}()", entry, plist
 
     if len(plist) == 1:
         entry = symTab.lookup(f"{fname}({plist[0]['type']})")
         if entry is None:
-            raise Exception
+            err_msg = f"{fname}({plist[0]['type']}) : No such function in symbol table"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            #raise Exception
         return (
             f"{fname}({plist[0]['type']})",
             entry,
@@ -172,7 +181,10 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
     funcname = f"{fname}(" + ",".join([_get_type_info(tcast)] * len(plist)) + ")"
     entry = get_current_symtab().lookup(funcname)
     if entry is None:
-        raise Exception(f"{funcname} function is not declared!!")
+        err_msg = f"{funcname} function is not declared!"
+        GLOBAL_ERROR_LIST.append(err_msg)
+        raise SyntaxError
+        #raise Exception(f"{funcname} function is not declared!!")
 
     args = [_get_conversion_function(p, tcast) for p in plist]
 
@@ -1013,7 +1025,10 @@ def p_declaration(p):
         if tinfo.startswith("static"):
             tinfo = tinfo[7:]
             is_static = True
-            raise Exception("Static Variables are not supported")
+            err_msg = "Error at line number " + str(p.lineno(1)) + ": Static variables are not supported"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            #raise Exception("Static Variables are not supported")
 
         for _p in p[2]:
             if len(_p["code"]) > 0:
@@ -1071,6 +1086,7 @@ def p_declaration(p):
                     #             vname,
                     #         ]
                     #     ]
+                    
                     raise Exception
                     # p[0]["value"] = vname
 
@@ -1089,7 +1105,10 @@ def p_declaration(p):
 
             else:
                 if tinfo == "void":
-                    raise Exception("Incomplete type is not allowed")
+                    err_msg = "Error at line number " + str(p.lineno(2)) + ": Incomplete type is not allowed"
+                    GLOBAL_ERROR_LIST.append(err_msg)
+                    raise SyntaxError
+                    #raise Exception("Incomplete type is not allowed")
                 valid, entry = symTab.insert(
                     {
                         "name": _p["value"],
@@ -1836,7 +1855,10 @@ def p_jump_statement(p):
     symTab = get_current_symtab()
     if p[1] == "goto":
         if symTab.lookup(p[2]["value"]) is None:
-            raise Exception("Label not present")
+            err_msg = "Error at line number " + str(p.lineno(2)) + ": Label not present"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            #raise Exception("Label not present")
         p[0]["code"] += [["GOTO", p[2]["value"]]]
     elif p[1] == "continue":
         # TODO (M4): Check that it is being used only inside a loop
@@ -1886,7 +1908,10 @@ def p_function_definition(p):
             kind=1,
         )
         if not valid:
-            raise Exception(f"Failed to create function named {p[2]['value']}")
+            err_msg = "Error at line number " + str(p.lineno(2)) + f": Failed to create function named {p[2]['value']}"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            #raise Exception(f"Failed to create function named {p[2]['value']}")
         p[0] = p[3]
         p[0]["code"] = (
             [["BEGINFUNCTION", entry["return type"], entry["name resolution"]]] + p[3]["code"] + [["ENDFUNCTION"]]
