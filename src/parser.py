@@ -1055,7 +1055,7 @@ def p_declaration(p):
             if len(_p["code"]) > 0:
                 p[0]["code"] += _p["code"]
             if "store" in _p:
-                if not _p.get("is_array", False) and _p["store"]["types"] is None:
+                if not _p.get("is_array", False) and _p["store"].get("types", None) is None:
                     _p["type"] = p[1]["value"]
                     if len(_p["code"]) > 0:
                         _tcast = type_cast(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
@@ -1086,7 +1086,7 @@ def p_declaration(p):
                         ]
                     ]
                     # p[0]["value"] = vname
-                elif not _p.get("is_array", False) and _p["store"]["types"] is not None:
+                elif not _p.get("is_array", False) and _p["store"].get("types", None) is not None:
                     #print(_p)
                     struct_entry = symTab.lookup_type(p[1]["value"])  
                     if struct_entry is None:
