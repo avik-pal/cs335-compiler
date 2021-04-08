@@ -52,3 +52,11 @@ Mkfile.old
 dkms.conf
 __pycache__
 .vscode
+
+# Project Specific
+*.dot
+## Might need to commit this later on
+parsetab.py
+*.ps
+__pycache__/
+*.pyc
