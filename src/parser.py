@@ -981,6 +981,8 @@ def p_declaration(p):
                 )
 
             else:
+                if tinfo == "void":
+                    raise Exception("Incomplete type is not allowed")
                 valid, entry = symTab.insert(
                     {
                         "name": _p["value"],
