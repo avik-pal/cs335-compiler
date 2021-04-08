@@ -78,6 +78,7 @@ def _add_new_node(G, label):
 
 in_function = 1
 
+
 def _resolve_fcall_graph(G, scopes, args):
     for arg in args:
         if isinstance(arg, str):
@@ -105,15 +106,30 @@ def _internal_code_parser(G, scopes, code):
             scopes.pop()
             in_function -= 1
         elif _f == "FUNCTION CALL":
-            v1 = _add_new_node(G, "=")
-            v2 = _add_new_node(G, line[-1])
-            v3 = _add_new_node(G, line[2])
-            G.add_edge(scopes[-1], v1)
-            G.add_edge(v1, v2)
-            G.add_edge(v1, v3)
-            scopes.append(v3)
-            _resolve_fcall_graph(G, scopes, line[3])
-            scopes.pop()
+            if line[2].startswith("__store") and "index" in line[3][0]:
+                v1 = _add_new_node(G, "=")
+                v2 = _add_new_node(G, line[-1])
+                v3 = _add_new_node(G, line[2])
+                v4 = _add_new_node(G, line[3][0]["value"] + f"{line[3][0]['index']}")
+                if isinstance(line[3][1]["value"], dict):
+                    v5 = line[3][1]["value"]["value"]
+                else:
+                    v5 = line[3][1]["value"]
+                G.add_edge(scopes[-1], v1)
+                G.add_edge(v1, v2)
+                G.add_edge(v1, v3)
+                G.add_edge(v3, v4)
+                G.add_edge(v3, v5)
+            else:
+                v1 = _add_new_node(G, "=")
+                v2 = _add_new_node(G, line[-1])
+                v3 = _add_new_node(G, line[2])
+                G.add_edge(scopes[-1], v1)
+                G.add_edge(v1, v2)
+                G.add_edge(v1, v3)
+                scopes.append(v3)
+                _resolve_fcall_graph(G, scopes, line[3])
+                scopes.pop()
         elif _f == "IF":
             v1 = _add_new_node(G, "IF")
             v2 = _add_new_node(G, f"{line[1]} = 0")
@@ -143,7 +159,7 @@ def _internal_code_parser(G, scopes, code):
             v = _add_new_node(G, f"RETURN" + ("" if len(line) == 1 else f" {line[-1]['value']}"))
             G.add_edge(scopes[-1], v)
         else:
-            G.add_edge(scopes[-1], " ".join(line))          
+            G.add_edge(scopes[-1], " ".join(line))
 
 
 def parse_code(tree):
