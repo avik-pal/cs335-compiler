@@ -464,7 +464,7 @@ def p_unary_expression(p):
                 "value": "SIZEOF",
             }
 
-            p[0]["code"] = [[p[0]["value"]], p[2]["code"]]
+            p[0]["code"] = [[p[0]["value"]], [p[2]]]
 
         elif p[1].startswith("*"):
             # print(p[1])
@@ -508,7 +508,7 @@ def p_unary_expression(p):
                 "value": "SIZEOF",
             }
 
-            p[0]["code"] = [[p[0]["value"]], p[3]["code"]]
+            p[0]["code"] = [[p[0]["value"]], [p[3]]]
 
     # p[0] = ("unary_expression",) + tuple(p[-len(p) + 1 :])
 
@@ -530,8 +530,8 @@ def p_cast_expression(p):
     if len(p) == 2:
         p[0] = p[1]
     else:
-        # TODO
-        p[0] = {type}
+        #TODO: set correct pointer level
+        p[0] = _get_conversion_function_expr(p[4], {"type": p[2]["value"], "pointer_lvl": 0}) 
 
         # p[0] = ("cast_expression",) + tuple(p[-len(p) + 1 :])
 
@@ -1496,14 +1496,25 @@ def p_identifier_list(p):
 def p_type_name(p):
     """type_name : specifier_qualifier_list
     | specifier_qualifier_list abstract_declarator"""
-    p[0] = ("type_name",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("type_name",) + tuple(p[-len(p) + 1 :])
+    if len(p) ==2:
+        p[0] = p[1]
+
+    else:
+        #TODO : should have a value field
+        pass
 
 
 def p_abstract_declarator(p):
     """abstract_declarator : pointer
     | direct_abstract_declarator
     | pointer direct_abstract_declarator"""
-    p[0] = ("abstract_declarator",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("abstract_declarator",) + tuple(p[-len(p) + 1 :])
+    if len(p) ==2:
+        p[0] = p[1]
+    else:
+        #TODO
+        pass
 
 
 def p_direct_abstract_declarator(p):
