@@ -178,6 +178,71 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
 
     return funcname, entry, args
 
+def _array_init(p, values,types, dim,arr,idx):
+    if(len(dim) == 1):
+        print(dim[0])
+        count = 0
+        tinfo = {"type": p[1]["value"], "pointer_lvl": arr.get("pointer_lvl", 0)}
+        for i, (item, t) in enumerate(zip(values, types)):
+            count+=1
+            expr = _get_conversion_function({"value": item, "type": t, "code": []}, tinfo )
+            if len(expr["code"]) > 0:
+                p[0]["code"] += expr["code"]
+            vname = get_tmp_var()
+            p[0]["code"] += [
+                [
+                    "FUNCTION CALL",
+                    _get_type_info(tinfo),
+                    f"__store({p[1]['value']}*,{p[1]['value']})",
+                    [
+                        {"value": arr["value"], "type": _get_type_info(tinfo), "index": idx + [i]},
+                        {"value": expr["value"], "type": _get_type_info(tinfo)},
+                    ],
+                    vname,
+                ]
+            ]
+        if count>dim[0]:
+            err_msg = f"[{dim[0]}] Array {arr['value']} filled beyond capacity"
+            print(err_msg)
+            GLOBAL_ERROR_LIST.append(err_msg)
+            return -1
+        else:
+            for i in range(count,dim[0]):
+                print(arr)
+                vname = get_tmp_var(_get_type_info(tinfo))
+                p[0]["code"] += [
+                    [
+                        "FUNCTION CALL",
+                        _get_type_info(tinfo),
+                        f"__store({p[1]['value']}*,{p[1]['value']})",
+                        [
+                            {"value": arr["value"], "type": _get_type_info(tinfo), "index": idx + [i]},
+                            {"value": get_default_value(_get_type_info(tinfo)), "type": _get_type_info(tinfo)},
+                        ],
+                        vname,
+                    ]
+                ]
+
+        return 1
+    else:
+        
+        if len(types) > dim[0]:
+            err_msg = f"[{dim[0]}] Array {arr['value']} filled beyond capacity"
+            print(err_msg)
+            GLOBAL_ERROR_LIST.append(err_msg)
+            return -1 
+        for i in range(dim[0]):
+                if i < len(types):
+                    ret = _array_init(p,values[i], types[i],dim[1:],arr, idx +[i])
+                    if ret < 0 :
+                        return -1
+                else:
+                    ret = _array_init(p,[], [],dim[1:],arr, idx +[i])
+                    if ret < 0 :
+                        return -1
+        return 1
+             
+
 
 LAST_POPPED_TABLE = None
 INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
@@ -395,7 +460,7 @@ def p_postfix_expression(p):
             if p[3]["type"] == "int":
                 symTab = get_current_symtab()
                 funcname = "__get_array_element" + f"({_get_type_info(p[1])}*,int)"
-                nvar = get_default_value(_get_type_info(p[1]))
+                nvar = get_tmp_var(_get_type_info(p[1]))
                 p[0] = {
                     "value": nvar,
                     "type": p[1]["type"],
@@ -494,9 +559,9 @@ def p_unary_expression(p):
                 p[0]["code"] = [
                     [
                         "FUNCTION CALL",
-                        p[0],
-                        f"__deref({p[2]})",
-                        [p, {"value": get_default_value( _get_type_info(p[2])), "type": _get_type_info(p[2]), "kind": p[2].get("kind", "CONSTANT")}],
+                        _get_type_info(p[2]),
+                        f"__deref({p[0]['value']})",
+                        [{"value": get_default_value( _get_type_info(p[2])), "type": _get_type_info(p[2]), "kind": p[2].get("kind", "CONSTANT")}],
                     ]
                 ]
                 p[0]['pointer_lvl']-=1
@@ -509,9 +574,9 @@ def p_unary_expression(p):
             p[0]["code"] = [
                 [
                     "FUNCTION CALL",
-                    p[2],
-                    f"__get_addr({p[2]})",
-                    [p, {"value": get_default_value( _get_type_info(p[2])), "type": _get_type_info(p[2]), "kind": p[2].get("kind", "CONSTANT")}],
+                    _get_type_info(p[2]),
+                    f"__deref({p[0]['value']})",
+                    [{"value": get_default_value( _get_type_info(p[2])), "type": _get_type_info(p[2]), "kind": p[2].get("kind", "CONSTANT")}],
                 ]
             ]
             p[0]['pointer_lvl'] = p[0].get('pointer_lvl',0) + 1
@@ -1053,25 +1118,13 @@ def p_declaration(p):
                     # p[0]["value"] = vname
                 else:
                     # For array initialization
-                    # TODO: Multidimensional array initialization
-                    # for i, (item, t) in enumerate(zip(_p["store"]["value"], _p["store"]["types"])):
-                    #     expr = _get_conversion_function({"value": item, "type": t, "code": []}, tinfo)
-                    #     if len(expr["code"]) > 0:
-                    #         p[0]["code"] += expr["code"]
-                    #     vname = get_tmp_var()
-                    #     p[0]["code"] += [
-                    #         [
-                    #             "FUNCTION CALL",
-                    #             tinfo,
-                    #             f"__store({p[1]['value']}*,{p[1]['value']})",
-                    #             [
-                    #                 {"value": _p["value"], "type": tinfo, "index": i},
-                    #                 {"value": expr["value"], "type": tinfo},
-                    #             ],
-                    #             vname,
-                    #         ]
-                    #     ]
-                    raise Exception
+                    # Added support for multidimensional array initialization
+                    dim = []
+                    print(_p)
+                    for d in _p["dimensions"]:
+                        dim.append(int(d["value"]))
+                    _array_init(p,_p["store"]["value"],_p["store"]["types"],dim,_p,[])
+                    # raise Exception
                     # p[0]["value"] = vname
 
             if is_static:
@@ -1638,6 +1691,7 @@ def p_initializer(p):
             else:
                 p[0]["value"].append(_p["value"] if _p["kind"] != "CONSTANT" else _p)
                 p[0]["types"].append(_p["type"])
+        p[0]["is_array"] = True
         # if all(map(lambda x: x == p[0]["types"][0], p[0]["types"])):
         #     p[0]["type"] = p[0]["types"][0]
         # else:
