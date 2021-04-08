@@ -131,6 +131,8 @@ class SymbolTable:
 
         name = self._get_proper_name(entry, kind)
         prev_entry = self.lookup_current_table(name, kind, entry.get("alt name", None))
+        # if entry['name'] == 'arr':
+        #     print(f"Symtab {entry} {prev_entry}")
         if prev_entry is None:
             entry["kind"] = kind
             entry["pointer_lvl"] = entry.get("pointer_lvl", 0)
@@ -243,10 +245,10 @@ class SymbolTable:
         return self.parent.check_type(typename) if self.parent is not None and not is_type else is_type
 
     def _translate_type(self, typename: str) -> Union[None, str]:
-        if typename[: min(6, len(typename))] == "struct":
+        if typename.startswith("struct"):
             return self._symtab_structs.get(typename[7:], None)
-        if typename[: min(5, len(typename))] == "union":
-            return self._symtab_unions.get(typename[7:], None)
+        if typename.startswith("union"):
+            return self._symtab_unions.get(typename[6:], None)
         return None
 
     def translate_type(self, typename: str) -> Union[None, str]:
@@ -413,13 +415,15 @@ def compute_storage_size(entry, typeentry) -> int:
     if _c > 0:
         t = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         return compute_storage_size({"type": t, "pointer_lvl": _c}, get_current_symtab().lookup_type(t))
-
+    global DATATYPE2SIZE
     if entry.get("is_array", False):
-        raise NotImplementedError
+        if len(entry['dimensions']) == 1 :
+            return DATATYPE2SIZE[entry["type"].upper()] 
+        else:
+            raise NotImplementedError
     if entry.get("pointer_lvl", 0) > 0:
         return 8
     if typeentry is None:
-        global DATATYPE2SIZE
         s = DATATYPE2SIZE[entry["type"].upper()]
         return s
     if entry["type"].startswith("enum "):
@@ -478,5 +482,7 @@ def get_default_value(type: str):
         return 0.0
     elif type.upper() in CHARACTER_TYPES:
         return ''
+    elif type[-1] == '*':
+        return "NULL"
     else:
         return -1
