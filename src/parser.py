@@ -2167,6 +2167,41 @@ def populate_global_symbol_table() -> None:
                 },
                 1,
             )
+    for op in ("&&", "||", "&", "|"):
+        for _type in NUMERIC_TYPES:
+            _type = _type.lower()
+            table.insert(
+                {
+                    "name": op,
+                    "return type": "int",  # essentially boolean
+                    "parameter types": [_type, _type],
+                },
+                1,
+            )
+
+    for op in "^":
+            for _type in INTEGER_TYPES:
+                _type = _type.lower()
+                table.insert(
+                    {
+                        "name": op,
+                        "return type": "int",  # essentially boolean
+                        "parameter types": [_type, _type],
+                    },
+                    1,
+                )
+
+    for op in "!":
+            for _type in BASIC_TYPES:
+                _type = _type.lower()
+                table.insert(
+                    {
+                        "name": op,
+                        "return type": "int",
+                        "parameter types": [_type],
+                    },
+                    1,
+                )
 
     for op in "%":
         for _type in INTEGER_TYPES:
