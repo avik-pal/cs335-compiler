@@ -268,7 +268,19 @@ def p_postfix_expression(p):
 
     elif len(p) == 3:
         symTab = get_current_symtab()
-        funcname = p[2] + f"({p[1]['type']})"
+
+        # check for pointer arguments
+        if p[1].get("pointer_lvl", 0) > 0:
+            #obtain offset
+            offset = DATATYPE2SIZE[p[1]["type"].upper()]
+            arg_type = "long"
+
+        else:
+            offset = 0
+            arg_type = p[1]["type"]
+
+
+        funcname = p[2] + f"({arg_type})"
         entry = symTab.lookup(funcname)
         if entry is None:
             # Uncessary for this case
@@ -281,7 +293,9 @@ def p_postfix_expression(p):
             "type": entry["return type"],
             "arguments": [p[1]],
             "kind": "FUNCTION CALL",
+            "p_offset": offset,
         }
+
         nvar = get_tmp_var(p[0]["type"])
         p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
         p[0]["value"] = nvar
@@ -436,7 +450,18 @@ def p_unary_expression(p):
     elif len(p) == 3:
         if p[1] == "++" or p[1] == "--":
             symTab = get_current_symtab()
-            funcname = p[1] + f"({p[2]['type']})"
+
+             # check for pointer arguments
+            if p[2].get("pointer_lvl", 0) > 0:
+                #obtain offset
+                offset = DATATYPE2SIZE[p[2]["type"].upper()]
+                arg_type = "long"
+
+            else:
+                offset = 0
+                arg_type = p[2]["type"]
+            
+            funcname = p[1] + f"({arg_type})"
             entry = symTab.lookup(funcname)
 
             if entry is None:
@@ -450,6 +475,7 @@ def p_unary_expression(p):
                 "type": entry["return type"],
                 "arguments": [p[2]],
                 "kind": "FUNCTION CALL",
+                "p_offset": offset,
             }
 
             nvar = get_tmp_var(p[0]["type"])
@@ -531,7 +557,7 @@ def p_cast_expression(p):
         p[0] = p[1]
     else:
         #TODO: set correct pointer level
-        p[0] = _get_conversion_function_expr(p[4], {"type": p[2]["value"], "pointer_lvl": 0}) 
+        p[0] = _get_conversion_function_expr(p[4], {"type": p[2]["value"], "pointer_lvl": 0})
 
         # p[0] = ("cast_expression",) + tuple(p[-len(p) + 1 :])
 
