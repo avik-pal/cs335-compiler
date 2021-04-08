@@ -135,22 +135,12 @@ class SymbolTable:
             entry["kind"] = kind
             entry["pointer_lvl"] = entry.get("pointer_lvl", 0)
             if kind == 0:
-                # TODO: Support custom types sizes
                 if not self.check_type(entry["type"]):
                     raise Exception(f"{entry['type']} is not a valid data type")
-                try:
-                    entry["size"] = DATATYPE2SIZE[entry["type"].upper()]
-                    if entry["pointer_lvl"] > 0:
-                        entry["size"] = 8
-                except KeyError:
-                    #     # TODO: Proper error message with line number and such
-                    raise Exception(f"{entry['type']} is not a valid data type")
-                # entry["size"] = -1
+                t = self.lookup_type(entry["type"])
+                entry["size"] = compute_storage_size(entry, t)
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
-                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
-
-                entry["value"] = entry.get("value", get_default_value(entry["type"]))
-                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"])
+                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry["dimensions"], entry, t)
 
                 if entry["is_array"]:
                     dims = entry["dimensions"]
@@ -185,6 +175,8 @@ class SymbolTable:
                 if entry["alt name"] is None:
                     entry["alt name"] = get_tmp_label()
                 # symtab_structs just stores the translated name
+                if len(set(entry["field names"])) != len(entry["field names"]):
+                    raise Exception("Non Unique Field Names detected")
                 self._symtab_structs[name] = entry["alt name"]
                 self._symtab_typedefs[entry["alt name"]] = entry
                 self._custom_types[f"struct {name}"] = entry
@@ -221,6 +213,8 @@ class SymbolTable:
                 # Union
                 if entry["alt name"] is None:
                     entry["alt name"] = get_tmp_label()
+                if len(set(entry["field names"])) != len(entry["field names"]):
+                    raise Exception("Non Unique Field Names detected")
                 # symtab_structs just stores the translated name
                 self._symtab_unions[name] = entry["alt name"]
                 self._symtab_typedefs[entry["alt name"]] = entry
@@ -249,9 +243,9 @@ class SymbolTable:
         return self.parent.check_type(typename) if self.parent is not None and not is_type else is_type
 
     def _translate_type(self, typename: str) -> Union[None, str]:
-        if typename[: max(6, len(typename))] == "struct":
+        if typename[: min(6, len(typename))] == "struct":
             return self._symtab_structs.get(typename, None)
-        if typename[: max(5, len(typename))] == "union":
+        if typename[: min(5, len(typename))] == "union":
             return self._symtab_unions.get(typename, None)
         return None
 
@@ -322,6 +316,13 @@ class SymbolTable:
                 break
         return res
 
+    def _lookup_type(self, typename: str) -> Union[dict, None]:
+        return self._custom_types.get(typename, None)
+
+    def lookup_type(self, typename: str) -> Union[dict, None]:
+        t = self._lookup_type(typename)
+        return self.parent.lookup_type(typename) if self.parent is not None and t is None else t
+
     def lookup(self, symname: str, idx: int = -1, alt_name: Union[str, None] = None) -> Union[None, list, dict]:
         # Check in the current list of symbols
         res = self.lookup_current_table(symname, paramtab_check=(idx == -1), alt_name=alt_name)
@@ -347,7 +348,7 @@ class SymbolTable:
             if v["name"][: min(2, len(k))] == "__":
                 continue
             print(
-                f"Name: {k}, Type: {v['type'] + '*' * v['pointer_lvl']}, Size: {v['size']}, Value: {v['value']}"
+                f"Name: {k}, Type: {v['type'] + '*' * v['pointer_lvl']}, Size: {v['size']}, Offset: {v['offset']}"
                 + ("" if not v["is_array"] else f", Dimensions: {v['dimensions']}")
             )
         print("-" * 51)
@@ -364,6 +365,8 @@ class SymbolTable:
 
 
 SYMBOL_TABLES = []
+
+STATIC_VARIABLE_MAPS = {}
 
 
 def pop_scope() -> SymbolTable:
@@ -394,15 +397,42 @@ def get_current_symtab() -> Union[None, SymbolTable]:
     return None if len(SYMBOL_TABLES) == 0 else SYMBOL_TABLES[-1]
 
 
-def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int]) -> int:
-    return -1
-    if len(dimensions) == 0:
+def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry, typeentry) -> int:
+    if not is_array:
         return dsize
     else:
         prod = 1
         for dim in dimensions:
             prod *= dim
         return prod * dsize
+
+
+def compute_storage_size(entry, typeentry) -> int:
+    if entry.get("is_array", False):
+        raise NotImplementedError
+    if entry.get("pointer_lvl", 0) > 0:
+        return 8
+    if typeentry is None:
+        global DATATYPE2SIZE
+        s = DATATYPE2SIZE[entry["type"].upper()]
+        return s
+    if entry["type"].startswith("enum "):
+        return 4
+    if entry["type"].startswith("struct "):
+        size = 0
+        symTab = get_current_symtab()
+        for t in typeentry["field types"]:
+            size += compute_storage_size({"type": t}, symTab.lookup_type(t))
+        return size
+    if entry["type"].startswith("union "):
+        size = 0
+        symTab = get_current_symtab()
+        for t in typeentry["field types"]:
+            size = max(size, compute_storage_size({"type": t}, symTab.lookup_type(t)))
+        return size
+    else:
+        raise NotImplementedError
+    return 0
 
 
 TMP_VAR_COUNTER = 0

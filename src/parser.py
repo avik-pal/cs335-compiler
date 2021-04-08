@@ -23,6 +23,7 @@ from symtab import (
     FLOATING_POINT_TYPES,
     INTEGER_TYPES,
     SYMBOL_TABLES,
+    STATIC_VARIABLE_MAPS,
 )
 
 flag_for_error = 0
@@ -227,7 +228,7 @@ def p_identifier(p):
             "kind": "IDENTIFIER",
             # "entry": entry,  # FIXME: Add this back in the final code
         }
-    else:
+    elif entry["kind"] == 0:
         p[0] = {
             "value": p[1],
             "code": [],
@@ -902,9 +903,10 @@ def p_declaration(p):
         # TODO: Handle static variables
         tinfo = p[1]["value"]
         is_static = False
-        if tinfo[: min(6, len(tinfo))] == "static":
+        if tinfo.startswith("static"):
             tinfo = tinfo[7:]
             is_static = True
+            raise Exception("Static Variables are not supported")
 
         for _p in p[2]:
             if len(_p["code"]) > 0:
@@ -965,20 +967,30 @@ def p_declaration(p):
                     raise Exception
                     # p[0]["value"] = vname
 
-            # if is_static:
-            #     print(LAST_FUNCTION_DECLARATION)
-            #     vname = _p["value"] + ""
+            if is_static:
+                global SYMBOL_TABLES, STATIC_VARIABLE_MAPS
+                valid, entry = SYMBOL_TABLES[0].insert(
+                    {
+                        "name": _p["value"] + ".static",
+                        "type": tinfo,
+                        "is_array": _p.get("is_array", False),
+                        "dimensions": _p.get("dimensions", []),
+                        "pointer_lvl": _p.get("pointer_lvl", 0),
+                    },
+                    kind=0,
+                )
 
-            valid, entry = symTab.insert(
-                {
-                    "name": _p["value"],
-                    "type": tinfo,
-                    "is_array": _p.get("is_array", False),
-                    "dimensions": _p.get("dimensions", []),
-                    "pointer_lvl": _p.get("pointer_lvl", 0),
-                },
-                kind=0,
-            )
+            else:
+                valid, entry = symTab.insert(
+                    {
+                        "name": _p["value"],
+                        "type": tinfo,
+                        "is_array": _p.get("is_array", False),
+                        "dimensions": _p.get("dimensions", []),
+                        "pointer_lvl": _p.get("pointer_lvl", 0),
+                    },
+                    kind=0,
+                )
             if not valid:
                 err_msg = (
                     "Error at line number "
@@ -1544,7 +1556,7 @@ def p_labeled_statement(p):
             # p[0] = {"code": [["LABEL", get_tmp_label()]] + p[3]["code"]}
             p[0] = {"code": [["CASE", "DEFAULT"]] + p[3]["code"]}
         else:
-            valid, entry = symTab.insert({"name": p[1]}, kind = 6)
+            valid, entry = symTab.insert({"name": p[1]}, kind=6)
             p[0] = {"code": [["LABEL", p[1]]] + p[3]["code"]}
     else:
         # TODO (M4): Assign labels
@@ -1630,11 +1642,6 @@ def p_selection_statement(p):
             p[0]["code"] += [["LABEL", finishLabel]]
     else:
         # TODO (M4): Write as goto statements to different labels
-        print()
-        print(p[3])
-        print()
-        print(p[5])
-        print()
         # p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
         p[0] = {"code": p[3]["code"] + [["BEGINSWITCH", p[3]["value"]]] + p[5]["code"] + [["ENDSWITCH"]]}
 
@@ -1763,6 +1770,7 @@ def p_function_definition(p):
         )
 
         LAST_FUNCTION_DECLARATION = entry["name resolution"]
+        # print(LAST_FUNCTION_DECLARATION)
 
         # Ensure return type is same as RETURN value
         no_return = True
@@ -1819,7 +1827,6 @@ def p_rbrace(p):
 def p_error(p):
     global flag_for_error
     # flag_for_error = 1
-    print("random chhez")
     if p is not None:
         print("error at line no:  %s :: %s" % ((p.lineno), (p.value)))
         parser.errok()
