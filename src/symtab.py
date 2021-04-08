@@ -1,4 +1,5 @@
 from typing import Union, List, Tuple
+import csv
 
 
 DATATYPE2SIZE = {
@@ -77,6 +78,7 @@ BASIC_TYPES = NUMERIC_TYPES + CHARACTER_TYPES
 
 TABLENUMBER = 0
 
+num_display_invocations = 0
 
 class SymbolTable:
     # kind = 0 for ID
@@ -340,6 +342,7 @@ class SymbolTable:
 
     def display(self) -> None:
         # Simple Pretty Printer
+        global num_display_invocations
         print()
         print("-" * 100)
         print(f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}")
@@ -364,6 +367,31 @@ class SymbolTable:
             )
         print("-" * 100)
         print()
+
+        #printing symbol tables in csv
+        with open('symtables.csv', mode= 'a+') as sym_file:
+            sym_writer = csv.writer(sym_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            if num_display_invocations is 0:
+                sym_writer.writerow(['SYMBOL TABLE', 'VARIABLE/FUNCTION', 'NAME', 'TYPE', 'SIZE', 'OFFSET', 'DIMENSIONS', 'RETURN TYPE', 'PARAMETERS', 'NAME RESOLUTION'])
+                num_display_invocations += 1
+            for k, v in self._symtab_variables.items():
+                if v["name"][: min(2, len(k))] == "__":
+                    continue
+                
+                if not v["is_array"]:
+                    sym_writer.writerow([f"{self.table_name}","Variable",f"{k}", f"{v['type'] + '*' * v['pointer_lvl']}",
+                                    f"{v['size']}",f"{v['offset']}","","","",""])
+                else:
+                    sym_writer.writerow([f"{self.table_name}","Variable",f"{k}", f"{v['type'] + '*' * v['pointer_lvl']}",
+                                    f"{v['size']}",f"{v['offset']}",f"{v['dimensions']}","","",""])
+
+            for k, v in self._symtab_functions.items():
+                if v["name"][: min(1, len(k))] == "__" or not v["name"][0].isalpha():
+                    continue
+                sym_writer.writerow([f"{self.table_name}","Function",f"{v['name']}","","","","", f"{v['return type']}", f"{v['parameter types']}",f"{k}"])
+                     
+
+
 
 
 SYMBOL_TABLES = []

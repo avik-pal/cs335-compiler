@@ -543,10 +543,14 @@ def p_postfix_expression(p):
                 symTab = get_current_symtab()
                 funcname = "__get_array_element" + f"({_get_type_info(p[1])}*,int)"
                 nvar = get_tmp_var(_get_type_info(p[1]))
+                c1 = p[1]["code"]
+                c2 = p[3]["code"]
+                p[1]["code"] = []
+                p[3]["code"] = []
                 p[0] = {
                     "value": nvar,
                     "type": p[1]["type"],
-                    "code": [ ["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar] ] ,
+                    "code": c1 + c2 + [["FUNCTION CALL", p[1]["type"], funcname, [p[1], p[3]], nvar]] ,
                 }
             else:
                 err_msg = "Error at line number " + str(p.lineno(3)) + ": Not an integr index"
@@ -1080,7 +1084,7 @@ def p_assignment_expression(p):
             p[0]["code"] = p[1]["code"] + arg["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["value"] = nvar
             arg["code"] = []
-            p[1]["code"]
+            p[1]["code"] = []
             del p[0]["arguments"]
 
         else:
@@ -1232,7 +1236,7 @@ def p_declaration(p):
                         raise SyntaxError
                     # raise Exception  # Imroper Initialization of Struct
                     for i in range(len(_p["store"]["value"])):
-                        print(_p["store"]["value"][i])
+                        # print(_p["store"]["value"][i])
                         _tcast = struct_entry["field types"][i]
                         if len(_p["store"]["value"][i]["code"]) > 0:
                             _tcast = type_cast2(_p["store"]["value"][i], {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)})
