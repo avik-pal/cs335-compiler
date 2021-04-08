@@ -96,6 +96,31 @@ def type_cast(s1, s2):
         return {"type": _type_cast(s1["type"], s2["type"]).lower(), "pointer_lvl": 0}
 
 
+def type_cast2(s1, s2):
+    if s1.get("pointer_lvl", 0) > 0:
+
+        if s2.get("pointer_lvl", 0) > 0:
+            return s1
+
+        elif s2["type"].upper() in INTEGER_TYPES:
+            return s1
+
+        else:
+            err_msg = f"Can not cast {s2['type']} to pointer!"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+
+    elif s2.get("pointer_lvl", 0) > 0:
+        if s1["type"].upper() in INTEGER_TYPES:
+            return s2
+        else:
+            err_msg = f"Can not cast {s1['type']} to pointer!"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+    else:
+        return {"type": _type_cast(s1["type"], s2["type"]).lower(), "pointer_lvl": 0}
+
+
 def cast_value_to_type(val, type):
     # TODO: Throw an error if typecast is not possible
     return val
@@ -426,7 +451,45 @@ def p_postfix_expression(p):
             # p[1] is a pointer to struct
             symTab = get_current_symtab()
             entry = symTab.lookup(p[1]["value"])
+            if entry is None:
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared identifier used"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+
+            if entry.get('pointer_lvl',0) == 0:
+                err_msg = "Error at line number " + str(p.lineno(1)) + "Cannot de-reference non-pointer"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+
             # TODO
+            struct_entry = symTab.lookup_type(entry["type"])
+            if struct_entry is None:
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared Struct/Union used"
+                GLOBAL_ERROR_LIST.append(err_msg)
+                raise SyntaxError
+                # raise Exception  # undeclared struct used
+            else:
+                # check if p[1] is a struct
+                #print(p[1],p[3])
+                if struct_entry["kind"] in [2,5]:
+                    if p[3] not in struct_entry["field names"]:
+                        err_msg = "Error at line number " + str(p.lineno(3)) + ": No such field exists"
+                        GLOBAL_ERROR_LIST.append(err_msg)
+                        raise SyntaxError
+                        # raise Exception  # wrong field name
+                    else:
+                        p[0] ={
+                            "type": struct_entry["field types"][struct_entry["field names"].index(p[3])],
+                            "value": p[1]["value"] +"->" + p[3],
+                            "code": []
+                        }
+                        #print(p[0])
+                else:
+                    err_msg = "Error at line number " + str(p.lineno(1)) + ": No such Struct/Union definition"
+                    GLOBAL_ERROR_LIST.append(err_msg)
+                    raise SyntaxError
+                    # raise Exception  # no struct defn found
+
 
         else:
             # function call
@@ -1127,14 +1190,14 @@ def p_declaration(p):
                 if not _p.get("is_array", False) and _p["store"].get("types", None) is None:
                     _p["type"] = p[1]["value"]
                     if len(_p["code"]) > 0:
-                        _tcast = type_cast(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
+                        _tcast = type_cast2(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
                         expr = _get_conversion_function_expr(
                             _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
                         )
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     else:
-                        _tcast = type_cast(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
+                        _tcast = type_cast2(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
                         expr = _get_conversion_function(
                             _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
                         )
@@ -1172,14 +1235,14 @@ def p_declaration(p):
                         print(_p["store"]["value"][i])
                         _tcast = struct_entry["field types"][i]
                         if len(_p["store"]["value"][i]["code"]) > 0:
-                            _tcast = type_cast(_p["store"]["value"][i], {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)})
+                            _tcast = type_cast2(_p["store"]["value"][i], {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)})
                             expr = _get_conversion_function_expr(
                                 _p["store"]["value"][i], {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)}
                             )
                             if len(expr["code"]) > 0:
                                 p[0]["code"] += expr["code"]
                         else:
-                            _tcast = type_cast(_p["store"]["value"][i], {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)})
+                            _tcast = type_cast2(_p["store"]["value"][i], {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)})
                             expr = _get_conversion_function(
                                 _p["store"]["value"][i], {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)}
                             )
