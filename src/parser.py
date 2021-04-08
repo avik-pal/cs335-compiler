@@ -928,9 +928,12 @@ def p_assignment_expression(p):
                 "arguments": [p[1], arg],
                 "kind": "FUNCTION CALL",
             }
+            arg["code"] = []
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = arg["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = p[1]["code"] + arg["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["value"] = nvar
+            arg["code"] = []
+            p[1]["code"]
             del p[0]["arguments"]
 
         else:

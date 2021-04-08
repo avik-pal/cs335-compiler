@@ -93,8 +93,9 @@ def _resolve_fcall_graph(G, scopes, args):
 
 def _internal_code_parser(G, scopes, code):
     global in_function
+    print(scopes[-1])
     for line in code:
-        print(line)
+        print(line, scopes)
         _f = line[0]
         if _f == "BEGINFUNCTION":
             in_function += 1
@@ -102,7 +103,7 @@ def _internal_code_parser(G, scopes, code):
             G.add_edge(scopes[-1], v)
             scopes.append(v)
         elif _f == "ENDFUNCTION":
-            scopes = scopes[:-1]
+            scopes.pop()
             in_function -= 1
         elif _f == "FUNCTION CALL":
             v1 = _add_new_node(G, "=")
@@ -113,7 +114,7 @@ def _internal_code_parser(G, scopes, code):
             G.add_edge(v1, v3)
             scopes.append(v3)
             _resolve_fcall_graph(G, scopes, line[3])
-            scopes = scopes[:-1]
+            scopes.pop()
         elif _f == "IF":
             v1 = _add_new_node(G, "IF")
             v2 = _add_new_node(G, f"{line[1]} = 0")
@@ -133,6 +134,18 @@ def _internal_code_parser(G, scopes, code):
             v2 = _add_new_node(G, line[-1])
             G.add_edge(scopes[-1], v1)
             G.add_edge(v1, v2)
+        elif _f == "BEGINSWITCH":
+            v = _add_new_node(G, f"SWITCH {line[-1]}")
+            G.add_edge(scopes[-1], v)
+            scopes.append(v)
+        elif _f == "ENDSWITCH":
+            scopes.pop()
+        elif _f == "RETURN":
+            v = _add_new_node(G, f"RETURN {line[-1]['value']}")
+            G.add_edge(scopes[-1], v)
+        else:
+            G.add_edge(scopes[-1], " ".join(line))
+        print(scopes)
             
         
 
