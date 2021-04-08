@@ -494,18 +494,9 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry
     else:
         offset = [DATATYPE2SIZE[entry["type"].upper()]]
         for i, d in enumerate(reversed(entry["dimensions"])):
-<<<<<<< HEAD
             if i is not  len(entry["dimensions"]) - 1 :
                 offset.append(offset[i]* int(d["value"]))
         return offset[::-1]
-=======
-            if i is not len(entry["dimensions"]) - 1:
-                offset.append(offset[i] * int(d["value"]))
-        return offset[::-1]
-        #     if i is not len(entry["dimensions"]) - 1:
-        #         offset.append(offset[i] * int(d["value"]))
-        # return offset
->>>>>>> 613db5c9eeba64dfb9f7cbb652e7a82fe8cc4c9d
 
 
 def compute_storage_size(entry, typeentry) -> int:
@@ -519,11 +510,7 @@ def compute_storage_size(entry, typeentry) -> int:
         for d in entry["dimensions"]:
             if d == "variable":
                 return "var"
-<<<<<<< HEAD
             prod*=int(d["value"])
-=======
-            prod *= int(d["value"])
->>>>>>> 613db5c9eeba64dfb9f7cbb652e7a82fe8cc4c9d
         return prod
     if entry.get("pointer_lvl", 0) > 0:
         return 8
