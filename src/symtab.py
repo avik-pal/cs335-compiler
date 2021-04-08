@@ -80,6 +80,7 @@ TABLENUMBER = 0
 
 num_display_invocations = 0
 
+
 class SymbolTable:
     # kind = 0 for ID
     #        1 for FN
@@ -145,7 +146,9 @@ class SymbolTable:
                 t = self.lookup_type(entry["type"])
                 entry["size"] = compute_storage_size(entry, t)
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
-                entry["offset"] = compute_offset_size(entry["size"], entry["is_array"], entry.get("dimensions",[]), entry, t)
+                entry["offset"] = compute_offset_size(
+                    entry["size"], entry["is_array"], entry.get("dimensions", []), entry, t
+                )
 
                 if entry["is_array"]:
                     dims = entry["dimensions"]
@@ -491,9 +494,18 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry
     else:
         offset = [DATATYPE2SIZE[entry["type"].upper()]]
         for i, d in enumerate(reversed(entry["dimensions"])):
+<<<<<<< HEAD
             if i is not  len(entry["dimensions"]) - 1 :
                 offset.append(offset[i]* int(d["value"]))
         return offset[::-1]
+=======
+            if i is not len(entry["dimensions"]) - 1:
+                offset.append(offset[i] * int(d["value"]))
+        return offset[::-1]
+        #     if i is not len(entry["dimensions"]) - 1:
+        #         offset.append(offset[i] * int(d["value"]))
+        # return offset
+>>>>>>> 613db5c9eeba64dfb9f7cbb652e7a82fe8cc4c9d
 
 
 def compute_storage_size(entry, typeentry) -> int:
@@ -507,7 +519,11 @@ def compute_storage_size(entry, typeentry) -> int:
         for d in entry["dimensions"]:
             if d == "variable":
                 return "var"
+<<<<<<< HEAD
             prod*=int(d["value"])
+=======
+            prod *= int(d["value"])
+>>>>>>> 613db5c9eeba64dfb9f7cbb652e7a82fe8cc4c9d
         return prod
     if entry.get("pointer_lvl", 0) > 0:
         return 8
@@ -516,7 +532,7 @@ def compute_storage_size(entry, typeentry) -> int:
     if entry["type"].startswith("struct "):
         size = 0
         symTab = get_current_symtab()
-        temp ="".join(filter(lambda x: x != "*", entry["type"])).strip()
+        temp = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
             size += compute_storage_size({"type": t}, symTab.lookup_type(t))
@@ -524,7 +540,7 @@ def compute_storage_size(entry, typeentry) -> int:
     if entry["type"].startswith("union "):
         size = 0
         symTab = get_current_symtab()
-        temp ="".join(filter(lambda x: x != "*", entry["type"])).strip()
+        temp = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
             size = max(size, compute_storage_size({"type": t}, symTab.lookup_type(t)))
