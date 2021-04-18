@@ -134,7 +134,7 @@ class SymbolTable:
         global DATATYPE2SIZE
 
         name = self._get_proper_name(entry, kind)
-        prev_entry = self.lookup_current_table(name, kind, entry.get("alt name", None))
+        prev_entry = self.lookup_current_table(name, False, entry.get("alt name", None), kind)
         # if entry['name'] == 'arr':
         #     print(f"Symtab {entry} {prev_entry}")
         if prev_entry is None:
@@ -308,14 +308,15 @@ class SymbolTable:
         symname: str,
         paramtab_check: bool = True,
         alt_name: Union[str, None] = None,
+        kind: int = -1
     ) -> Union[None, list, dict]:
-        res = self._search_for_variable(symname)
-        res = self._search_for_function(symname) if res is None else res
-        res = self._search_for_struct(symname, alt_name) if res is None else res
-        res = self._search_for_class(symname) if res is None else res
-        res = self._search_for_enum(symname) if res is None else res
-        res = self._search_for_union(symname, alt_name) if res is None else res
-        res = self._search_for_label(symname) if res is None else res
+        res = self._search_for_variable(symname) if kind <= 0 else None
+        res = self._search_for_function(symname) if res is None and kind <= 1 else res
+        res = self._search_for_struct(symname, alt_name) if res is None and kind <= 2 else res
+        res = self._search_for_class(symname) if res is None and kind <= 3 else res
+        res = self._search_for_enum(symname) if res is None and kind <= 4 else res
+        res = self._search_for_union(symname, alt_name) if res is None and kind <= 5 else res
+        res = self._search_for_label(symname) if res is None and kind <= 6 else res
         return self.lookup_parameter(symname) if res is None and paramtab_check else res
 
     def lookup_parameter(self, paramname: str) -> Union[None, list, dict]:
@@ -349,7 +350,6 @@ class SymbolTable:
     def display(self) -> None:
         # Simple Pretty Printer
         global num_display_invocations
-        print()
         print("-" * 100)
         print(f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}, FUNCTION SCOPE: {self.func_scope}")
         print("-" * 51)

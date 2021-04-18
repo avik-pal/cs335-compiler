@@ -1673,7 +1673,10 @@ def p_struct_or_union_specifier(p):
         symTab = get_current_symtab()
         struct_union_entry = symTab.lookup_type(p[1] + " " + p[2])
         if struct_union_entry is None:
-            raise Exception  # undeclared struct used
+            err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared Struct Used"
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
+            # raise Exception  # undeclared struct used
         else:
             p[0] = {"name": p[2], "kind": 2 if p[1] == "struct" else 5, "insert": False, "code": []}
     # p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
@@ -2539,10 +2542,10 @@ if __name__ == "__main__":
 
             pop_scope()
 
-            if args.output[-4:] == ".dot":
-                args.output = args.output[:-4]
+            # if args.output[-4:] == ".dot":
+            #     args.output = args.output[:-4]
 
-            parse_code(tree, args.output)
+            # parse_code(tree, args.output)
 
             for err in GLOBAL_ERROR_LIST:
                 print(err)
