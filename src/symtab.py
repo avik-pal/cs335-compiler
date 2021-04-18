@@ -598,3 +598,10 @@ def get_default_value(type: str):
         return "NULL"
     else:
         return -1
+
+
+STDLIB_CODES = dict()
+
+def get_stdlib_codes():
+    global STDLIB_CODES
+    return STDLIB_CODES

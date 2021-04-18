@@ -3,7 +3,7 @@ from graphviz import Digraph
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.drawing.nx_pydot import graphviz_layout, write_dot
-from symtab import get_tmp_label, get_global_symtab
+from symtab import get_stdlib_codes, get_tmp_label, get_global_symtab
 
 
 def generate_graph_from_ast(ast, filename="AST"):
@@ -252,10 +252,10 @@ def _rewrite_code(code, sizes):
                 upcode = [c[0], c[1], c[2], new_args, c[4]]
 
             if c[2].startswith("__store"):
-                new_code.append([upcode[3][0], "=", upcode[3][1]])
+                new_code.append([upcode[3][0], ":=", upcode[3][1]])
             elif c[2].startswith("__convert"):
                 t = c[2].split(",")[-1].split(")")[0]
-                new_code.append([upcode[4], "=", "(" + t + ")", upcode[3][0]])
+                new_code.append([upcode[4], ":=", "(" + t + ")", upcode[3][0]])
             else:
                 # TODO: Push Parameters to call stack (Check MIPS Specification)
                 f = get_global_symtab().lookup(upcode[2])
@@ -263,7 +263,7 @@ def _rewrite_code(code, sizes):
                     indent_arr.append(cur_indent)
                     new_code.append(["PUSHPARAM", arg])
                 indent_arr.append(cur_indent)
-                new_code.append([upcode[4], "=", "CALL", upcode[2]])
+                new_code.append([upcode[4], ":=", "CALL", upcode[2]])
                 if f["param_size"] > 0:
                     new_code.append(["POPPARAMS", str(f["param_size"])])
 
@@ -317,6 +317,8 @@ def parse_code(tree, output_file):
             print(" " * idt + _z)
         # _internal_code_parser(G, parent_scope, code)
         print()
+
+    # print(get_stdlib_codes())
 
     # pos = graphviz_layout(G, prog="dot")
     # nx.draw(G, pos, with_labels = True, node_color="white")

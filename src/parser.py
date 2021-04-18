@@ -17,6 +17,7 @@ from symtab import (
     get_tmp_closure,
     get_default_value,
     get_global_symtab,
+    get_stdlib_codes,
     compute_storage_size,
     NUMERIC_TYPES,
     CHARACTER_TYPES,
@@ -751,7 +752,8 @@ def p_unary_expression(p):
             }
 
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            # p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = [[nvar, ":=", p[1], p[0]["arguments"][0]["value"]]]
             p[0]["value"] = nvar
             del p[0]["arguments"]
 
@@ -817,7 +819,8 @@ def p_multiplicative_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
@@ -845,7 +848,8 @@ def p_additive_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
@@ -873,8 +877,8 @@ def p_shift_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("shift_expression",) + tuple(p[-len(p) + 1 :])
@@ -904,8 +908,8 @@ def p_relational_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("relational_expression",) + tuple(p[-len(p) + 1 :])
@@ -933,8 +937,8 @@ def p_equality_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("equality_expression",) + tuple(p[-len(p) + 1 :])
@@ -961,8 +965,8 @@ def p_and_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("and_expression",) + tuple(p[-len(p) + 1 :])
@@ -990,7 +994,7 @@ def p_exclusive_or_expression(p):
             codes += _a["code"]
             _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("exclusive_or_expression",) + tuple(p[-len(p) + 1 :])
@@ -1018,7 +1022,7 @@ def p_inclusive_or_expression(p):
             codes += _a["code"]
             _a["code"] = []
         p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("inclusive_or_expression",) + tuple(p[-len(p) + 1 :])
@@ -1045,8 +1049,8 @@ def p_logical_and_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("logical_and_expression",) + tuple(p[-len(p) + 1 :])
@@ -1073,8 +1077,8 @@ def p_logical_or_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("logical_or_expression",) + tuple(p[-len(p) + 1 :])
@@ -1168,7 +1172,7 @@ def p_assignment_expression(p):
                 "type": fentry["return type"],
                 "arguments": args,
                 "kind": "FUNCTION CALL",
-                "code": [["FUNCTION CALL", fentry["return type"], fname, args, nvar]],
+                "code": [[nvar, ":=", args[0]["value"], p[2][:-1], args[1]["value"]]]
             }
             arg = _get_conversion_function(expr, p[1])
             codes += arg["code"]
@@ -2356,6 +2360,7 @@ parser = yacc.yacc()
 def populate_global_symbol_table() -> None:
     # TODO: Need to do this for all the base functions / keywords
     table = get_current_symtab()
+    codes = get_stdlib_codes()
 
     # Some of the binary operators
     for op in ("+", "-", "/", "*"):
@@ -2381,6 +2386,7 @@ def populate_global_symbol_table() -> None:
                 },
                 1,
             )
+
     for op in ("&&", "||", "&", "|"):
         for _type in NUMERIC_TYPES:
             _type = _type.lower()
