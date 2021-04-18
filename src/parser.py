@@ -16,6 +16,7 @@ from symtab import (
     get_tmp_var,
     get_tmp_closure,
     get_default_value,
+    get_global_symtab,
     compute_storage_size,
     NUMERIC_TYPES,
     CHARACTER_TYPES,
@@ -319,7 +320,6 @@ def _get_type_entry(type):
 
 LAST_POPPED_TABLE = None
 INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
-JUMP_LABELS = []
 LAST_FUNCTION_DECLARATION = None
 
 tokens = lex.tokens
@@ -1087,14 +1087,9 @@ def p_conditional_expression(p):
         p[0] = p[1]
     else:
         p[0] = {"code": []}
-        # r1 = p[3]["type"]
-        # r2 = p[5]["type"]
         tcast = type_cast(p[3], p[5])
 
         vname = get_tmp_var(tcast["type"])
-
-        fname = get_tmp_closure(tcast["type"])
-        push_scope(new_scope(get_current_symtab()))
 
         cond_code = []
         elseLabel = get_tmp_label()
@@ -1114,11 +1109,7 @@ def p_conditional_expression(p):
             expr = _get_conversion_function(p[3], tcast)
         if len(expr["code"]) > 0:
             succ_code += expr["code"]
-        succ_code += (
-            [["RETURN", expr]]
-            if len(p[3]["code"]) > 0
-            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr]])
-        )
+        succ_code += [[vname, "=", expr["value"]]]
 
         fail_code = []
         if len(p[5]["code"]) > 0:
@@ -1128,22 +1119,14 @@ def p_conditional_expression(p):
             expr = _get_conversion_function(p[5], tcast)
         if len(expr["code"]) > 0:
             fail_code += expr["code"]
-        fail_code += (
-            [["RETURN", expr]]
-            if len(p[5]["code"]) > 0
-            else ([["RETURN", expr]] if expr["kind"] == "CONSTANT" else [["RETURN", expr]])
-        )
+        fail_code += [[vname, "=", expr["value"]]]
 
         p[0]["code"] += (
-            [["BEGINFUNCTION", tcast["type"], fname]]
-            + cond_code
+            cond_code
             + succ_code
-            + [["LABEL", elseLabel]]
+            + [[elseLabel + ":"]]
             + fail_code
-            + [["ENDFUNCTION"], ["FUNCTION CALL", tcast["type"], fname + "()", [], vname]]
         )
-
-        pop_scope()
 
         p[0]["type"] = tcast["type"]
         p[0]["pointer_lvl"] = tcast["pointer_lvl"]
@@ -2022,7 +2005,7 @@ def p_labeled_statement(p):
             p[0] = {"code": [["DEFAULT"]] + p[3]["code"]}
         else:
             valid, entry = symTab.insert({"name": p[1]}, kind=6)
-            p[0] = {"code": [["LABEL", p[1]]] + p[3]["code"]}
+            p[0] = {"code": [[p[1] + ":"]] + p[3]["code"]}
     else:
         p[0] = {"code": p[2]["code"] + [["CASE", p[2]["value"]]] + p[4]["code"]}
     # p[0] = ("labeled_statement",) + tuple(p[-len(p) + 1 :])
@@ -2097,13 +2080,13 @@ def p_selection_statement(p):
         if len(p[5]["code"]) > 0:
             p[0]["code"] += p[5]["code"]
         if len(p) == 6:
-            p[0]["code"] += [["LABEL", elseLabel]]
+            p[0]["code"] += [[elseLabel + ":"]]
         else:
             finishLabel = get_tmp_label()
-            p[0]["code"] += [["GOTO", finishLabel], ["LABEL", elseLabel]]
+            p[0]["code"] += [["GOTO", finishLabel], [elseLabel + ":"]]
             if len(p[7]["code"]) > 0:
                 p[0]["code"] += p[7]["code"]
-            p[0]["code"] += [["LABEL", finishLabel]]
+            p[0]["code"] += [[finishLabel + ":"]]
     else:
         # p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
         p[0] = {"code": p[3]["code"] + [["BEGINSWITCH", p[3]["value"]]] + p[5]["code"] + [["ENDSWITCH"]]}
@@ -2118,7 +2101,7 @@ def p_iteration_statement(p):
     endLabel = get_tmp_label()
     code = [["LOOPBEGIN", beginLabel, endLabel]]
     if p[1] == "while":
-        code += [["LABEL", beginLabel]]
+        code += [[beginLabel + ":"]]
         if len(p[3]["code"]) > 0:
             code += p[3]["code"]
         if p[3]["value"] != "":
@@ -2130,7 +2113,7 @@ def p_iteration_statement(p):
             code += p[5]["code"]
 
     elif p[1] == "do":
-        code += [["LABEL", beginLabel]]
+        code += [[beginLabel + ":"]]
         if len(p[2]["code"]) > 0:
             code += p[2]["code"]
         if len(p[5]["code"]) > 0:
@@ -2144,7 +2127,7 @@ def p_iteration_statement(p):
     elif p[1] == "for":
         if len(p[3]["code"]) > 0:
             code += p[3]["code"]
-        code += [["LABEL", beginLabel]]
+        code += [[beginLabel + ":"]]
         if len(p[4]["code"]) > 0:
             code += p[4]["code"]
         if p[4]["value"] != "":
@@ -2159,7 +2142,7 @@ def p_iteration_statement(p):
 
     # p[0] = ("iteration_statement",) + tuple(p[-len(p) + 1 :])
 
-    code += [["GOTO", beginLabel], ["LABEL", endLabel], ["ENDLOOP"]]
+    code += [["GOTO", beginLabel], [endLabel + ":"], ["ENDLOOP"]]
     p[0] = {"code": code}
 
 
@@ -2169,7 +2152,6 @@ def p_jump_statement(p):
     | BREAK SEMICOLON
     | RETURN SEMICOLON
     | RETURN expression SEMICOLON"""
-    global JUMP_LABELS
     p[0] = {"code": []}
     symTab = get_current_symtab()
     if p[1] == "goto":
@@ -2180,7 +2162,6 @@ def p_jump_statement(p):
             # raise Exception("Label not present")
         p[0]["code"] += [["GOTO", p[2]["value"]]]
     elif p[1] == "continue":
-        # TODO (M4): Check that it is being used only inside a loop
         p[0]["code"] += [["CONTINUE"]]
     elif p[1] == "break":
         p[0]["code"] += [["BREAK"]]
@@ -2513,6 +2494,8 @@ def populate_global_symbol_table() -> None:
                 1,
             )
 
+    # TODO: Add the convert functions
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -2534,7 +2517,7 @@ if __name__ == "__main__":
 
             tree = yacc.parse(data, tracking=True)
 
-            pop_scope()
+            gtab = pop_scope()
 
             if args.output[-4:] == ".dot":
                 args.output = args.output[:-4]

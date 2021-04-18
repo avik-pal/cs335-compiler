@@ -2,24 +2,26 @@ int foo(int c, int d)
 {
     return c+d;
 }
-int foo(char c)
+char foo(char c)
 {
-    return (int) c;
+    return c;
 }
-int foo(double c)
+double foo(double c)
 {
-    return (int)c;
+    return c;
 }
 
 int main(){
 
-	int a,b,c;
+	int a;
+	char b;
+	double c;
 	int x = 5;
 	char y = 'y';
 	double z = 9.57; 
 	a = foo(x,x);
-	b = foo(z);
-	c = foo(y);
+	b = foo(y);
+	c = foo(z);
 
 	return 0; 
 }

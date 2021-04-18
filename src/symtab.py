@@ -102,7 +102,11 @@ class SymbolTable:
         self._custom_types = dict()
         self._symtab_labels = dict()
         self._paramtab = []
+        self.current_offset = 0
         self.parent = parent
+        if self.parent is not None:
+            self.parent.children.append(self)
+        self.children = []
         self.table_number = TABLENUMBER
         TABLENUMBER += 1
 
@@ -146,9 +150,8 @@ class SymbolTable:
                 t = self.lookup_type(entry["type"])
                 entry["size"] = compute_storage_size(entry, t)
                 entry["value"] = entry.get("value", get_default_value(entry["type"]))
-                entry["offset"] = compute_offset_size(
-                    entry["size"], entry["is_array"], entry.get("dimensions", []), entry, t
-                )
+                entry["offset"] = self.current_offset + entry["size"]
+                self.current_offset = entry["offset"]
 
                 if entry["is_array"]:
                     dims = entry["dimensions"]
@@ -174,6 +177,12 @@ class SymbolTable:
                 entry["local scope"] = None
                 self._symtab_functions[name] = entry
                 self._symtab_functions[name]["name resolution"] = name
+                param_size = 0
+                for p in entry["parameter types"]:
+                    t = self.lookup_type(p)
+                    _s = compute_storage_size({"type": p}, t)
+                    param_size += _s
+                entry["param_size"] = param_size
                 if entry["name"] in self._function_names:
                     self._function_names[entry["name"]].append(name)
                 else:
@@ -456,6 +465,7 @@ class SymbolTable:
 
 
 SYMBOL_TABLES = []
+GLOBAL_SYMBOL_TABLE = None
 
 STATIC_VARIABLE_MAPS = {}
 
@@ -474,7 +484,9 @@ def pop_scope() -> SymbolTable:
 
 
 def push_scope(s: SymbolTable) -> None:
-    global SYMBOL_TABLES
+    global SYMBOL_TABLES, GLOBAL_SYMBOL_TABLE
+    if len(SYMBOL_TABLES) == 0:
+        GLOBAL_SYMBOL_TABLE = s
     SYMBOL_TABLES.append(s)
     print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
 
@@ -487,6 +499,9 @@ def get_current_symtab() -> Union[None, SymbolTable]:
     global SYMBOL_TABLES
     return None if len(SYMBOL_TABLES) == 0 else SYMBOL_TABLES[-1]
 
+def get_global_symtab():
+    global GLOBAL_SYMBOL_TABLE
+    return GLOBAL_SYMBOL_TABLE
 
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry, typeentry) -> int:
     if not is_array:
@@ -504,6 +519,10 @@ def compute_storage_size(entry, typeentry) -> int:
     if _c > 0:
         t = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         return compute_storage_size({"type": t, "pointer_lvl": _c}, get_current_symtab().lookup_type(t))
+    # if "[" in entry["type"]:
+    #     # FIXME
+    #     t = entry["type"][:entry["type"].index("[")]
+    #     return compute_storage_size({"type":t, "pointer_lvl": 1}, get_current_symtab().lookup_type(t))
     global DATATYPE2SIZE
     if entry.get("is_array", False):
         prod = DATATYPE2SIZE[entry["type"].upper()]

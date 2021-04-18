@@ -2,9 +2,8 @@ from typing import Mapping
 from graphviz import Digraph
 import networkx as nx
 import matplotlib.pyplot as plt
-import pydot
 from networkx.drawing.nx_pydot import graphviz_layout, write_dot
-from symtab import get_tmp_label
+from symtab import get_tmp_label, get_global_symtab
 
 
 def generate_graph_from_ast(ast, filename="AST"):
@@ -99,7 +98,7 @@ def _resolve_fcall_graph_names(args):
         if isinstance(arg, str):
             new_args.append(arg)
         else:
-            new_args.append(arg["value"])
+            new_args.append(str(arg["value"]))
     return new_args
 
 
@@ -155,11 +154,11 @@ def _internal_code_parser(G, scopes, code):
             v2 = _add_new_node(G, line[-1])
             G.add_edge(scopes[-1], v1)
             G.add_edge(v1, v2)
-        elif _f == "LABEL":
-            v1 = _add_new_node(G, "LABEL")
-            v2 = _add_new_node(G, line[-1])
-            G.add_edge(scopes[-1], v1)
-            G.add_edge(v1, v2)
+        # elif _f == "LABEL":
+        #     v1 = _add_new_node(G, "LABEL")
+        #     v2 = _add_new_node(G, line[-1])
+        #     G.add_edge(scopes[-1], v1)
+        #     G.add_edge(v1, v2)
         elif _f == "BEGINSWITCH":
             v = _add_new_node(G, f"SWITCH {line[-1]}")
             G.add_edge(scopes[-1], v)
@@ -173,7 +172,7 @@ def _internal_code_parser(G, scopes, code):
             G.add_edge(scopes[-1], " ".join(line))
 
 
-def _rewrite_code(code):
+def _rewrite_code(code, sizes):
     new_code = []
     switch_depth = 0
     loop_depth = 0
@@ -182,6 +181,9 @@ def _rewrite_code(code):
     switch_var = []
     ordering = []
     nlabel_case = [None]
+    indent_arr = []
+    already_app = False
+    cur_indent = 0
     for c in code:
         if c[0] == "BEGINSWITCH":
             ordering.append(0)
@@ -191,11 +193,23 @@ def _rewrite_code(code):
             nlabel_case.append(None) 
         elif c[0] == "ENDSWITCH":
             assert switch_depth >= 1
-            new_code.append(["LABEL", switch_label.pop()])
+            new_code.append([switch_label.pop() + ":"])
             switch_depth -= 1
             switch_var.pop()
             nlabel_case.pop()
             ordering.pop()
+        elif c[0] == "BEGINFUNCTION":
+            new_code.append([c[2] + ":"])
+            indent_arr.append(cur_indent)
+            already_app = True
+            cur_indent += 20
+            new_code.append(["BEGINFUNC", str(sizes[c[2]])])
+            indent_arr.append(cur_indent)
+        elif c[0] == "ENDFUNCTION":
+            indent_arr.append(cur_indent)
+            already_app = True
+            cur_indent -= 20
+            new_code.append(["ENDFUNC"])
         elif c[0] == "LOOPBEGIN":
             ordering.append(1)
             loop_depth += 1
@@ -219,10 +233,11 @@ def _rewrite_code(code):
             _nlabel_case = get_tmp_label()
             new_code.append(["IF", switch_var[-1], "!=", c[1], "GOTO", _nlabel_case])
             if nlabel_case[-1] is not None:
-                new_code.append(["LABEL", nlabel_case[-1]])
+                indent_arr.append(cur_indent)
+                new_code.append([nlabel_case[-1] + ":"])
             nlabel_case[-1] = _nlabel_case
         elif c[0] == "DEFAULT":
-            new_code.append(["LABEL", nlabel_case[-1]])
+            new_code.append([nlabel_case[-1] + ":"])
             nlabel_case[-1] = None
         elif c[0] == "FUNCTION CALL":
             if c[2].startswith("__store") and "index" in c[3][0]:
@@ -231,15 +246,41 @@ def _rewrite_code(code):
                     a2 = c[3][1]["value"]["value"]
                 else:
                     a2 = c[3][1]["value"]
-                new_code.append([c[0], c[1], c[2], [a1, a2], c[4]])
+                upcode = [c[0], c[1], c[2], [a1, a2], c[4]]
             else:
                 new_args = _resolve_fcall_graph_names(c[3])
-                new_code.append([c[0], c[1], c[2], new_args, c[4]])
+                upcode = [c[0], c[1], c[2], new_args, c[4]]
+
+            if c[2].startswith("__store"):
+                new_code.append([upcode[3][0], "=", upcode[3][1]])
+            else:
+                # TODO: size
+                # TODO: Push Parameters to call stack (Check MIPS Specification)
+                f = get_global_symtab().lookup(upcode[2])
+                for arg in reversed(upcode[3]):
+                    indent_arr.append(cur_indent)
+                    new_code.append(["PUSHPARAM", arg])
+                indent_arr.append(cur_indent)
+                new_code.append([upcode[4], "=", "CALL", upcode[2]])
+                if f["param_size"] > 0:
+                    new_code.append(["POPPARAMS", str(f["param_size"])])
+                
+                # new_code.append(upcode)
         elif c[0] == "RETURN":
             new_code.append(["RETURN"] + ([] if len(c) == 1 else [c[1]["value"]]))
         else:
             new_code.append(c)
-    return new_code
+        if not already_app:
+            indent_arr.append(cur_indent)
+        already_app = False
+    return new_code, indent_arr
+
+
+def size_of_child(symtab):
+    s = symtab.current_offset
+    for child in symtab.children:
+        s += size_of_child(child)
+    return s
 
 
 def parse_code(tree, output_file):
@@ -253,15 +294,25 @@ def parse_code(tree, output_file):
     if tree is None:
         return
 
+    gtab = get_global_symtab()
+    sizes = {}
+    for child in gtab.children:
+        sizes[child.func_scope] = size_of_child(child)
+
     for t in tree:
         if len(t["code"]) == 0:
             continue
 
         code = t["code"]
         print()
-        code = _rewrite_code(code)
-        for c in code:
-            print(c)
+        code, indents = _rewrite_code(code, sizes)
+        for c, idt in zip(code, indents):
+            _z = " ".join(c)
+            if _z[-1] == ":":
+                idt -= 16
+            else:
+                _z = _z + ";"
+            print(" " * idt + _z)
         # _internal_code_parser(G, parent_scope, code)
         print()
 
