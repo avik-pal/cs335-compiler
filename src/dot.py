@@ -253,8 +253,10 @@ def _rewrite_code(code, sizes):
 
             if c[2].startswith("__store"):
                 new_code.append([upcode[3][0], "=", upcode[3][1]])
+            elif c[2].startswith("__convert"):
+                t = c[2].split(",")[-1].split(")")[0]
+                new_code.append([upcode[4], "=", "(" + t + ")", upcode[3][0]])
             else:
-                # TODO: size
                 # TODO: Push Parameters to call stack (Check MIPS Specification)
                 f = get_global_symtab().lookup(upcode[2])
                 for arg in reversed(upcode[3]):

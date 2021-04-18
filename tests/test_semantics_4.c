@@ -15,7 +15,7 @@ int main(){
 
 	int a;
 	char b;
-	double c;
+	int c;
 	int x = 5;
 	char y = 'y';
 	double z = 9.57; 
