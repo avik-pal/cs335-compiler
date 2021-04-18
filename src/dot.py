@@ -93,6 +93,16 @@ def _resolve_fcall_graph(G, scopes, args):
             G.add_edge(scopes[-1], v)
 
 
+def _resolve_fcall_graph_names(args):
+    new_args = []
+    for arg in args:
+        if isinstance(arg, str):
+            new_args.append(arg)
+        else:
+            new_args.append(arg["value"])
+    return new_args
+
+
 def _internal_code_parser(G, scopes, code):
     global in_function
     for line in code:
@@ -166,11 +176,15 @@ def _internal_code_parser(G, scopes, code):
 def _rewrite_code(code):
     new_code = []
     switch_depth = 0
+    loop_depth = 0
     switch_label = []
+    loop_labels = []
     switch_var = []
+    ordering = []
     nlabel_case = [None]
     for c in code:
         if c[0] == "BEGINSWITCH":
+            ordering.append(0)
             switch_depth += 1
             switch_label.append(get_tmp_label())
             switch_var.append(c[1])
@@ -181,8 +195,26 @@ def _rewrite_code(code):
             switch_depth -= 1
             switch_var.pop()
             nlabel_case.pop()
+            ordering.pop()
+        elif c[0] == "LOOPBEGIN":
+            ordering.append(1)
+            loop_depth += 1
+            loop_labels.append((c[1], c[2]))
+        elif c[0] == "ENDLOOP":
+            assert loop_depth >= 1
+            loop_depth -= 1
+            loop_labels.pop()
+            ordering.pop()
         elif c[0] == "BREAK":
-            new_code.append(["GOTO", switch_label[-1]])
+            if ordering[-1] == 0:
+                new_code.append(["GOTO", switch_label[-1]])
+            elif ordering[-1] == 1:
+                new_code.append(["GOTO", loop_labels[-1][1]])
+            else:
+                raise NotImplementedError
+        elif c[0] == "CONTINUE":
+            assert loop_depth > 0, Exception("Continue Used Outside Loop")
+            new_code.append(["GOTO", loop_labels[-1][0]])
         elif c[0] == "CASE":
             _nlabel_case = get_tmp_label()
             new_code.append(["IF", switch_var[-1], "!=", c[1], "GOTO", _nlabel_case])
@@ -192,6 +224,19 @@ def _rewrite_code(code):
         elif c[0] == "DEFAULT":
             new_code.append(["LABEL", nlabel_case[-1]])
             nlabel_case[-1] = None
+        elif c[0] == "FUNCTION CALL":
+            if c[2].startswith("__store") and "index" in c[3][0]:
+                a1 = _add_new_node(G, c[3][0]["value"] + f"{c[3][0]['index']}")
+                if isinstance(c[3][1]["value"], dict):
+                    a2 = c[3][1]["value"]["value"]
+                else:
+                    a2 = c[3][1]["value"]
+                new_code.append([c[0], c[1], c[2], [a1, a2], c[4]])
+            else:
+                new_args = _resolve_fcall_graph_names(c[3])
+                new_code.append([c[0], c[1], c[2], new_args, c[4]])
+        elif c[0] == "RETURN":
+            new_code.append(["RETURN"] + ([] if len(c) == 1 else [c[1]["value"]]))
         else:
             new_code.append(c)
     return new_code

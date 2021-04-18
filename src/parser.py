@@ -1190,7 +1190,7 @@ def p_assignment_expression(p):
                 "type": fentry["return type"],
                 "arguments": args,
                 "kind": "FUNCTION CALL",
-                "code": [["FUNCTION CALL", fname, fentry["return type"], args, nvar]],
+                "code": [["FUNCTION CALL", fentry["return type"], fname, args, nvar]],
             }
             arg = _get_conversion_function(expr, p[1])
             codes += arg["code"]
@@ -2116,7 +2116,7 @@ def p_iteration_statement(p):
     | FOR LEFT_BRACKET expression_statement expression_statement expression RIGHT_BRACKET statement"""
     beginLabel = get_tmp_label()
     endLabel = get_tmp_label()
-    code = []
+    code = [["LOOPBEGIN", beginLabel, endLabel]]
     if p[1] == "while":
         code += [["LABEL", beginLabel]]
         if len(p[3]["code"]) > 0:
@@ -2157,10 +2157,9 @@ def p_iteration_statement(p):
         if len(p) == 7 and len(p[4]["code"]) > 0:
             code += p[4]["code"]
 
-    else:
-        p[0] = ("iteration_statement",) + tuple(p[-len(p) + 1 :])
+    # p[0] = ("iteration_statement",) + tuple(p[-len(p) + 1 :])
 
-    code += [["GOTO", beginLabel], ["LABEL", endLabel]]
+    code += [["GOTO", beginLabel], ["LABEL", endLabel], ["ENDLOOP"]]
     p[0] = {"code": code}
 
 
