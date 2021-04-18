@@ -190,7 +190,7 @@ def _rewrite_code(code, sizes):
             switch_depth += 1
             switch_label.append(get_tmp_label())
             switch_var.append(c[1])
-            nlabel_case.append(None) 
+            nlabel_case.append(None)
         elif c[0] == "ENDSWITCH":
             assert switch_depth >= 1
             new_code.append([switch_label.pop() + ":"])
@@ -264,7 +264,7 @@ def _rewrite_code(code, sizes):
                 new_code.append([upcode[4], "=", "CALL", upcode[2]])
                 if f["param_size"] > 0:
                     new_code.append(["POPPARAMS", str(f["param_size"])])
-                
+
                 # new_code.append(upcode)
         elif c[0] == "RETURN":
             new_code.append(["RETURN"] + ([] if len(c) == 1 else [c[1]["value"]]))

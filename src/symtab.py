@@ -313,11 +313,7 @@ class SymbolTable:
         return None
 
     def lookup_current_table(
-        self,
-        symname: str,
-        paramtab_check: bool = True,
-        alt_name: Union[str, None] = None,
-        kind: int = -1
+        self, symname: str, paramtab_check: bool = True, alt_name: Union[str, None] = None, kind: int = -1
     ) -> Union[None, list, dict]:
         res = self._search_for_variable(symname) if kind <= 0 else None
         res = self._search_for_function(symname) if res is None and kind <= 1 else res
@@ -499,9 +495,11 @@ def get_current_symtab() -> Union[None, SymbolTable]:
     global SYMBOL_TABLES
     return None if len(SYMBOL_TABLES) == 0 else SYMBOL_TABLES[-1]
 
+
 def get_global_symtab():
     global GLOBAL_SYMBOL_TABLE
     return GLOBAL_SYMBOL_TABLE
+
 
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry, typeentry) -> int:
     if not is_array:
@@ -509,8 +507,8 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry
     else:
         offset = [DATATYPE2SIZE[entry["type"].upper()]]
         for i, d in enumerate(reversed(entry["dimensions"])):
-            if i is not  len(entry["dimensions"]) - 1 :
-                offset.append(offset[i]* int(d["value"]))
+            if i is not len(entry["dimensions"]) - 1:
+                offset.append(offset[i] * int(d["value"]))
         return offset[::-1]
 
 
@@ -529,7 +527,7 @@ def compute_storage_size(entry, typeentry) -> int:
         for d in entry["dimensions"]:
             if d == "variable":
                 return "var"
-            prod*=int(d["value"])
+            prod *= int(d["value"])
         return prod
     if entry.get("pointer_lvl", 0) > 0:
         return 8

@@ -619,7 +619,7 @@ def p_argument_expression_list(p):
     # print(f"arg_expr_list {p[1]}")
     out_dict = copy.deepcopy(p[ind])
     if p[ind].get("is_array", False):
-       out_dict["dimensions"][0] = "variable"
+        out_dict["dimensions"][0] = "variable"
     p[0]["code"].append(out_dict["code"])
     p[0]["type"].append(_get_type_info(out_dict))
     p[0]["value"].append(out_dict["value"])
@@ -1121,12 +1121,7 @@ def p_conditional_expression(p):
             fail_code += expr["code"]
         fail_code += [[vname, "=", expr["value"]]]
 
-        p[0]["code"] += (
-            cond_code
-            + succ_code
-            + [[elseLabel + ":"]]
-            + fail_code
-        )
+        p[0]["code"] += cond_code + succ_code + [[elseLabel + ":"]] + fail_code
 
         p[0]["type"] = tcast["type"]
         p[0]["pointer_lvl"] = tcast["pointer_lvl"]
@@ -2526,6 +2521,3 @@ if __name__ == "__main__":
 
             for err in GLOBAL_ERROR_LIST:
                 print(err)
-
-            
-            
