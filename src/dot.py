@@ -4,6 +4,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import pydot
 from networkx.drawing.nx_pydot import graphviz_layout, write_dot
+from symtab import get_tmp_label
 
 
 def generate_graph_from_ast(ast, filename="AST"):
@@ -162,13 +163,47 @@ def _internal_code_parser(G, scopes, code):
             G.add_edge(scopes[-1], " ".join(line))
 
 
+def _rewrite_code(code):
+    new_code = []
+    switch_depth = 0
+    switch_label = []
+    switch_var = []
+    nlabel_case = [None]
+    for c in code:
+        if c[0] == "BEGINSWITCH":
+            switch_depth += 1
+            switch_label.append(get_tmp_label())
+            switch_var.append(c[1])
+            nlabel_case.append(None) 
+        elif c[0] == "ENDSWITCH":
+            assert switch_depth >= 1
+            new_code.append(["LABEL", switch_label.pop()])
+            switch_depth -= 1
+            switch_var.pop()
+            nlabel_case.pop()
+        elif c[0] == "BREAK":
+            new_code.append(["GOTO", switch_label[-1]])
+        elif c[0] == "CASE":
+            _nlabel_case = get_tmp_label()
+            new_code.append(["IF", switch_var[-1], "!=", c[1], "GOTO", _nlabel_case])
+            if nlabel_case[-1] is not None:
+                new_code.append(["LABEL", nlabel_case[-1]])
+            nlabel_case[-1] = _nlabel_case
+        elif c[0] == "DEFAULT":
+            new_code.append(["LABEL", nlabel_case[-1]])
+            nlabel_case[-1] = None
+        else:
+            new_code.append(c)
+    return new_code
+
+
 def parse_code(tree, output_file):
-    global NODE_COUNTER, NODE_MAPPING
-    G = nx.DiGraph()
+    # global NODE_COUNTER, NODE_MAPPING
+    # G = nx.DiGraph()
 
-    v = _add_new_node(G, "global")
+    # v = _add_new_node(G, "global")
 
-    parent_scope = [v]
+    # parent_scope = [v]
 
     if tree is None:
         return
@@ -179,10 +214,13 @@ def parse_code(tree, output_file):
 
         code = t["code"]
         print()
-        _internal_code_parser(G, parent_scope, code)
+        code = _rewrite_code(code)
+        for c in code:
+            print(c)
+        # _internal_code_parser(G, parent_scope, code)
         print()
 
-    pos = graphviz_layout(G, prog="dot")
+    # pos = graphviz_layout(G, prog="dot")
     # nx.draw(G, pos, with_labels = True, node_color="white")
-    write_dot(G, output_file+".dot")
+    # write_dot(G, output_file+".dot")
     # plt.show()

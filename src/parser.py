@@ -1184,12 +1184,13 @@ def p_assignment_expression(p):
                     continue
                 codes += _a["code"]
                 _a["code"] = []
+            nvar = get_tmp_var()
             expr = {
-                "value": fname,
+                "value": nvar,
                 "type": fentry["return type"],
                 "arguments": args,
                 "kind": "FUNCTION CALL",
-                "code": [["FUNCTION CALL", fname, fentry["return type"], args, get_tmp_var()]],
+                "code": [["FUNCTION CALL", fname, fentry["return type"], args, nvar]],
             }
             arg = _get_conversion_function(expr, p[1])
             codes += arg["code"]
@@ -1197,11 +1198,11 @@ def p_assignment_expression(p):
             p[0] = {
                 "value": f"__store({p[1]['type']}*,{p[1]['type']})",
                 "type": p[1]["type"],
-                "arguments": [p[1], arg],
+                "arguments": [p[1], arg["value"]],
                 "kind": "FUNCTION CALL",
             }
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["value"] = nvar
             del p[0]["arguments"]
             # p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
@@ -2015,18 +2016,14 @@ def p_labeled_statement(p):
     """labeled_statement : IDENTIFIER COLON statement
     | CASE constant_expression COLON statement
     | DEFAULT COLON statement"""
-    # TODO (M4): Handle code properly
-    # TODO: store the identifiers in the symbol table as labels
     symTab = get_current_symtab()
     if len(p) == 4:
         if p[1] == "default":
-            # p[0] = {"code": [["LABEL", get_tmp_label()]] + p[3]["code"]}
-            p[0] = {"code": [["CASE", "DEFAULT"]] + p[3]["code"]}
+            p[0] = {"code": [["DEFAULT"]] + p[3]["code"]}
         else:
             valid, entry = symTab.insert({"name": p[1]}, kind=6)
             p[0] = {"code": [["LABEL", p[1]]] + p[3]["code"]}
     else:
-        # TODO (M4): Assign labels
         p[0] = {"code": p[2]["code"] + [["CASE", p[2]["value"]]] + p[4]["code"]}
     # p[0] = ("labeled_statement",) + tuple(p[-len(p) + 1 :])
 
@@ -2108,7 +2105,6 @@ def p_selection_statement(p):
                 p[0]["code"] += p[7]["code"]
             p[0]["code"] += [["LABEL", finishLabel]]
     else:
-        # TODO (M4): Write as goto statements to different labels
         # p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
         p[0] = {"code": p[3]["code"] + [["BEGINSWITCH", p[3]["value"]]] + p[5]["code"] + [["ENDSWITCH"]]}
 
@@ -2174,7 +2170,6 @@ def p_jump_statement(p):
     | BREAK SEMICOLON
     | RETURN SEMICOLON
     | RETURN expression SEMICOLON"""
-    # TODO (M4): Write the code field for these properly
     global JUMP_LABELS
     p[0] = {"code": []}
     symTab = get_current_symtab()
@@ -2542,10 +2537,10 @@ if __name__ == "__main__":
 
             pop_scope()
 
-            # if args.output[-4:] == ".dot":
-            #     args.output = args.output[:-4]
+            if args.output[-4:] == ".dot":
+                args.output = args.output[:-4]
 
-            # parse_code(tree, args.output)
+            parse_code(tree, args.output)
 
             for err in GLOBAL_ERROR_LIST:
                 print(err)
