@@ -226,7 +226,7 @@ def _rewrite_code(code):
             nlabel_case[-1] = None
         elif c[0] == "FUNCTION CALL":
             if c[2].startswith("__store") and "index" in c[3][0]:
-                a1 = _add_new_node(G, c[3][0]["value"] + f"{c[3][0]['index']}")
+                a1 = c[3][0]["value"] + f"{c[3][0]['index']}"
                 if isinstance(c[3][1]["value"], dict):
                     a2 = c[3][1]["value"]["value"]
                 else:
