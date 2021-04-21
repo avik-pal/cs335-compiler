@@ -112,6 +112,13 @@ def get_register(var, current_symbol_table):
     return register
 
 
+# NOTE:
+# 1. Unitialized Variables if used will crash the code
+# 2. Global variable's registers need to be synced
+# 3. Handle data type sizes properly. All instructions wont be lw
+# 4. IMP: int main() should be present and with no other form of definition
+
+
 def generate_mips_from_3ac(code):
     global numeric_ops, rel_ops
 
@@ -136,10 +143,10 @@ def generate_mips_from_3ac(code):
             if len(c) == 1:
                 if c[0].endswith(":"):
                     # Label
-                    print(c[0])
+                    print(c[0].replace("(", "__").replace(")", "__"))
                 elif c[0] == "ENDFUNC":
                     # FIXME: Ignoring atm; Restore callee saved registers
-                    continue
+                    print()
                 elif c[0] == "RETURN":
                     print("\tla\t$sp,\t0($fp)")
                     print("\tlw\t$ra,\t-8($sp)")
@@ -158,8 +165,13 @@ def generate_mips_from_3ac(code):
                     print("\tla\t$fp,\t0($sp)")
                     print(f"\tla\t$sp,\t-{c[1]}($sp)")
                 elif c[0] == "RETURN":
-                    t = get_register(convert_varname(c[1], current_symbol_table), current_symbol_table)
-                    print(f"\tadd\t$v0,\t{t},\t$0")
+                    if is_number(c[1]):
+                        # FIXME: Might be Floating Point
+                        t = get_register("_", current_symbol_table)
+                        print(f"\tli\t{t},\t{c[1]}")
+                    else:
+                        t = get_register(convert_varname(c[1], current_symbol_table), current_symbol_table)
+                    print(f"\tmove\t$v0,\t{t}")
                     print("\tla\t$sp,\t0($fp)")
                     print("\tlw\t$ra,\t-8($sp)")
                     print("\tlw\t$fp,\t-4($sp)")
@@ -176,7 +188,7 @@ def generate_mips_from_3ac(code):
                     else:
                         t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
                         t2 = get_register(convert_varname(c[2], current_symbol_table), current_symbol_table)
-                        print(f"\tadd\t{t1},\t{t2},\t$0")
+                        print(f"\tmove\t{t1},\t{t2}")
                 elif c[0] == "SYMTAB":
                     # Symbol Table
                     current_symbol_table = tabname_mapping[c[2]]
@@ -199,6 +211,19 @@ def generate_mips_from_3ac(code):
                         print(f"\t{instr}\t{t1},\t{t2},\t{t3}")
                 else:
                     print(c)
+
+    print("main:")
+    print("\tsw\t$fp,\t-4($sp)")
+    print("\tsw\t$ra,\t-8($sp)")
+    print("\tla\t$fp,\t0($sp)")
+    print("\tla\t$sp,\t-4($sp)")
+    # Function Call
+    print("\tjal\tmain____")
+    print("\tmove\t$a0,\t$v0")
+    print("\tli\t$v0,\t1")
+    print("\tsyscall")
+    print("\tli\t$v0,\t10")
+    print("\tsyscall")
 
 
 reset_registers()
