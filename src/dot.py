@@ -263,7 +263,7 @@ def _rewrite_code(code, sizes):
                     indent_arr.append(cur_indent)
                     new_code.append(["PUSHPARAM", arg])
                 indent_arr.append(cur_indent)
-                new_code.append([upcode[4], ":=", "CALL", upcode[2]])
+                new_code.append([upcode[4], ":=", "CALL", upcode[2], str(f["param_size"])])
                 if f["param_size"] > 0:
                     new_code.append(["POPPARAMS", str(f["param_size"])])
 

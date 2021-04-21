@@ -2022,12 +2022,14 @@ def p_compound_statement_1(p):
         p[0] = p[3]
         if len(p[2]["code"]) > 0:
             p[0]["code"] = p[2]["code"] + p[3]["code"]
+    p[0]["code"] = [["SYMTAB", "PUSH", p[len(p) - 1]["popped_table"].table_name]] + p[0]["code"] + [["SYMTAB", "POP"]]
 
 
 def p_compound_statement_2(p):
     """compound_statement : lbrace declaration_list rbrace"""
     # p[0] = ("compound_statement",) + tuple(p[-len(p) + 1 :])
     p[0] = p[2]
+    p[0]["code"] = [["SYMTAB", "PUSH", p[len(p) - 1]["popped_table"].table_name]] + p[0]["code"] + [["SYMTAB", "POP"]]
 
 
 def p_declaration_list(p):
@@ -2341,7 +2343,9 @@ def p_rbrace(p):
     """rbrace : RIGHT_CURLY_BRACKET"""
     global LAST_POPPED_TABLE
     # p[0] = ("rbrace",) + tuple(p[-len(p) + 1 :])
-    LAST_POPPED_TABLE = pop_scope()
+    s = pop_scope()
+    p[0] = {"popped_table": s}
+    LAST_POPPED_TABLE = s
 
 
 def p_error(p):

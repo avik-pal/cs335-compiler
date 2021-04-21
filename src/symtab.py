@@ -462,7 +462,7 @@ class SymbolTable:
 
 SYMBOL_TABLES = []
 GLOBAL_SYMBOL_TABLE = None
-
+SYMTAB_NAME_TO_TABLE = {}
 STATIC_VARIABLE_MAPS = {}
 
 
@@ -480,11 +480,17 @@ def pop_scope() -> SymbolTable:
 
 
 def push_scope(s: SymbolTable) -> None:
-    global SYMBOL_TABLES, GLOBAL_SYMBOL_TABLE
+    global SYMBOL_TABLES, GLOBAL_SYMBOL_TABLE, SYMTAB_NAME_TO_TABLE
     if len(SYMBOL_TABLES) == 0:
         GLOBAL_SYMBOL_TABLE = s
     SYMBOL_TABLES.append(s)
+    SYMTAB_NAME_TO_TABLE[s.table_name] = s
     print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
+
+
+def get_tabname_mapping():
+    global SYMTAB_NAME_TO_TABLE
+    return SYMTAB_NAME_TO_TABLE
 
 
 def new_scope(parent=None, function_scope=None) -> SymbolTable:

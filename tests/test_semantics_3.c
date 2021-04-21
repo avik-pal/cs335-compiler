@@ -1,5 +1,7 @@
 //Recursion + static
 
+int d = 5;
+
 void f2()
 {
     static int k;
