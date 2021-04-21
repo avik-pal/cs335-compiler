@@ -28,6 +28,7 @@ from symtab import (
     SYMBOL_TABLES,
     STATIC_VARIABLE_MAPS,
 )
+from mips import generate_mips_from_3ac
 
 flag_for_error = 0
 ### Error flags
@@ -350,21 +351,20 @@ def p_identifier(p):
     """identifier : IDENTIFIER"""
     symTab = get_current_symtab()
     entry = symTab.lookup(p[1])
-
-    # FIXME:
     global LAST_FUNCTION_DECLARATION
+    val = p[1]
     if type(entry) is list:
         entry = entry[0]
     if entry is None:
         entry = symTab.lookup(p[1] + ".static." + LAST_FUNCTION_DECLARATION)
+        val = p[1] + ".static." + LAST_FUNCTION_DECLARATION
         if entry is None:
             err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared identifier used"
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
-        # raise Exception  # undeclared identifier used
     if entry["kind"] == 1:
         p[0] = {
-            "value": p[1],
+            "value": val,
             "code": [],
             "type": entry["return type"],
             "pointer_lvl": entry.get("pointer_lvl", 0),
@@ -373,7 +373,7 @@ def p_identifier(p):
         }
     elif entry["kind"] == 0:
         p[0] = {
-            "value": p[1],
+            "value": val,
             "code": [],
             "type": entry["type"],
             "pointer_lvl": entry.get("pointer_lvl", 0),
@@ -1172,7 +1172,7 @@ def p_assignment_expression(p):
                 "type": fentry["return type"],
                 "arguments": args,
                 "kind": "FUNCTION CALL",
-                "code": [[nvar, ":=", args[0]["value"], p[2][:-1], args[1]["value"]]]
+                "code": [[nvar, ":=", args[0]["value"], p[2][:-1], args[1]["value"]]],
             }
             arg = _get_conversion_function(expr, p[1])
             codes += arg["code"]
@@ -1246,17 +1246,11 @@ def p_declaration(p):
         pass
         # p[0] = ("declaration",) + tuple(p[-len(p) + 1 :])
     else:
-        # TODO: Handle static variables
         tinfo = p[1]["value"]
         is_static = False
         if tinfo.startswith("static"):
             tinfo = tinfo[7:]
             is_static = True
-            # print(LAST_FUNCTION_DECLARATION)
-            # err_msg = "Error at line number " + str(p.lineno(1)) + ": Static variables are not supported"
-            # GLOBAL_ERROR_LIST.append(err_msg)
-            # raise SyntaxError
-            # raise Exception("Static Variables are not supported")
 
         for _p in p[2]:
             if len(_p["code"]) > 0:
@@ -1386,6 +1380,7 @@ def p_declaration(p):
                         "pointer_lvl": _p.get("pointer_lvl", 0),
                     },
                     kind=0,
+                    fname=LAST_FUNCTION_DECLARATION,
                 )
                 # print(entry)
             if not valid:
@@ -2527,7 +2522,8 @@ if __name__ == "__main__":
             if args.output[-4:] == ".dot":
                 args.output = args.output[:-4]
 
-            parse_code(tree, args.output)
+            code = parse_code(tree, args.output)
+            generate_mips_from_3ac(code)
 
             for err in GLOBAL_ERROR_LIST:
                 print(err)

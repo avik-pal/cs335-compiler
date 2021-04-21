@@ -113,7 +113,7 @@ class SymbolTable:
         if parent is None:
             self.table_name = "GLOBAL"
         else:
-            self.table_name = f"BLOCK {self.table_number}"
+            self.table_name = f"BLOCK_{self.table_number}"
 
     @staticmethod
     def _get_proper_name(entry: dict, kind: int = 0):
@@ -127,7 +127,7 @@ class SymbolTable:
         entry = self.lookup(name)
         entry["value"] = value
 
-    def insert(self, entry: dict, kind: int = 0) -> Tuple[bool, Union[dict, List[dict]]]:
+    def insert(self, entry: dict, kind: int = 0, fname=None) -> Tuple[bool, Union[dict, List[dict]]]:
         # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "pointer_lvl"}
         # Functions (FN) -> {"name", "return type", "parameter types"}
         # Structs (ST)   -> {"name", "alt name" (via typedef), "field names", "field types"}
@@ -139,6 +139,8 @@ class SymbolTable:
 
         name = self._get_proper_name(entry, kind)
         prev_entry = self.lookup_current_table(name, False, entry.get("alt name", None), kind)
+        if prev_entry is None and kind == 0 and fname is not None:
+            prev_entry = self.lookup(name + ".static." + fname)
         # if entry['name'] == 'arr':
         #     print(f"Symtab {entry} {prev_entry}")
         if prev_entry is None:
@@ -470,12 +472,12 @@ def pop_scope() -> SymbolTable:
     global SYMBOL_TABLES
     s = SYMBOL_TABLES.pop()
     # if s.table_name != "GLOBAL":
-    s.display()
-    print(
-        "[DEBUG INFO]  POP SYMBOL TABLE: ",
-        s.table_number,
-        s.table_name,
-    )
+    # s.display()
+    # print(
+    #     "[DEBUG INFO]  POP SYMBOL TABLE: ",
+    #     s.table_number,
+    #     s.table_name,
+    # )
     return s
 
 
@@ -485,7 +487,7 @@ def push_scope(s: SymbolTable) -> None:
         GLOBAL_SYMBOL_TABLE = s
     SYMBOL_TABLES.append(s)
     SYMTAB_NAME_TO_TABLE[s.table_name] = s
-    print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
+    # print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
 
 
 def get_tabname_mapping():
@@ -607,6 +609,7 @@ def get_default_value(type: str):
 
 
 STDLIB_CODES = dict()
+
 
 def get_stdlib_codes():
     global STDLIB_CODES
