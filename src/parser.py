@@ -243,7 +243,7 @@ def _array_init(p, values, types, dim, arr, idx):
             ]
         if dim[0] == "variable":
             dim[0] = count
-            arr[len(idx)] = {'value': count, 'type':"int"}
+            arr["dimensions"][len(idx)] = {'value': count, 'type':"int"}
         elif count > dim[0]:
             err_msg = f"[{dim[0]}] Array {arr['value']} filled beyond capacity"
             # print(err_msg)
@@ -1307,7 +1307,10 @@ def p_declaration(p):
                     dim = []
                     # print(_p)
                     for d in _p["dimensions"]:
-                        dim.append(int(d["value"]))
+                        if d == "variable":
+                            dim.append("variable")
+                        else:
+                            dim.append(int(d["value"]))
                     _array_init(p, _p["store"]["value"], _p["store"]["types"], dim, _p, [])
                     # raise Exception
                     # p[0]["value"] = vname
@@ -1332,6 +1335,7 @@ def p_declaration(p):
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
                     # raise Exception("Incomplete type is not allowed")
+                print(_p)
                 valid, entry = symTab.insert(
                     {
                         "name": _p["value"],
