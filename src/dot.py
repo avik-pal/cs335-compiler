@@ -263,7 +263,7 @@ def _rewrite_code(code, sizes):
                     indent_arr.append(cur_indent)
                     new_code.append(["PUSHPARAM", arg])
                 indent_arr.append(cur_indent)
-                new_code.append([upcode[4], ":=", "CALL", upcode[2]])
+                new_code.append([upcode[4], ":=", "CALL", upcode[2], str(f["param_size"])])
                 if f["param_size"] > 0:
                     new_code.append(["POPPARAMS", str(f["param_size"])])
 
@@ -301,6 +301,8 @@ def parse_code(tree, output_file):
     for child in gtab.children:
         sizes[child.func_scope] = size_of_child(child)
 
+    codes = []
+
     for t in tree:
         if len(t["code"]) == 0:
             continue
@@ -318,9 +320,13 @@ def parse_code(tree, output_file):
         # _internal_code_parser(G, parent_scope, code)
         print()
 
+        codes.append(code)
+
     # print(get_stdlib_codes())
 
     # pos = graphviz_layout(G, prog="dot")
     # nx.draw(G, pos, with_labels = True, node_color="white")
     # write_dot(G, output_file+".dot")
     # plt.show()
+
+    return codes
