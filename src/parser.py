@@ -6,6 +6,7 @@ import ply.yacc as yacc
 import argparse
 import copy
 from dot import generate_graph_from_ast, parse_code, reduce_ast
+from type_utils import get_type_fields,get_flookup_type
 from symtab import (
     BASIC_TYPES,
     pop_scope,
@@ -130,22 +131,8 @@ def cast_value_to_type(val, type):
     return val
 
 
-def _get_type_info(p):
-    # print(p)
-    final_type = p["type"] + "*" * p.get("pointer_lvl", 0)
-    if p.get("is_array", False):
-        for i, d in enumerate(p["dimensions"]):
-            if d == "variable":
-                final_type += "[]"
-            elif type(d) is str:
-                final_type += f"[{d}]"
-            else:
-                final_type += f"[{d['value']}]"
-    return final_type
-
-
 def _get_conversion_function(p, tcast):
-    t1, t2 = _get_type_info(p), _get_type_info(tcast)
+    t1, t2 = get_flookup_type(p), get_flookup_type(tcast)
     # print(t1, t2, p)
     if t1 == t2:
         return p
@@ -165,7 +152,7 @@ def _get_conversion_function(p, tcast):
 
 
 def _get_conversion_function_expr(p, tcast):
-    t1, t2 = _get_type_info(p), _get_type_info(tcast)
+    t1, t2 = get_flookup_type(p), get_flookup_type(tcast)
     if t1 == t2:
         return {"value": p["value"], "code": []}
     else:
@@ -198,7 +185,7 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
         return f"{fname}()", entry, plist
 
     if len(plist) == 1:
-        par_type = _get_type_info(plist[0])
+        par_type = get_flookup_type(plist[0])
         entry = symTab.lookup(f"{fname}({par_type})")
         if entry is None:
             err_msg = f"{fname}({plist[0]['type']}) : No such function in symbol table"
@@ -218,7 +205,7 @@ def resolve_function_name_uniform_types(fname, plist, totype=None):
     else:
         tcast = totype
 
-    funcname = f"{fname}(" + ",".join([_get_type_info(tcast)] * len(plist)) + ")"
+    funcname = f"{fname}(" + ",".join([get_flookup_type(tcast)] * len(plist)) + ")"
     entry = get_current_symtab().lookup(funcname)
     if entry is None:
         err_msg = f"{funcname} function is not declared!"
@@ -245,31 +232,34 @@ def _array_init(p, values, types, dim, arr, idx):
             p[0]["code"] += [
                 [
                     "FUNCTION CALL",
-                    _get_type_info(tinfo),
+                    get_flookup_type(tinfo),
                     f"__store({p[1]['value']}*,{p[1]['value']})",
                     [
-                        {"value": arr["value"], "type": _get_type_info(tinfo), "index": idx + [i]},
-                        {"value": expr["value"], "type": _get_type_info(tinfo)},
+                        {"value": arr["value"], "type": get_flookup_type(tinfo), "index": idx + [i]},
+                        {"value": expr["value"], "type": get_flookup_type(tinfo)},
                     ],
                     vname,
                 ]
             ]
-        if count > dim[0]:
+        if dim[0] == "variable":
+            dim[0] = count
+            arr["dimensions"][len(idx)] = {'value': count, 'type':"int"}
+        elif count > dim[0]:
             err_msg = f"[{dim[0]}] Array {arr['value']} filled beyond capacity"
             # print(err_msg)
             GLOBAL_ERROR_LIST.append(err_msg)
             return -1
         else:
             for i in range(count, dim[0]):
-                vname = get_tmp_var(_get_type_info(tinfo))
+                vname = get_tmp_var(get_flookup_type(tinfo))
                 p[0]["code"] += [
                     [
                         "FUNCTION CALL",
-                        _get_type_info(tinfo),
+                        get_flookup_type(tinfo),
                         f"__store({p[1]['value']}*,{p[1]['value']})",
                         [
-                            {"value": arr["value"], "type": _get_type_info(tinfo), "index": idx + [i]},
-                            {"value": get_default_value(_get_type_info(tinfo)), "type": _get_type_info(tinfo)},
+                            {"value": arr["value"], "type": get_flookup_type(tinfo), "index": idx + [i]},
+                            {"value": get_default_value(get_flookup_type(tinfo)), "type": get_flookup_type(tinfo)},
                         ],
                         vname,
                     ]
@@ -294,32 +284,6 @@ def _array_init(p, values, types, dim, arr, idx):
                     return -1
         return 1
 
-
-def _get_type_entry(type):
-    entry = {}
-    entry["pointer_lvl"] = type.count("*")
-    if entry["pointer_lvl"] > 0:
-        entry["type"] = type.split("*")[0]
-    if type.count("[") > 0:
-        entry["is_array"] = True
-        split1 = type.split("[")
-        if not entry.get("type", False):
-            entry["type"] = split1[0]
-
-        entry["dimensions"] = []
-        for d in split1[1:]:
-            split2 = d.split("]")
-            if split2[0] != "":
-                entry["dimensions"] += [{"value": split2[0], "type": "int"}]
-            else:
-                entry["dimensions"] += ["variable"]
-    else:
-        entry["is_array"] = False
-        if not entry.get("type", False):
-            entry["type"] = type
-    return entry
-
-
 LAST_POPPED_TABLE = None
 INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
 LAST_FUNCTION_DECLARATION = None
@@ -327,7 +291,6 @@ LAST_FUNCTION_DECLARATION = None
 tokens = lex.tokens
 
 start = "translation_unit"
-
 
 def p_primary_expression(p):
     """primary_expression : identifier
@@ -340,8 +303,6 @@ def p_primary_expression(p):
         p[0] = p[2]
     else:
         p[0] = p[len(p) - 1]
-
-
 def p_str_literal(p):
     """str_literal : STRING_LITERAL"""
     p[0] = {"value": p[1], "code": [], "type": "char", "pointer_lvl": 1, "kind": "CONSTANT"}
@@ -581,8 +542,8 @@ def p_postfix_expression(p):
                 symTab = get_current_symtab()
                 temp_dict = copy.deepcopy(p[1])
                 temp_dict["is_array"] = False
-                funcname = "__get_array_element" + f"({_get_type_info(temp_dict)}*,int)"
-                nvar = get_tmp_var(_get_type_info(temp_dict))
+                funcname = "__get_array_element" + f"({get_flookup_type(temp_dict)}*,int)"
+                nvar = get_tmp_var(get_flookup_type(temp_dict))
                 c1 = p[1]["code"]
                 c2 = p[3]["code"]
                 p[1]["code"] = []
@@ -622,7 +583,7 @@ def p_argument_expression_list(p):
     if p[ind].get("is_array", False):
         out_dict["dimensions"][0] = "variable"
     p[0]["code"].append(out_dict["code"])
-    p[0]["type"].append(_get_type_info(out_dict))
+    p[0]["type"].append(get_flookup_type(out_dict))
     p[0]["value"].append(out_dict["value"])
     del out_dict
 
@@ -689,16 +650,16 @@ def p_unary_expression(p):
             p[0] = p[2]
             # p[0]["deref"] = p[0].get("deref", 0) + len(p[1])
             if p[2].get("pointer_lvl", 0) > 0:
-                nvar = get_tmp_var(_get_type_info(p[2]))
+                nvar = get_tmp_var(get_flookup_type(p[2]))
                 p[0]["code"] = [
                     [
                         "FUNCTION CALL",
-                        _get_type_info(p[2]),
+                        get_flookup_type(p[2]),
                         f"__deref({p[0]['value']})",
                         [
                             {
-                                "value": get_default_value(_get_type_info(p[2])),
-                                "type": _get_type_info(p[2]),
+                                "value": get_default_value(get_flookup_type(p[2])),
+                                "type": get_flookup_type(p[2]),
                                 "kind": p[2].get("kind", "CONSTANT"),
                             }
                         ],
@@ -712,16 +673,16 @@ def p_unary_expression(p):
 
         elif p[1].startswith("&"):
             p[0] = p[2]
-            nvar = get_tmp_var(_get_type_info(p[2]))
+            nvar = get_tmp_var(get_flookup_type(p[2]))
             p[0]["code"] = [
                 [
                     "FUNCTION CALL",
-                    _get_type_info(p[2]),
+                    get_flookup_type(p[2]),
                     f"__deref({p[0]['value']})",
                     [
                         {
-                            "value": get_default_value(_get_type_info(p[2])),
-                            "type": _get_type_info(p[2]),
+                            "value": get_default_value(get_flookup_type(p[2])),
+                            "type": get_flookup_type(p[2]),
                             "kind": p[2].get("kind", "CONSTANT"),
                         }
                     ],
@@ -1273,7 +1234,7 @@ def p_declaration(p):
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     vname = get_tmp_var()
-                    __t = _get_type_info(_p)
+                    __t = get_flookup_type(_p)
                     p[0]["code"] += [
                         [
                             "FUNCTION CALL",
@@ -1326,7 +1287,7 @@ def p_declaration(p):
                             if len(expr["code"]) > 0:
                                 p[0]["code"] += expr["code"]
                         vname = get_tmp_var()
-                        __t = _get_type_info(_tcast)
+                        __t = get_flookup_type(_tcast)
                         p[0]["code"] += [
                             [
                                 "FUNCTION CALL",
@@ -1346,7 +1307,10 @@ def p_declaration(p):
                     dim = []
                     # print(_p)
                     for d in _p["dimensions"]:
-                        dim.append(int(d["value"]))
+                        if d == "variable":
+                            dim.append("variable")
+                        else:
+                            dim.append(int(d["value"]))
                     _array_init(p, _p["store"]["value"], _p["store"]["types"], dim, _p, [])
                     # raise Exception
                     # p[0]["value"] = vname
@@ -1371,6 +1335,7 @@ def p_declaration(p):
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
                     # raise Exception("Incomplete type is not allowed")
+                print(_p)
                 valid, entry = symTab.insert(
                     {
                         "name": _p["value"],
@@ -1839,7 +1804,7 @@ def p_direct_declarator_2(p):
     p[0] = {
         "value": p[1]["value"],
         "code": [],
-        "parameters": [(_get_type_info(_p), _p["value"]) for _p in p[3]],
+        "parameters": [(get_flookup_type(_p), _p["value"]) for _p in p[3]],
     }
     INITIALIZE_PARAMETERS_IN_NEW_SCOPE = p[0]["parameters"]
 
@@ -2324,7 +2289,7 @@ def p_lbrace(p):
     global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
     if not INITIALIZE_PARAMETERS_IN_NEW_SCOPE is None:
         for param in INITIALIZE_PARAMETERS_IN_NEW_SCOPE:
-            entry = _get_type_entry(param[0])
+            entry = get_type_fields(param[0])
 
             entry["name"] = param[1]
             # print(entry)
