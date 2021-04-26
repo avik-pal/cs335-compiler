@@ -308,17 +308,17 @@ def parse_code(tree, output_file):
             continue
 
         code = t["code"]
-        print()
+        # print()
         code, indents = _rewrite_code(code, sizes)
         for c, idt in zip(code, indents):
-            _z = " ".join(c)
+            _z = "\t".join(c)
             if _z[-1] == ":":
                 idt -= 16
             else:
                 _z = _z + ";"
-            print(" " * idt + _z)
+            # print(" " * idt + _z)
         # _internal_code_parser(G, parent_scope, code)
-        print()
+        # print()
 
         codes.append(code)
 

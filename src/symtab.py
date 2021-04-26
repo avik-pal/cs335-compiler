@@ -127,7 +127,9 @@ class SymbolTable:
         entry = self.lookup(name)
         entry["value"] = value
 
-    def insert(self, entry: dict, kind: int = 0, fname=None) -> Tuple[bool, Union[dict, List[dict]]]:
+    def insert(
+        self, entry: dict, kind: int = 0, fname=None, param: bool = False
+    ) -> Tuple[bool, Union[dict, List[dict]]]:
         # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "pointer_lvl"}
         # Functions (FN) -> {"name", "return type", "parameter types"}
         # Structs (ST)   -> {"name", "alt name" (via typedef), "field names", "field types"}
@@ -173,6 +175,8 @@ class SymbolTable:
                     entry["dimensions"] = ndims
 
                 self._symtab_variables[name] = entry
+                if param:
+                    self._paramtab.append(name)
 
             elif kind == 1:
                 # Function
@@ -328,10 +332,10 @@ class SymbolTable:
 
     def lookup_parameter(self, paramname: str) -> Union[None, list, dict]:
         res = None
-        for table in self._paramtab:
-            res = table._search_for_variable(paramname)
-            if res is not None:
-                break
+        # for table in self._paramtab:
+            # res = table._search_for_variable(paramname)
+            # if res is not None:
+                # break
         return res
 
     def _lookup_type(self, typename: str) -> Union[dict, None]:

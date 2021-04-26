@@ -2254,7 +2254,6 @@ def p_function_definition_full(p):
     NEW_FUNCTION_INCOMING = True
     # TODO: Again arrays as parameters wont work for now
     #       Recursive functions wont work for now
-    # print(f"Func defn {p[2]}")
     valid, entry = symTab.insert(
         {
             "name": p[2]["value"],
@@ -2329,7 +2328,7 @@ def p_lbrace(p):
 
             entry["name"] = param[1]
             # print(entry)
-            symTab.insert(entry)
+            symTab.insert(entry, param=True)
         INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
     # p[0] = ("lbrace",) + tuple(p[-len(p) + 1 :])
 
