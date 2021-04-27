@@ -77,11 +77,11 @@ def store_registers_on_function_call():
 
 
 
-def load_registers_on_function_return():
+def load_registers_on_function_return(p_stack:str):
     # saves all registers for now TODO: 
     off = -12 # already stored fp and ra
     for reg in register_descriptor.keys():
-        print(f"\tlw\t{reg},\t{off}($fp)")
+        print(f"\tlw\t{reg},\t{off}(${p_stack})")
         off -= 4
 
 
@@ -167,12 +167,13 @@ def generate_mips_from_3ac(code):
                     print(c[0].replace("(", "__").replace(")", "__"))
                 elif c[0] == "ENDFUNC":
                     # FIXME: Ignoring atm; Restore callee saved registers
-                    load_registers_on_function_return()
+                    load_registers_on_function_return("fp")
 
                 elif c[0] == "RETURN":
                     print("\tla\t$sp,\t0($fp)")
                     print("\tlw\t$ra,\t-8($sp)")
                     print("\tlw\t$fp,\t-4($sp)")
+                    load_registers_on_function_return("sp")
                     print("\tjr\t$ra") # return
                 else:
                     print(c)
@@ -199,6 +200,7 @@ def generate_mips_from_3ac(code):
                     print("\tla\t$sp,\t0($fp)")
                     print("\tlw\t$ra,\t-8($sp)")
                     print("\tlw\t$fp,\t-4($sp)")
+                    load_registers_on_function_return("sp")
                     print("\tjr\t$ra")
                 elif c[0] == "PUSHPARAM":
                     # We should ideally be using the a0..a2 registers, but for ease of use we will
@@ -214,6 +216,7 @@ def generate_mips_from_3ac(code):
                     print(f"\tla\t$sp,\t-4($sp)")
                 elif c[0] == "POPPARAMS":
                     continue
+
                 elif c[0] == "GOTO":
                     print(f"\tj\t{c[1]}")
                 else:
@@ -250,8 +253,8 @@ def generate_mips_from_3ac(code):
                         # Function Call
                         t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
                         print(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
-                        space = reg_offset + int(c[4])
-                        print(f"\tla\t$sp,\t{space}($sp)")
+                        # caller pops the arguments
+                        print(f"\tla\t$sp,\t{c[4]}($sp)")
                         print(f"\tmove\t{t1},\t$v0") 
                         # print(f"\taddi\t{t1},\t$v0,\t0")       # store return value to LHS of assignment
                     else:
