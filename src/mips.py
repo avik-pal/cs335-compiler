@@ -68,6 +68,23 @@ def reset_registers():
     lru_list = []
 
 
+def store_registers_on_function_call():
+    # saves all registers for now TODO: 
+    off = -12 # already stored fp and ra
+    for reg in register_descriptor.keys():
+        print(f"\tsw\t{reg},\t{off}($fp)")
+        off -= 4
+
+
+
+def load_registers_on_function_return():
+    # saves all registers for now TODO: 
+    off = -12 # already stored fp and ra
+    for reg in register_descriptor.keys():
+        print(f"\tlw\t{reg},\t{off}($fp)")
+        off -= 4
+
+
 def get_register(var, current_symbol_table):
     global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables
     register = ""
@@ -123,6 +140,8 @@ def get_register(var, current_symbol_table):
 def generate_mips_from_3ac(code):
     global numeric_ops, rel_ops
 
+    reg_offset =  4*len(register_descriptor)
+
     print("## MIPS Assembly Code\n")
 
     tabname_mapping = get_tabname_mapping()
@@ -148,12 +167,13 @@ def generate_mips_from_3ac(code):
                     print(c[0].replace("(", "__").replace(")", "__"))
                 elif c[0] == "ENDFUNC":
                     # FIXME: Ignoring atm; Restore callee saved registers
-                    print()
+                    load_registers_on_function_return()
+
                 elif c[0] == "RETURN":
                     print("\tla\t$sp,\t0($fp)")
                     print("\tlw\t$ra,\t-8($sp)")
                     print("\tlw\t$fp,\t-4($sp)")
-                    print("\tjr\t$ra")
+                    print("\tjr\t$ra") # return
                 else:
                     print(c)
             elif len(c) == 2:
@@ -165,7 +185,9 @@ def generate_mips_from_3ac(code):
                     print("\tsw\t$fp,\t-4($sp)")
                     print("\tsw\t$ra,\t-8($sp)")
                     print("\tla\t$fp,\t0($sp)")
-                    print(f"\tla\t$sp,\t-{c[1]}($sp)")
+                    space = reg_offset + int(c[1])
+                    print(f"\tla\t$sp,\t-{space}($sp)")
+                    store_registers_on_function_call()
                 elif c[0] == "RETURN":
                     if is_number(c[1]):
                         # FIXME: Might be Floating Point
@@ -216,7 +238,7 @@ def generate_mips_from_3ac(code):
                         entry = current_symbol_table.lookup(p)
                         t = get_register(convert_varname(entry["name"], current_symbol_table), current_symbol_table)
                         # FIXME: Sizes
-                        print(f"\tlw\t{t},\t{off}($sp)")
+                        print(f"\tlw\t{t},\t{off}($fp)")
                         off += entry["size"]
                 else:
                     print(c)
@@ -228,8 +250,9 @@ def generate_mips_from_3ac(code):
                         # Function Call
                         t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
                         print(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
-                        print(f"\tla\t$sp,\t{c[4]}($sp)")
-                        print(f"\tmove\t{t1},\t$v0")             
+                        space = reg_offset + int(c[4])
+                        print(f"\tla\t$sp,\t{space}($sp)")
+                        print(f"\tmove\t{t1},\t$v0") 
                         # print(f"\taddi\t{t1},\t$v0,\t0")       # store return value to LHS of assignment
                     else:
                         # Assignment + An op
