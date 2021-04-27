@@ -1,6 +1,6 @@
 from symtab import SymbolTable, get_current_symtab, get_global_symtab, get_tabname_mapping
 
-
+IF_LABEL = -1
 declared_variables = []
 
 numeric_ops = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
@@ -141,6 +141,7 @@ def generate_mips_from_3ac(code):
 
     for part in code:
         for i, c in enumerate(part):
+            print("\n#",c)
             if len(c) == 1:
                 if c[0].endswith(":"):
                     # Label
@@ -225,8 +226,11 @@ def generate_mips_from_3ac(code):
                 if c[1] == ":=":
                     if c[2] == "CALL":
                         # Function Call
+                        t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
                         print(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
                         print(f"\tla\t$sp,\t{c[4]}($sp)")
+                        print(f"\tmove\t{t1},\t$v0")             
+                        # print(f"\taddi\t{t1},\t$v0,\t0")       # store return value to LHS of assignment
                     else:
                         # Assignment + An op
                         op = c[3]
@@ -243,8 +247,38 @@ def generate_mips_from_3ac(code):
                             t3 = get_register("_", current_symbol_table)
                             print(f"\tli\t{t3},\t{c[4]}")
                         print(f"\t{instr}\t{t1},\t{t2},\t{t3}")
-                else:
-                    print(c)
+
+            elif len(c)== 6:
+                if c[0]== "IF" and c[4] == "GOTO":
+                    op = c[2]
+                    instr = rel_ops[op]
+
+                    if not is_number(c[1]):
+                        t1 = get_register(convert_varname(c[1], current_symbol_table), current_symbol_table)
+                    else:
+                        t1 = get_register("_", current_symbol_table)
+                        print(f"\tli\t{t1},\t{c[1]}")
+
+                    if not is_number(c[3]):
+                        t2 = get_register(convert_varname(c[3], current_symbol_table), current_symbol_table)
+                    else:
+                        t2 = get_register("_", current_symbol_table)
+                        print(f"\tli\t{t2},\t{c[3]}")
+
+                    # store in another reg
+                    t3 = get_register("_", current_symbol_table)
+
+                    global IF_LABEL
+                    IF_LABEL += 1
+
+                    print(f"\t{instr}\t{t3},\t{t1},\t{t2}")
+                    print(f"\tbeq\t{t3},\t$0,\tIFBRANCH_{IF_LABEL}")
+                    print(f"\tj\t{c[5]}")
+                    print(f"IFBRANCH_{IF_LABEL}:")
+
+            else:
+                print(c)
+
 
     print("main:")
     print("\tsw\t$fp,\t-4($sp)")
