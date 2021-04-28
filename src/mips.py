@@ -1,6 +1,8 @@
 from symtab import SymbolTable, get_current_symtab, get_global_symtab, get_tabname_mapping
 
 IF_LABEL = -1
+STATIC_NESTING_LVL = -1
+DYNAMIC_NESTING_LVL = -1
 declared_variables = []
 
 numeric_ops = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
@@ -63,6 +65,7 @@ def reset_registers():
         "$t1",
         "$t0",
     ]
+
     parameter_descriptor = {"$a1": None, "$a2": None, "$a3": None}
     busy_registers = []
     lru_list = []
@@ -84,6 +87,22 @@ def load_registers_on_function_return(p_stack: str):
         off -= 4
 
 
+def access_dynamic_link(reg: str):
+    print(f"\tlw\t{reg},\t-4($fp)")  # loads pointer to parent AR inside reg
+
+
+#  TODO: relevant for nested procedures
+# def access_static_link(reg: str, n_level: int): # n_level = level_curr_fxn - level_callee
+#     print(f"\tlw\t{reg},\t-4($fp)")
+
+#     if n_level > -1:
+#         for i in range(0, n_level +1):
+#             print(f"\tlw\t{reg},\t-4({reg})")  # backtrace n_level + 1 times
+
+#     elif n_level < -1:
+#         # callee is nested deeper
+
+        
 def get_register(var, current_symbol_table):
     global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables
     register = ""
@@ -137,9 +156,9 @@ def get_register(var, current_symbol_table):
 
 
 def generate_mips_from_3ac(code):
-    global numeric_ops, rel_ops
+    global numeric_ops, rel_ops, STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL
 
-    reg_offset = 4 * len(register_descriptor)
+    reg_offset = 4 * (len(register_descriptor)+2) # 2 extra for fp and ra 
 
     print("## MIPS Assembly Code\n")
 
@@ -167,28 +186,34 @@ def generate_mips_from_3ac(code):
                 elif c[0] == "ENDFUNC":
                     # FIXME: Ignoring atm; Restore callee saved registers
                     load_registers_on_function_return("fp")
+                    # STATIC_NESTING_LVL -= 1
 
                 elif c[0] == "RETURN":
+                    DYNAMIC_NESTING_LVL -= 1
                     print("\tla\t$sp,\t0($fp)")
                     print("\tlw\t$ra,\t-8($sp)")
                     print("\tlw\t$fp,\t-4($sp)")
                     load_registers_on_function_return("sp")
                     print("\tjr\t$ra")  # return
+
                 else:
                     print(c)
+
             elif len(c) == 2:
                 if c[0] == "SYMTAB":
                     # Symbol Table
                     current_symbol_table = current_symbol_table.parent
                 elif c[0] == "BEGINFUNC":
+                    # STATIC_NESTING_LVL += 1
                     # Has the overall size for the function
-                    print("\tsw\t$fp,\t-4($sp)")
+                    print("\tsw\t$fp,\t-4($sp)")  # dynamic link (old fp)
                     print("\tsw\t$ra,\t-8($sp)")
                     print("\tla\t$fp,\t0($sp)")
                     space = reg_offset + int(c[1])
                     print(f"\tla\t$sp,\t-{space}($sp)")
                     store_registers_on_function_call()
                 elif c[0] == "RETURN":
+                    DYNAMIC_NESTING_LVL -= 1
                     if is_number(c[1]):
                         # FIXME: Might be Floating Point
                         t = get_register("_", current_symbol_table)
@@ -201,6 +226,7 @@ def generate_mips_from_3ac(code):
                     print("\tlw\t$fp,\t-4($sp)")
                     load_registers_on_function_return("sp")
                     print("\tjr\t$ra")
+
                 elif c[0] == "PUSHPARAM":
                     # We should ideally be using the a0..a2 registers, but for ease of use we will
                     # push everything into the stack
@@ -213,6 +239,7 @@ def generate_mips_from_3ac(code):
                     # FIXME: size might be different from 4
                     print(f"\tsw\t{t},\t-4($sp)")
                     print(f"\tla\t$sp,\t-4($sp)")
+
                 elif c[0] == "POPPARAMS":
                     continue
 
@@ -250,12 +277,13 @@ def generate_mips_from_3ac(code):
                 if c[1] == ":=":
                     if c[2] == "CALL":
                         # Function Call
+                        DYNAMIC_NESTING_LVL += 1
                         t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
                         print(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
                         # caller pops the arguments
                         print(f"\tla\t$sp,\t{c[4]}($sp)")
-                        print(f"\tmove\t{t1},\t$v0")
-                        # print(f"\taddi\t{t1},\t$v0,\t0")       # store return value to LHS of assignment
+                        print(f"\tmove\t{t1},\t$v0")         # store return value to LHS of assignment
+                              
                     else:
                         # Assignment + An op
                         op = c[3]
@@ -305,7 +333,7 @@ def generate_mips_from_3ac(code):
                 print(c)
 
     print("main:")
-    print("\tsw\t$fp,\t-4($sp)")
+    print("\tsw\t$fp,\t-4($sp)")    
     print("\tsw\t$ra,\t-8($sp)")
     print("\tla\t$fp,\t0($sp)")
     print("\tla\t$sp,\t-4($sp)")
