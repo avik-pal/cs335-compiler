@@ -1339,7 +1339,7 @@ def p_declaration(p):
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
                     # raise Exception("Incomplete type is not allowed")
-                print(_p)
+                # print(_p)
                 valid, entry = symTab.insert(
                     {
                         "name": _p["value"],

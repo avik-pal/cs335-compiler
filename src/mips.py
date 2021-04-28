@@ -102,7 +102,7 @@ def access_dynamic_link(reg: str):
 #     elif n_level < -1:
 #         # callee is nested deeper
 
-        
+
 def get_register(var, current_symbol_table):
     global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables
     register = ""
@@ -158,7 +158,7 @@ def get_register(var, current_symbol_table):
 def generate_mips_from_3ac(code):
     global numeric_ops, rel_ops, STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL
 
-    reg_offset = 4 * (len(register_descriptor)+2) # 2 extra for fp and ra 
+    reg_offset = 4 * (len(register_descriptor) + 2)  # 2 extra for fp and ra
 
     print("## MIPS Assembly Code\n")
 
@@ -282,8 +282,8 @@ def generate_mips_from_3ac(code):
                         print(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
                         # caller pops the arguments
                         print(f"\tla\t$sp,\t{c[4]}($sp)")
-                        print(f"\tmove\t{t1},\t$v0")         # store return value to LHS of assignment
-                              
+                        print(f"\tmove\t{t1},\t$v0")  # store return value to LHS of assignment
+
                     else:
                         # Assignment + An op
                         op = c[3]
@@ -333,7 +333,7 @@ def generate_mips_from_3ac(code):
                 print(c)
 
     print("main:")
-    print("\tsw\t$fp,\t-4($sp)")    
+    print("\tsw\t$fp,\t-4($sp)")
     print("\tsw\t$ra,\t-8($sp)")
     print("\tla\t$fp,\t0($sp)")
     print("\tla\t$sp,\t-4($sp)")

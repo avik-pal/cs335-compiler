@@ -285,6 +285,146 @@ def size_of_child(symtab):
     return s
 
 
+def is_number(s: str) -> bool:
+    try:
+        if not s.isnumeric():
+            float(s)
+            return True
+        else:
+            return True
+    except ValueError:
+        return False
+
+
+def get_lhs_rhs_variables(expr):
+    # For function call send empty lhs since we dont want to remove that line
+    tag = expr[0]
+    if tag == "PUSHPARAM":
+        return [], [] if is_number(expr[1]) else [expr[1]], False
+    elif tag == "IF":
+        return [], [expr[1]], False
+    elif "CALL" in expr:
+        return [], [], False
+    elif "RETURN" in expr:
+        return [], [] if len(expr) == 1 or is_number(expr[1]) else [expr[1]], False
+    elif len(expr) >= 2 and expr[1] == ":=":
+        lhs = [expr[0]]
+        if len(expr) == 3:
+            rhs = [] if is_number(expr[2]) else [expr[2]]
+            return lhs, rhs, True
+        elif len(expr) == 5:
+            rhs = [] if is_number(expr[2]) else [expr[2]]
+            rhs += [] if is_number(expr[4]) else [expr[4]]
+            return lhs, rhs, True
+    return [], [], False
+
+
+def compiler_optimization_algebraic_simplication(line):
+    # Operates on a line by line basis
+    if len(line) != 5 or (len(line) >= 2 and line[1] != ":="):
+        return line, True
+    try:
+        no_change = True
+        if is_number(line[2]):
+            if is_number(line[4]):
+                if line[3] == "&&":
+                    line[3] = "and"
+                elif line[3] == "||":
+                    line[3] = "or"
+                res = eval(" ".join(line[2:]))
+                line = [line[0], ":=", str(res)]
+                no_change = False
+            else:
+                n = eval(line[2])
+                if n == 0:
+                    if line[3] in ("+", "-"):
+                        line = [line[0], ":=", line[4]]
+                        no_change = False
+                    elif line[3] in ("/", "*"):
+                        line = [line[0], ":=", "0"]
+                        no_change = False
+                elif n == 1:
+                    if line[3] == "*":
+                        line = [line[0], ":=", line[4]]
+                        no_change = False
+        elif is_number(line[4]):
+            n = eval(line[4])
+            if n == 0:
+                if line[3] in ("+", "-"):
+                    line = [line[0], ":=", line[2]]
+                    no_change = False
+                elif line[3] == "*":
+                    line = [line[0], ":=", "0"]
+                    no_change = False
+            elif n == 1:
+                if line[3] in ("*", "/"):
+                    line = [line[0], ":=", line[2]]
+                    no_change = False
+        return line, no_change
+    except:
+        return line, True
+
+
+def compiler_optimization_copy_propagation(line, replace_var):
+    if len(line) not in (3, 5) or (len(line) >= 2 and line[1] != ":="):
+        return line, True
+    try:
+        if len(line) == 3:
+            rep = replace_var.get(line[2], line[2])
+            return [line[0], ":=", rep], rep == line[2]
+        else:
+            rep1 = replace_var.get(line[2], line[2])
+            rep2 = replace_var.get(line[4], line[4])
+            return [line[0], ":=", rep1, line[3], rep2], rep1 == line[2] and rep2 == line[4]
+    except:
+        return line, True
+
+
+def optimize_ir(code, indents, depth=5):
+    new_code = []
+    new_indents = []
+    no_change = True
+    replace_var = dict()
+    var_lhs = dict()
+    var_last_rhs = dict()
+    for i, (c, idt) in enumerate(zip(code, indents)):
+        # Apply Algebraic Simplification
+        c, nc = compiler_optimization_algebraic_simplication(c)
+        no_change = no_change and nc
+
+        # Apply Copy Propagation
+        c, nc = compiler_optimization_copy_propagation(c, replace_var)
+        no_change = no_change and nc
+
+        lhs, rhs, is_arth_expr = get_lhs_rhs_variables(c)
+        for l in lhs:
+            if l not in var_lhs:
+                var_lhs[l] = [i]
+            else:
+                var_lhs[l].append(i)
+        for r in rhs:
+            var_last_rhs[r] = i
+
+        if is_arth_expr and len(rhs) <= 1 and len(c) == 3:
+            replace_var[lhs[0]] = c[2]
+
+        new_code.append(c)
+        new_indents.append(idt)
+
+    # Dead Code Elimination
+    for var, lidx in var_lhs.items():
+        removals = list(filter(lambda x: x > var_last_rhs.get(var, -1), lidx))
+        for r in removals:
+            no_change = False
+            new_code[r] = []
+            new_indents[r] = []
+
+    new_code = list(filter(lambda x: x != [], new_code))
+    new_indents = list(filter(lambda x: x != [], new_indents))
+
+    return (new_code, new_indents) if depth == 1 or no_change else optimize_ir(new_code, new_indents, depth - 1)
+
+
 def parse_code(tree, output_file):
     # global NODE_COUNTER, NODE_MAPPING
     # G = nx.DiGraph()
@@ -308,17 +448,29 @@ def parse_code(tree, output_file):
             continue
 
         code = t["code"]
-        # print()
+        print("Before Compiler Optimizations")
+        print()
         code, indents = _rewrite_code(code, sizes)
         for c, idt in zip(code, indents):
-            _z = "\t".join(c)
+            _z = " ".join(c)
             if _z[-1] == ":":
                 idt -= 16
             else:
                 _z = _z + ";"
-            # print(" " * idt + _z)
-        # _internal_code_parser(G, parent_scope, code)
-        # print()
+            print(" " * idt + _z)
+        print()
+
+        print("After Compiler Optimizations")
+        print()
+        code, indents = optimize_ir(code, indents)
+        for c, idt in zip(code, indents):
+            _z = " ".join(c)
+            if _z[-1] == ":":
+                idt -= 16
+            else:
+                _z = _z + ";"
+            print(" " * idt + _z)
+        print()
 
         codes.append(code)
 
