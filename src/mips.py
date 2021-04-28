@@ -69,17 +69,16 @@ def reset_registers():
 
 
 def store_registers_on_function_call():
-    # saves all registers for now TODO: 
-    off = -12 # already stored fp and ra
+    # saves all registers for now TODO:
+    off = -12  # already stored fp and ra
     for reg in register_descriptor.keys():
         print(f"\tsw\t{reg},\t{off}($fp)")
         off -= 4
 
 
-
-def load_registers_on_function_return(p_stack:str):
-    # saves all registers for now TODO: 
-    off = -12 # already stored fp and ra
+def load_registers_on_function_return(p_stack: str):
+    # saves all registers for now TODO:
+    off = -12  # already stored fp and ra
     for reg in register_descriptor.keys():
         print(f"\tlw\t{reg},\t{off}(${p_stack})")
         off -= 4
@@ -96,8 +95,8 @@ def get_register(var, current_symbol_table):
         # print("\taddi\t" + register + ", \t$zero, \t" + str(off))
         # print("\tlw\t" + register + ", \tVAR_global" + "(" + register + ")")
     # elif var.split("_")[-1] in current_symbol_table:
-        # reg = "$a" + str(funlist[currentSymbolTable.tableName].index(var.split("_")[-1]) + 1)
-        # return reg
+    # reg = "$a" + str(funlist[currentSymbolTable.tableName].index(var.split("_")[-1]) + 1)
+    # return reg
     elif var in register_descriptor.values():
         register = address_descriptor[var]
     else:
@@ -140,7 +139,7 @@ def get_register(var, current_symbol_table):
 def generate_mips_from_3ac(code):
     global numeric_ops, rel_ops
 
-    reg_offset =  4*len(register_descriptor)
+    reg_offset = 4 * len(register_descriptor)
 
     print("## MIPS Assembly Code\n")
 
@@ -160,7 +159,7 @@ def generate_mips_from_3ac(code):
 
     for part in code:
         for i, c in enumerate(part):
-            print("\n#",c)
+            print("\n#", c)
             if len(c) == 1:
                 if c[0].endswith(":"):
                     # Label
@@ -174,7 +173,7 @@ def generate_mips_from_3ac(code):
                     print("\tlw\t$ra,\t-8($sp)")
                     print("\tlw\t$fp,\t-4($sp)")
                     load_registers_on_function_return("sp")
-                    print("\tjr\t$ra") # return
+                    print("\tjr\t$ra")  # return
                 else:
                     print(c)
             elif len(c) == 2:
@@ -255,7 +254,7 @@ def generate_mips_from_3ac(code):
                         print(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
                         # caller pops the arguments
                         print(f"\tla\t$sp,\t{c[4]}($sp)")
-                        print(f"\tmove\t{t1},\t$v0") 
+                        print(f"\tmove\t{t1},\t$v0")
                         # print(f"\taddi\t{t1},\t$v0,\t0")       # store return value to LHS of assignment
                     else:
                         # Assignment + An op
@@ -274,8 +273,8 @@ def generate_mips_from_3ac(code):
                             print(f"\tli\t{t3},\t{c[4]}")
                         print(f"\t{instr}\t{t1},\t{t2},\t{t3}")
 
-            elif len(c)== 6:
-                if c[0]== "IF" and c[4] == "GOTO":
+            elif len(c) == 6:
+                if c[0] == "IF" and c[4] == "GOTO":
                     op = c[2]
                     instr = rel_ops[op]
 
@@ -304,7 +303,6 @@ def generate_mips_from_3ac(code):
 
             else:
                 print(c)
-
 
     print("main:")
     print("\tsw\t$fp,\t-4($sp)")

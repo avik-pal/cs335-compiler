@@ -333,9 +333,9 @@ class SymbolTable:
     def lookup_parameter(self, paramname: str) -> Union[None, list, dict]:
         res = None
         # for table in self._paramtab:
-            # res = table._search_for_variable(paramname)
-            # if res is not None:
-                # break
+        # res = table._search_for_variable(paramname)
+        # if res is not None:
+        # break
         return res
 
     def _lookup_type(self, typename: str) -> Union[dict, None]:

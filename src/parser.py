@@ -6,7 +6,7 @@ import ply.yacc as yacc
 import argparse
 import copy
 from dot import generate_graph_from_ast, parse_code, reduce_ast
-from type_utils import get_type_fields,get_flookup_type
+from type_utils import get_type_fields, get_flookup_type
 from symtab import (
     BASIC_TYPES,
     pop_scope,
@@ -243,7 +243,7 @@ def _array_init(p, values, types, dim, arr, idx):
             ]
         if dim[0] == "variable":
             dim[0] = count
-            arr["dimensions"][len(idx)] = {'value': count, 'type':"int"}
+            arr["dimensions"][len(idx)] = {"value": count, "type": "int"}
         elif count > dim[0]:
             err_msg = f"[{dim[0]}] Array {arr['value']} filled beyond capacity"
             # print(err_msg)
@@ -284,6 +284,7 @@ def _array_init(p, values, types, dim, arr, idx):
                     return -1
         return 1
 
+
 LAST_POPPED_TABLE = None
 INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
 LAST_FUNCTION_DECLARATION = None
@@ -291,6 +292,7 @@ LAST_FUNCTION_DECLARATION = None
 tokens = lex.tokens
 
 start = "translation_unit"
+
 
 def p_primary_expression(p):
     """primary_expression : identifier
@@ -303,6 +305,8 @@ def p_primary_expression(p):
         p[0] = p[2]
     else:
         p[0] = p[len(p) - 1]
+
+
 def p_str_literal(p):
     """str_literal : STRING_LITERAL"""
     p[0] = {"value": p[1], "code": [], "type": "char", "pointer_lvl": 1, "kind": "CONSTANT"}

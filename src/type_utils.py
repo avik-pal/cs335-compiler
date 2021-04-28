@@ -15,13 +15,14 @@ def get_type_fields(type):
             if split2[0] != "":
                 entry["dimensions"] += [{"value": split2[0], "type": "int"}]
             else:
-                #May need to fix later
-                entry["dimensions"] +=["variable"]
+                # May need to fix later
+                entry["dimensions"] += ["variable"]
     else:
         entry["is_array"] = False
         if not entry.get("type", False):
             entry["type"] = type
     return entry
+
 
 def get_flookup_type(p):
     final_type = p["type"] + "*" * p.get("pointer_lvl", 0)
