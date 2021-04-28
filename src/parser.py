@@ -2490,8 +2490,11 @@ if __name__ == "__main__":
             if args.output[-4:] == ".dot":
                 args.output = args.output[:-4]
 
-            code = parse_code(tree, args.output)
-            generate_mips_from_3ac(code)
-
             for err in GLOBAL_ERROR_LIST:
                 print(err)
+
+            if len(GLOBAL_ERROR_LIST) > 0:
+                raise Exception("Compilation Errors detected. Fix before proceeding")
+
+            code = parse_code(tree, args.output)
+            generate_mips_from_3ac(code)
