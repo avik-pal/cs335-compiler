@@ -10,9 +10,5 @@ int fact(int n)
 // Driver Code
 int main()
 {
-    // static int k;
-    // static int n;
-    // k = 1 == 1 ? 1 : 2 * 5;
     return fact(10);
-    // return 0;
 }

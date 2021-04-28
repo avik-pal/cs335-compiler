@@ -528,12 +528,12 @@ def p_postfix_expression(p):
             p[0] = {
                 "value": funcname,
                 "type": entry["return type"],
-                "arguments": p[3]["value"],
+                "arguments": args,
                 "kind": "FUNCTION CALL",
             }
 
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = p[3]["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["value"] = nvar
             del p[0]["arguments"]
         # Array indexing
@@ -582,7 +582,7 @@ def p_argument_expression_list(p):
     out_dict = copy.deepcopy(p[ind])
     if p[ind].get("is_array", False):
         out_dict["dimensions"][0] = "variable"
-    p[0]["code"].append(out_dict["code"])
+    p[0]["code"] += out_dict["code"]
     p[0]["type"].append(get_flookup_type(out_dict))
     p[0]["value"].append(out_dict["value"])
     del out_dict
