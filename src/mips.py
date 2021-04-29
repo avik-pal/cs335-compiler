@@ -42,7 +42,7 @@ def convert_varname(var: str, cur_symtab: SymbolTable) -> str:
 
 
 def reset_registers():
-    global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list
+    global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, registers_in_block
     address_descriptor = dict()
     activation_record = []
     register_descriptor = {
@@ -80,6 +80,7 @@ def reset_registers():
         "$t0",
     ]
 
+    registers_in_block = []
     parameter_descriptor = {"$a1": None, "$a2": None, "$a3": None}
     busy_registers = []
     lru_list = []
@@ -156,7 +157,8 @@ def type_cast_mips(c, dtype, current_symbol_table):  # reg1 := (dtype)reg2
 
 
 def get_register(var, current_symbol_table):
-    global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables
+    # FIXME ....
+    global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables, registers_in_block
     register = ""
     if var in register_descriptor.values():
         register = address_descriptor[var]
