@@ -246,6 +246,12 @@ def generate_mips_from_3ac(code):
                         # Assignment with a constant
                         t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
                         print(f"\tli\t{t1},\t{c[2]}")
+
+                    elif c[2].startswith("__tmp"): 
+                        t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
+                        t2 = get_register(c[2], current_symbol_table)
+                        print(f"\tlw\t{t1},\t{t2}")
+
                     else:
                         t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
                         t2 = get_register(convert_varname(c[2], current_symbol_table), current_symbol_table)
@@ -280,17 +286,27 @@ def generate_mips_from_3ac(code):
                         # Assignment + An op
                         op = c[3]
                         instr = numeric_ops[op] if op in numeric_ops else rel_ops[op]
-                        t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
-                        if not is_number(c[2]):
-                            t2 = get_register(convert_varname(c[2], current_symbol_table), current_symbol_table)
+                        if c[0].startswith("__tmp"): 
+                            t1 = get_register(c[0], current_symbol_table)
                         else:
+                            t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
+                            
+                        if is_number(c[2]):
                             t2 = get_register("-", current_symbol_table)
                             print(f"\tli\t{t2},\t{c[2]}")
-                        if not is_number(c[4]):
-                            t3 = get_register(convert_varname(c[4], current_symbol_table), current_symbol_table)
+                        elif c[2].startswith("__tmp"): 
+                            t2 = get_register(c[2], current_symbol_table)
                         else:
+                            t2 = get_register(convert_varname(c[2], current_symbol_table), current_symbol_table)
+                    
+                        if is_number(c[4]):
                             t3 = get_register("_", current_symbol_table)
                             print(f"\tli\t{t3},\t{c[4]}")
+                        elif c[4].startswith("__tmp"): 
+                            t3 = get_register(c[4], current_symbol_table)  
+                        else:
+                            t3 = get_register(convert_varname(c[4], current_symbol_table), current_symbol_table)
+                            
                         print(f"\t{instr}\t{t1},\t{t2},\t{t3}")
 
             elif len(c) == 6:
