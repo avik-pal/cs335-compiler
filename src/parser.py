@@ -2114,6 +2114,7 @@ def p_iteration_statement(p):
             code += p[len(p) - 1]["code"]
         if len(p) == 7 and len(p[4]["code"]) > 0:
             code += p[4]["code"]
+        print(code)
 
     # p[0] = ("iteration_statement",) + tuple(p[-len(p) + 1 :])
 
