@@ -105,6 +105,45 @@ def access_dynamic_link(reg: str):
 #         # callee is nested deeper
 
 
+
+def type_cast_mips(c, dtype, current_symbol_table): # reg1 := (dtype)reg2
+
+    if c[0].startswith("__tmp"): 
+        t1 = get_register(c[0], current_symbol_table)
+    else:
+        t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
+
+    if is_number(c[3]):
+        # load into t1
+        if dtype == "int":
+            print(f"\tli\t{t1},\t{c[3]}")
+        elif dtype == "float":
+            print(f"\tli.s\t{t1},\t{c[3]}")
+        elif dtype == "double":
+            print(f"\tli.d\t{t1},\t{c[3]}")
+
+    elif c[3].startswith("__tmp"): 
+        t2 = get_register(c[3], current_symbol_table)
+
+        # load into new reg 
+        if dtype == "int":
+            print(f"\tlw\t{t1},\t{t2}")
+        elif dtype == "float":
+            print(f"\tl.s\t{t1},\t{t2}")
+        elif dtype == "double":
+            print(f"\tl.d\t{t1},\t{t2}")
+
+    else:
+        t2 = get_register(convert_varname(c[3], current_symbol_table), current_symbol_table)
+        # load into new reg 
+        if dtype == "int":
+            print(f"\tlw\t{t1},\t{t2}")
+        elif dtype == "float":
+            print(f"\tl.s\t{t1},\t{t2}")
+        elif dtype == "double":
+            print(f"\tl.d\t{t1},\t{t2}")
+
+
 def get_register(var, current_symbol_table):
     global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables
     register = ""
@@ -242,20 +281,21 @@ def generate_mips_from_3ac(code):
             elif len(c) == 3:
                 if c[1] == ":=":
                     # Assignment
-                    if is_number(c[2]):
-                        # Assignment with a constant
-                        t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
-                        print(f"\tli\t{t1},\t{c[2]}")
-
-                    elif c[2].startswith("__tmp"): 
-                        t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
-                        t2 = get_register(c[2], current_symbol_table)
-                        print(f"\tlw\t{t1},\t{t2}")
-
+                    if c[0].startswith("__tmp"): # LHS: tmp_var
+                        t1 = get_register(c[0], current_symbol_table)
                     else:
                         t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
+
+                    if is_number(c[2]):
+                        # Assignment with a constant
+                        print(f"\tli\t{t1},\t{c[2]}")
+                    elif c[2].startswith("__tmp"): 
+                        t2 = get_register(c[2], current_symbol_table)
+                        print(f"\tlw\t{t1},\t{t2}")
+                    else:
                         t2 = get_register(convert_varname(c[2], current_symbol_table), current_symbol_table)
                         print(f"\tmove\t{t1},\t{t2}")
+
                 elif c[0] == "SYMTAB":
                     # Symbol Table
                     current_symbol_table = tabname_mapping[c[2]]
@@ -270,7 +310,15 @@ def generate_mips_from_3ac(code):
                 else:
                     print(c)
             elif len(c) == 4:
-                print(c)
+                if c[1] == ":=":
+                    # typecast expression
+                    if c[2].startswith("("):
+                        datatype = c[2].replace('(', '').replace(')', '')
+                        # print("--convert--to-",datatype, "---")
+                        type_cast_mips(c, datatype, current_symbol_table)
+
+                else:
+                    print(c)
             elif len(c) == 5:
                 if c[1] == ":=":
                     if c[2] == "CALL":
@@ -290,7 +338,7 @@ def generate_mips_from_3ac(code):
                             t1 = get_register(c[0], current_symbol_table)
                         else:
                             t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
-                            
+
                         if is_number(c[2]):
                             t2 = get_register("-", current_symbol_table)
                             print(f"\tli\t{t2},\t{c[2]}")
