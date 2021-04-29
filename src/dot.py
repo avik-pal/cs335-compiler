@@ -3,7 +3,7 @@ from graphviz import Digraph
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.drawing.nx_pydot import graphviz_layout, write_dot
-from symtab import get_stdlib_codes, get_tmp_label, get_global_symtab
+from symtab import get_stdlib_codes, get_tmp_label, get_global_symtab, get_default_value, get_tabname_mapping
 
 
 def generate_graph_from_ast(ast, filename="AST"):
@@ -173,6 +173,7 @@ def _internal_code_parser(G, scopes, code):
 
 
 def _rewrite_code(code, sizes):
+    tabname_mapping = get_tabname_mapping()
     new_code = []
     switch_depth = 0
     loop_depth = 0
@@ -184,6 +185,11 @@ def _rewrite_code(code, sizes):
     indent_arr = []
     already_app = False
     cur_indent = 0
+
+    if not code[0][0].endswith(":"):
+        for v, entry in tabname_mapping["GLOBAL"]._symtab_variables.items():
+            new_code.append([v, ":=", str(entry["value"])])
+            indent_arr.append(cur_indent)
     for c in code:
         if c[0] == "BEGINSWITCH":
             ordering.append(0)
@@ -270,6 +276,11 @@ def _rewrite_code(code, sizes):
                 # new_code.append(upcode)
         elif c[0] == "RETURN":
             new_code.append(["RETURN"] + ([] if len(c) == 1 else [c[1]["value"]]))
+        elif c[0] == "SYMTAB" and c[1] == "PUSH":
+            new_code.append(c)
+            for v, entry in tabname_mapping[c[2]]._symtab_variables.items():
+                new_code.append([v, ":=", str(entry["value"])])
+                indent_arr.append(cur_indent)
         else:
             new_code.append(c)
         if not already_app:
@@ -386,7 +397,7 @@ def optimize_ir(code, indents, depth=5):
     no_change = True
     replace_var = dict()
     var_lhs = dict()
-    var_last_rhs = dict()
+    var_rhs = dict()
     encounter_label = False
     first_label = float("inf")
     for i, (c, idt) in enumerate(zip(code, indents)):
@@ -395,7 +406,7 @@ def optimize_ir(code, indents, depth=5):
         no_change = no_change and nc
 
         if not encounter_label:
-            encounter_label = (i > 0 and len(c) == 1 and c[0].endswith(":"))
+            encounter_label = i > 0 and len(c) == 1 and c[0].endswith(":")
             if encounter_label:
                 first_label = i
 
@@ -411,10 +422,16 @@ def optimize_ir(code, indents, depth=5):
             else:
                 var_lhs[l].append(i)
         for r in rhs:
-            var_last_rhs[r] = i
+            if r not in var_rhs:
+                var_rhs[r] = [i]
+            else:
+                var_rhs[r].append(i)
 
-        if is_arth_expr and len(rhs) <= 1 and len(c) == 3:
-            replace_var[lhs[0]] = c[2]
+        if is_arth_expr:
+            if len(rhs) <= 1 and len(c) == 3:
+                replace_var[lhs[0]] = c[2]
+            elif lhs[0] in replace_var:
+                del replace_var[lhs[0]]
 
         new_code.append(c)
         new_indents.append(idt)
@@ -422,7 +439,18 @@ def optimize_ir(code, indents, depth=5):
     # Dead Code Elimination
     if code[0][0][-1] == ":":
         for var, lidx in var_lhs.items():
-            removals = list(filter(lambda x: x > var_last_rhs.get(var, -1), lidx))
+            ridx = var_rhs.get(var, [])
+            if len(ridx) == 0:
+                removals = lidx
+            else:
+                _r = 0
+                _l = 0
+                removals = []
+                for (l1, l2) in zip(lidx[:-1], lidx[1:]):
+                    while _r < len(ridx) and ridx[_r] < l1:
+                        _r += 1
+                    if not (ridx[_r] > l1 and ridx[_r] <= l2):
+                        removals.append(l1)
             for r in removals:
                 if r >= first_label:
                     break
@@ -454,7 +482,7 @@ def parse_code(tree, output_file):
 
     codes = []
 
-    for t in tree:
+    for i, t in enumerate(tree):
         if len(t["code"]) == 0:
             continue
 

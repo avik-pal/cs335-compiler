@@ -1,9 +1,9 @@
 // Copy Propagation
 
-int d = 5;
+int d;
 
 int main() {
     int x;
-    x = 10 + d;
+    x = x + d;
     return x;
 }
