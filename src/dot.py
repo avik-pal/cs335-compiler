@@ -3,7 +3,13 @@ from graphviz import Digraph
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.drawing.nx_pydot import graphviz_layout, write_dot
-from symtab import get_stdlib_codes, get_tmp_label, get_global_symtab, get_default_value, get_tabname_mapping
+from symtab import (
+    get_stdlib_codes,
+    get_tmp_label,
+    get_global_symtab,
+    get_default_value,
+    get_tabname_mapping,
+)
 
 
 def generate_graph_from_ast(ast, filename="AST"):
@@ -166,7 +172,10 @@ def _internal_code_parser(G, scopes, code):
         elif _f == "ENDSWITCH":
             scopes.pop()
         elif _f == "RETURN":
-            v = _add_new_node(G, f"RETURN" + ("" if len(line) == 1 else f" {line[-1]['value']}"))
+            v = _add_new_node(
+                G,
+                f"RETURN" + ("" if len(line) == 1 else f" {line[-1]['value']}"),
+            )
             G.add_edge(scopes[-1], v)
         else:
             G.add_edge(scopes[-1], " ".join(line))
@@ -188,8 +197,9 @@ def _rewrite_code(code, sizes):
 
     if not code[0][0].endswith(":"):
         for v, entry in tabname_mapping["GLOBAL"]._symtab_variables.items():
-            new_code.append([v, ":=", str(entry["value"])])
-            indent_arr.append(cur_indent)
+            if not entry.get("is_parameter", False):
+                new_code.append([v, ":=", str(entry["value"])])
+                indent_arr.append(cur_indent)
     for c in code:
         if c[0] == "BEGINSWITCH":
             ordering.append(0)
@@ -279,8 +289,9 @@ def _rewrite_code(code, sizes):
         elif c[0] == "SYMTAB" and c[1] == "PUSH":
             new_code.append(c)
             for v, entry in tabname_mapping[c[2]]._symtab_variables.items():
-                new_code.append([v, ":=", str(entry["value"])])
-                indent_arr.append(cur_indent)
+                if not entry.get("is_parameter", False):
+                    new_code.append([v, ":=", str(entry["value"])])
+                    indent_arr.append(cur_indent)
         else:
             new_code.append(c)
         if not already_app:
@@ -317,7 +328,11 @@ def get_lhs_rhs_variables(expr):
     elif "CALL" in expr:
         return [], [], False
     elif "RETURN" in expr:
-        return [], [] if len(expr) == 1 or is_number(expr[1]) else [expr[1]], False
+        return (
+            [],
+            [] if len(expr) == 1 or is_number(expr[1]) else [expr[1]],
+            False,
+        )
     elif len(expr) >= 2 and expr[1] == ":=":
         lhs = [expr[0]]
         if len(expr) == 3:

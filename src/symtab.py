@@ -321,7 +321,11 @@ class SymbolTable:
         return None
 
     def lookup_current_table(
-        self, symname: str, paramtab_check: bool = True, alt_name: Union[str, None] = None, kind: int = -1
+        self,
+        symname: str,
+        paramtab_check: bool = True,
+        alt_name: Union[str, None] = None,
+        kind: int = -1,
     ) -> Union[None, list, dict]:
         res = self._search_for_variable(symname) if kind <= 0 else None
         res = self._search_for_function(symname) if res is None and kind <= 1 else res
@@ -393,7 +397,12 @@ class SymbolTable:
                 os.remove("symtables.csv")
 
         with open("symtables.csv", mode="a+") as sym_file:
-            sym_writer = csv.writer(sym_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            sym_writer = csv.writer(
+                sym_file,
+                delimiter=",",
+                quotechar='"',
+                quoting=csv.QUOTE_MINIMAL,
+            )
             if num_display_invocations == 0:
                 sym_writer.writerow(
                     [
@@ -582,7 +591,14 @@ def get_tmp_var(vartype=None) -> str:
     vname = f"__tmp_var_{TMP_VAR_COUNTER}"
     if vartype is not None:
         symTab = get_current_symtab()
-        symTab.insert({"name": vname, "type": vartype, "is_array": False, "dimensions": []})
+        symTab.insert(
+            {
+                "name": vname,
+                "type": vartype,
+                "is_array": False,
+                "dimensions": [],
+            }
+        )
     return vname
 
 
@@ -591,7 +607,10 @@ def get_tmp_closure(rettype: str, argtypes: list = []) -> str:
     TMP_CLOSURE_COUNTER += 1
     vname = f"__tmp_closure_{TMP_VAR_COUNTER}"
     symTab = get_current_symtab()
-    symTab.insert({"name": vname, "return type": rettype, "parameter types": argtypes}, kind=1)
+    symTab.insert(
+        {"name": vname, "return type": rettype, "parameter types": argtypes},
+        kind=1,
+    )
     return vname
 
 

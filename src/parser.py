@@ -98,7 +98,10 @@ def type_cast(s1, s2):
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
     else:
-        return {"type": _type_cast(s1["type"], s2["type"]).lower(), "pointer_lvl": 0}
+        return {
+            "type": _type_cast(s1["type"], s2["type"]).lower(),
+            "pointer_lvl": 0,
+        }
 
 
 def type_cast2(s1, s2):
@@ -123,7 +126,10 @@ def type_cast2(s1, s2):
             GLOBAL_ERROR_LIST.append(err_msg)
             raise SyntaxError
     else:
-        return {"type": _type_cast(s1["type"], s2["type"]).lower(), "pointer_lvl": 0}
+        return {
+            "type": _type_cast(s1["type"], s2["type"]).lower(),
+            "pointer_lvl": 0,
+        }
 
 
 def cast_value_to_type(val, type):
@@ -144,7 +150,14 @@ def _get_conversion_function(p, tcast):
                 "FUNCTION CALL",
                 t2,
                 f"__convert({t1},{t2})",
-                [p, {"value": get_default_value(t2), "type": t2, "kind": "CONSTANT"}],
+                [
+                    p,
+                    {
+                        "value": get_default_value(t2),
+                        "type": t2,
+                        "kind": "CONSTANT",
+                    },
+                ],
                 nvar,
             ]
         ]
@@ -165,7 +178,11 @@ def _get_conversion_function_expr(p, tcast):
                 f"__convert({t1},{t2})",
                 [
                     p["value"],
-                    {"value": get_default_value(t2), "type": t2, "kind": "CONSTANT"},
+                    {
+                        "value": get_default_value(t2),
+                        "type": t2,
+                        "kind": "CONSTANT",
+                    },
                 ],  # FIXME: We might need the entry for p["value"]
                 nvar,
             ]
@@ -222,7 +239,10 @@ def _array_init(p, values, types, dim, arr, idx):
     if len(dim) == 1:
         # print(dim[0])
         count = 0
-        tinfo = {"type": p[1]["value"], "pointer_lvl": arr.get("pointer_lvl", 0)}
+        tinfo = {
+            "type": p[1]["value"],
+            "pointer_lvl": arr.get("pointer_lvl", 0),
+        }
         for i, (item, t) in enumerate(zip(values, types)):
             count += 1
             expr = _get_conversion_function({"value": item, "type": t, "code": []}, tinfo)
@@ -235,8 +255,15 @@ def _array_init(p, values, types, dim, arr, idx):
                     get_flookup_type(tinfo),
                     f"__store({p[1]['value']}*,{p[1]['value']})",
                     [
-                        {"value": arr["value"], "type": get_flookup_type(tinfo), "index": idx + [i]},
-                        {"value": expr["value"], "type": get_flookup_type(tinfo)},
+                        {
+                            "value": arr["value"],
+                            "type": get_flookup_type(tinfo),
+                            "index": idx + [i],
+                        },
+                        {
+                            "value": expr["value"],
+                            "type": get_flookup_type(tinfo),
+                        },
                     ],
                     vname,
                 ]
@@ -258,8 +285,15 @@ def _array_init(p, values, types, dim, arr, idx):
                         get_flookup_type(tinfo),
                         f"__store({p[1]['value']}*,{p[1]['value']})",
                         [
-                            {"value": arr["value"], "type": get_flookup_type(tinfo), "index": idx + [i]},
-                            {"value": get_default_value(get_flookup_type(tinfo)), "type": get_flookup_type(tinfo)},
+                            {
+                                "value": arr["value"],
+                                "type": get_flookup_type(tinfo),
+                                "index": idx + [i],
+                            },
+                            {
+                                "value": get_default_value(get_flookup_type(tinfo)),
+                                "type": get_flookup_type(tinfo),
+                            },
                         ],
                         vname,
                     ]
@@ -309,7 +343,13 @@ def p_primary_expression(p):
 
 def p_str_literal(p):
     """str_literal : STRING_LITERAL"""
-    p[0] = {"value": p[1], "code": [], "type": "char", "pointer_lvl": 1, "kind": "CONSTANT"}
+    p[0] = {
+        "value": p[1],
+        "code": [],
+        "type": "char",
+        "pointer_lvl": 1,
+        "kind": "CONSTANT",
+    }
 
 
 def p_identifier(p):
@@ -513,7 +553,15 @@ def p_postfix_expression(p):
                 "kind": "FUNCTION CALL",
             }
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = [
+                [
+                    p[0]["kind"],
+                    p[0]["type"],
+                    p[0]["value"],
+                    p[0]["arguments"],
+                    nvar,
+                ]
+            ]
             p[0]["value"] = nvar
             del p[0]["arguments"]
 
@@ -539,7 +587,15 @@ def p_postfix_expression(p):
             }
 
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = p[3]["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = p[3]["code"] + [
+                [
+                    p[0]["kind"],
+                    p[0]["type"],
+                    p[0]["value"],
+                    p[0]["arguments"],
+                    nvar,
+                ]
+            ]
             p[0]["value"] = nvar
             del p[0]["arguments"]
         # Array indexing
@@ -557,7 +613,17 @@ def p_postfix_expression(p):
                 p[0] = {
                     "value": nvar,
                     "type": temp_dict["type"],
-                    "code": c1 + c2 + [["FUNCTION CALL", temp_dict["type"], funcname, [p[1], p[3]], nvar]],
+                    "code": c1
+                    + c2
+                    + [
+                        [
+                            "FUNCTION CALL",
+                            temp_dict["type"],
+                            funcname,
+                            [p[1], p[3]],
+                            nvar,
+                        ]
+                    ],
                 }
                 del temp_dict
             else:
@@ -791,7 +857,15 @@ def p_multiplicative_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("multiplicative_expression",) + tuple(p[-len(p) + 1 :])
@@ -820,7 +894,15 @@ def p_additive_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("additive_expression",) + tuple(p[-len(p) + 1 :])
@@ -849,7 +931,15 @@ def p_shift_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("shift_expression",) + tuple(p[-len(p) + 1 :])
@@ -880,7 +970,15 @@ def p_relational_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("relational_expression",) + tuple(p[-len(p) + 1 :])
@@ -909,7 +1007,15 @@ def p_equality_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("equality_expression",) + tuple(p[-len(p) + 1 :])
@@ -937,7 +1043,15 @@ def p_and_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("and_expression",) + tuple(p[-len(p) + 1 :])
@@ -964,7 +1078,15 @@ def p_exclusive_or_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [
+            [
+                p[0]["kind"],
+                p[0]["type"],
+                p[0]["value"],
+                p[0]["arguments"],
+                nvar,
+            ]
+        ]
         # p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -992,7 +1114,15 @@ def p_inclusive_or_expression(p):
                 continue
             codes += _a["code"]
             _a["code"] = []
-        p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+        p[0]["code"] = codes + [
+            [
+                p[0]["kind"],
+                p[0]["type"],
+                p[0]["value"],
+                p[0]["arguments"],
+                nvar,
+            ]
+        ]
         # p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -1021,7 +1151,15 @@ def p_logical_and_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("logical_and_expression",) + tuple(p[-len(p) + 1 :])
@@ -1049,7 +1187,15 @@ def p_logical_or_expression(p):
             codes += _a["code"]
             _a["code"] = []
         # p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
-        p[0]["code"] = codes + [[nvar, ":=", p[0]["arguments"][0]["value"], p[2], p[0]["arguments"][1]["value"]]]
+        p[0]["code"] = codes + [
+            [
+                nvar,
+                ":=",
+                p[0]["arguments"][0]["value"],
+                p[2],
+                p[0]["arguments"][1]["value"],
+            ]
+        ]
         p[0]["value"] = nvar
         del p[0]["arguments"]
         # p[0] = ("logical_or_expression",) + tuple(p[-len(p) + 1 :])
@@ -1121,7 +1267,17 @@ def p_assignment_expression(p):
             }
             nvar = get_tmp_var(p[0]["type"])
             p[0]["code"] = (
-                p[1]["code"] + arg["code"] + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+                p[1]["code"]
+                + arg["code"]
+                + [
+                    [
+                        p[0]["kind"],
+                        p[0]["type"],
+                        p[0]["value"],
+                        p[0]["arguments"],
+                        nvar,
+                    ]
+                ]
             )
             p[0]["value"] = nvar
             arg["code"] = []
@@ -1155,7 +1311,15 @@ def p_assignment_expression(p):
                 "kind": "FUNCTION CALL",
             }
             nvar = get_tmp_var(p[0]["type"])
-            p[0]["code"] = codes + [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
+            p[0]["code"] = codes + [
+                [
+                    p[0]["kind"],
+                    p[0]["type"],
+                    p[0]["value"],
+                    p[0]["arguments"],
+                    nvar,
+                ]
+            ]
             p[0]["value"] = nvar
             del p[0]["arguments"]
             # p[0] = ("assignment_expression",) + tuple(p[-len(p) + 1 :])
@@ -1230,16 +1394,36 @@ def p_declaration(p):
                 if not _p.get("is_array", False) and _p["store"].get("types", None) is None:
                     _p["type"] = p[1]["value"]
                     if len(_p["code"]) > 0:
-                        _tcast = type_cast2(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
+                        _tcast = type_cast2(
+                            _p["store"],
+                            {
+                                "type": tinfo,
+                                "pointer_lvl": _p.get("pointer_lvl", 0),
+                            },
+                        )
                         expr = _get_conversion_function_expr(
-                            _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
+                            _p["store"],
+                            {
+                                "type": tinfo,
+                                "pointer_lvl": _p.get("pointer_lvl", 0),
+                            },
                         )
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
                     else:
-                        _tcast = type_cast2(_p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)})
+                        _tcast = type_cast2(
+                            _p["store"],
+                            {
+                                "type": tinfo,
+                                "pointer_lvl": _p.get("pointer_lvl", 0),
+                            },
+                        )
                         expr = _get_conversion_function(
-                            _p["store"], {"type": tinfo, "pointer_lvl": _p.get("pointer_lvl", 0)}
+                            _p["store"],
+                            {
+                                "type": tinfo,
+                                "pointer_lvl": _p.get("pointer_lvl", 0),
+                            },
                         )
                         if len(expr["code"]) > 0:
                             p[0]["code"] += expr["code"]
@@ -1277,22 +1461,34 @@ def p_declaration(p):
                         if len(_p["store"]["value"][i]["code"]) > 0:
                             _tcast = type_cast2(
                                 _p["store"]["value"][i],
-                                {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)},
+                                {
+                                    "type": struct_entry["field types"][i],
+                                    "pointer_lvl": _p.get("pointer_lvl", 0),
+                                },
                             )
                             expr = _get_conversion_function_expr(
                                 _p["store"]["value"][i],
-                                {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)},
+                                {
+                                    "type": struct_entry["field types"][i],
+                                    "pointer_lvl": _p.get("pointer_lvl", 0),
+                                },
                             )
                             if len(expr["code"]) > 0:
                                 p[0]["code"] += expr["code"]
                         else:
                             _tcast = type_cast2(
                                 _p["store"]["value"][i],
-                                {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)},
+                                {
+                                    "type": struct_entry["field types"][i],
+                                    "pointer_lvl": _p.get("pointer_lvl", 0),
+                                },
                             )
                             expr = _get_conversion_function(
                                 _p["store"]["value"][i],
-                                {"type": struct_entry["field types"][i], "pointer_lvl": _p.get("pointer_lvl", 0)},
+                                {
+                                    "type": struct_entry["field types"][i],
+                                    "pointer_lvl": _p.get("pointer_lvl", 0),
+                                },
                             )
                             if len(expr["code"]) > 0:
                                 p[0]["code"] += expr["code"]
@@ -1321,7 +1517,14 @@ def p_declaration(p):
                             dim.append("variable")
                         else:
                             dim.append(int(d["value"]))
-                    _array_init(p, _p["store"]["value"], _p["store"]["types"], dim, _p, [])
+                    _array_init(
+                        p,
+                        _p["store"]["value"],
+                        _p["store"]["types"],
+                        dim,
+                        _p,
+                        [],
+                    )
                     # raise Exception
                     # p[0]["value"] = vname
 
@@ -1631,7 +1834,12 @@ def p_struct_or_union_specifier(p):
             raise SyntaxError
             # raise Exception  # undeclared struct used
         else:
-            p[0] = {"name": p[2], "kind": 2 if p[1] == "struct" else 5, "insert": False, "code": []}
+            p[0] = {
+                "name": p[2],
+                "kind": 2 if p[1] == "struct" else 5,
+                "insert": False,
+                "code": [],
+            }
     # p[0] = ("struct_or_union_specifier",) + tuple(p[-len(p) + 1 :])
 
 
@@ -1651,7 +1859,11 @@ def p_struct_declaration_list(p):
         variables = p[1]["field names"] + p[2]["field names"]
         types = p[1]["field types"] + p[2]["field types"]
         values = p[1]["field values"] + p[2]["field values"]
-        p[0] = {"field names": variables, "field types": types, "field values": values}
+        p[0] = {
+            "field names": variables,
+            "field types": types,
+            "field values": values,
+        }
     # p[0] = ("struct_declaration_list",) + tuple(p[-len(p) + 1 :])
 
 
@@ -1660,7 +1872,11 @@ def p_struct_declaration(p):
     variables = [var["value"] for var in p[2]]
     types = [p[1]["value"] + "*" * _a.get("pointer_lvl", 0) for _a in p[2]]
     values = [get_default_value(p[1]["value"])] * len(variables)
-    p[0] = {"field names": variables, "field types": types, "field values": values}
+    p[0] = {
+        "field names": variables,
+        "field types": types,
+        "field values": values,
+    }
     # p[0] = ("struct_declaration",) + tuple(p[-len(p) + 1 :])
 
 
@@ -1715,9 +1931,21 @@ def p_enum_specifier(p):
                 names.append(_x)
                 values.append(cval)
                 cval += 1
-        p[0] = {"value": f"enum {p[2]}", "code": [], "fnames": names, "fvalues": values, "kind": 4, "insert": True}
+        p[0] = {
+            "value": f"enum {p[2]}",
+            "code": [],
+            "fnames": names,
+            "fvalues": values,
+            "kind": 4,
+            "insert": True,
+        }
     else:
-        p[0] = {"value": f"enum {p[2]}", "code": [], "kind": 4, "insert": False}
+        p[0] = {
+            "value": f"enum {p[2]}",
+            "code": [],
+            "kind": 4,
+            "insert": False,
+        }
     # p[0] = ("enum_specifier",) + tuple(p[-len(p) + 1 :])
 
 
@@ -2238,7 +2466,12 @@ def p_lbrace(p):
     """lbrace : LEFT_CURLY_BRACKET"""
     # TODO: Handling insert for arrays in parameters
     global NEW_FUNCTION_INCOMING, LAST_FUNCTION_DECLARATION
-    push_scope(new_scope(get_current_symtab(), LAST_FUNCTION_DECLARATION if NEW_FUNCTION_INCOMING else None))
+    push_scope(
+        new_scope(
+            get_current_symtab(),
+            LAST_FUNCTION_DECLARATION if NEW_FUNCTION_INCOMING else None,
+        )
+    )
     symTab = get_current_symtab()
     global INITIALIZE_PARAMETERS_IN_NEW_SCOPE
     if not INITIALIZE_PARAMETERS_IN_NEW_SCOPE is None:
@@ -2246,6 +2479,7 @@ def p_lbrace(p):
             entry = get_type_fields(param[0])
 
             entry["name"] = param[1]
+            entry["is_parameter"] = True
             # print(entry)
             symTab.insert(entry, param=True)
         INITIALIZE_PARAMETERS_IN_NEW_SCOPE = None
