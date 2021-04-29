@@ -387,14 +387,22 @@ def optimize_ir(code, indents, depth=5):
     replace_var = dict()
     var_lhs = dict()
     var_last_rhs = dict()
+    encounter_label = False
+    first_label = float("inf")
     for i, (c, idt) in enumerate(zip(code, indents)):
         # Apply Algebraic Simplification
         c, nc = compiler_optimization_algebraic_simplication(c)
         no_change = no_change and nc
 
-        # Apply Copy Propagation
-        c, nc = compiler_optimization_copy_propagation(c, replace_var)
-        no_change = no_change and nc
+        if not encounter_label:
+            encounter_label = (i > 0 and len(c) == 1 and c[0].endswith(":"))
+            if encounter_label:
+                first_label = i
+
+        if not encounter_label:
+            # Apply Copy Propagation
+            c, nc = compiler_optimization_copy_propagation(c, replace_var)
+            no_change = no_change and nc
 
         lhs, rhs, is_arth_expr = get_lhs_rhs_variables(c)
         for l in lhs:
@@ -412,15 +420,18 @@ def optimize_ir(code, indents, depth=5):
         new_indents.append(idt)
 
     # Dead Code Elimination
-    for var, lidx in var_lhs.items():
-        removals = list(filter(lambda x: x > var_last_rhs.get(var, -1), lidx))
-        for r in removals:
-            no_change = False
-            new_code[r] = []
-            new_indents[r] = []
+    if code[0][0][-1] == ":":
+        for var, lidx in var_lhs.items():
+            removals = list(filter(lambda x: x > var_last_rhs.get(var, -1), lidx))
+            for r in removals:
+                if r >= first_label:
+                    break
+                no_change = False
+                new_code[r] = []
+                new_indents[r] = []
 
-    new_code = list(filter(lambda x: x != [], new_code))
-    new_indents = list(filter(lambda x: x != [], new_indents))
+        new_code = list(filter(lambda x: x != [], new_code))
+        new_indents = list(filter(lambda x: x != [], new_indents))
 
     return (new_code, new_indents) if depth == 1 or no_change else optimize_ir(new_code, new_indents, depth - 1)
 

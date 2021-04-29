@@ -1,7 +1,9 @@
 // Copy Propagation
 
+int x = 4;
+
 int main() {
-    int a, x, b, c, d, e, f, g;
+    int a, b, c, d, e, f, g;
     a = x * x;
     b = 3;
     c = x;
@@ -9,5 +11,10 @@ int main() {
     e = b * 2;
     f = a + d;
     g = e * f;
-    return f * g;
+
+    for (x = 1; x < 10; x++) {
+        a++;
+    }
+
+    return f * g + a;
 }
