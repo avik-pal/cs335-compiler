@@ -24,7 +24,9 @@ def convert_varname(var: str, cur_symtab: SymbolTable) -> str:
     entry = cur_symtab.lookup(var)
     if entry is None and cur_symtab.func_scope is not None:
         entry = cur_symtab.lookup(var + ".static." + cur_symtab.func_scope)
-    return "VAR_" + cur_symtab.table_name + "_" + entry["name"]
+    # return entry["name"]
+    name = "VAR-" + entry["table name"] + "-" + entry["name"]
+    return name
 
 
 def reset_registers():
@@ -106,17 +108,7 @@ def access_dynamic_link(reg: str):
 def get_register(var, current_symbol_table):
     global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables
     register = ""
-    if var.split("_")[1] == "GLOBAL":
-        off = current_symbol_table.lookup(var.split("_")[-1])["offset"]
-        if len(free_registers):
-            register = free_registers.pop()
-        # FIXME: Do we need these?
-        # print("\taddi\t" + register + ", \t$zero, \t" + str(off))
-        # print("\tlw\t" + register + ", \tVAR_global" + "(" + register + ")")
-    # elif var.split("_")[-1] in current_symbol_table:
-    # reg = "$a" + str(funlist[currentSymbolTable.tableName].index(var.split("_")[-1]) + 1)
-    # return reg
-    elif var in register_descriptor.values():
+    if var in register_descriptor.values():
         register = address_descriptor[var]
     else:
         if len(free_registers) == 0:
@@ -292,7 +284,7 @@ def generate_mips_from_3ac(code):
                         if not is_number(c[2]):
                             t2 = get_register(convert_varname(c[2], current_symbol_table), current_symbol_table)
                         else:
-                            t2 = get_register("_", current_symbol_table)
+                            t2 = get_register("-", current_symbol_table)
                             print(f"\tli\t{t2},\t{c[2]}")
                         if not is_number(c[4]):
                             t3 = get_register(convert_varname(c[4], current_symbol_table), current_symbol_table)
@@ -309,17 +301,17 @@ def generate_mips_from_3ac(code):
                     if not is_number(c[1]):
                         t1 = get_register(convert_varname(c[1], current_symbol_table), current_symbol_table)
                     else:
-                        t1 = get_register("_", current_symbol_table)
+                        t1 = get_register("-", current_symbol_table)
                         print(f"\tli\t{t1},\t{c[1]}")
 
                     if not is_number(c[3]):
                         t2 = get_register(convert_varname(c[3], current_symbol_table), current_symbol_table)
                     else:
-                        t2 = get_register("_", current_symbol_table)
+                        t2 = get_register("-", current_symbol_table)
                         print(f"\tli\t{t2},\t{c[3]}")
 
                     # store in another reg
-                    t3 = get_register("_", current_symbol_table)
+                    t3 = get_register("-", current_symbol_table)
 
                     global IF_LABEL
                     IF_LABEL += 1

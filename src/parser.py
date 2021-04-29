@@ -2451,4 +2451,4 @@ if __name__ == "__main__":
                 raise Exception("Compilation Errors detected. Fix before proceeding")
 
             code = parse_code(tree, args.output)
-            # generate_mips_from_3ac(code)
+            generate_mips_from_3ac(code)

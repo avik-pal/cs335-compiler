@@ -174,6 +174,8 @@ class SymbolTable:
                             ndims.append(dim["value"])
                     entry["dimensions"] = ndims
 
+                entry["table name"] = self.table_name
+
                 self._symtab_variables[name] = entry
                 if param:
                     self._paramtab.append(name)
