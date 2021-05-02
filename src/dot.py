@@ -112,7 +112,7 @@ def _internal_code_parser(G, scopes, code):
     global in_function
     for line in code:
         _f = line[0]
-        #print(line)
+        # print(line)
         if _f == "BEGINFUNCTION":
             in_function += 1
             v = _add_new_node(G, line[-1])
@@ -502,8 +502,8 @@ def parse_code(tree, output_file):
             continue
 
         code = t["code"]
-        #print("Before Compiler Optimizations")
-        #print()
+        # print("Before Compiler Optimizations")
+        # print()
         code, indents = _rewrite_code(code, sizes)
         for c, idt in zip(code, indents):
             _z = " ".join(c)
@@ -511,11 +511,11 @@ def parse_code(tree, output_file):
                 idt -= 16
             else:
                 _z = _z + ";"
-            #print(" " * idt + _z)
-        #print()
+            # print(" " * idt + _z)
+        # print()
 
-        #print("After Compiler Optimizations")
-        #print()
+        # print("After Compiler Optimizations")
+        # print()
         code, indents = optimize_ir(code, indents)
         for c, idt in zip(code, indents):
             _z = " ".join(c)
@@ -523,8 +523,8 @@ def parse_code(tree, output_file):
                 idt -= 16
             else:
                 _z = _z + ";"
-            #print(" " * idt + _z)
-        #print()
+            # print(" " * idt + _z)
+        # print()
 
         codes.append(code)
 
