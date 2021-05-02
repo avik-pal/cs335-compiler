@@ -1214,6 +1214,7 @@ def p_conditional_expression(p):
 
         cond_code = []
         elseLabel = get_tmp_label()
+        endLabel = get_tmp_label()
         if len(p[1]["code"]) > 0:
             cond_code += p[1]["code"]
         if p[1]["value"] is not None:
@@ -1230,7 +1231,7 @@ def p_conditional_expression(p):
             expr = _get_conversion_function(p[3], tcast)
         if len(expr["code"]) > 0:
             succ_code += expr["code"]
-        succ_code += [[vname, "=", expr["value"]]]
+        succ_code += [[vname, ":=", expr["value"]], ["GOTO", endLabel]]
 
         fail_code = []
         if len(p[5]["code"]) > 0:
@@ -1240,13 +1241,15 @@ def p_conditional_expression(p):
             expr = _get_conversion_function(p[5], tcast)
         if len(expr["code"]) > 0:
             fail_code += expr["code"]
-        fail_code += [[vname, "=", expr["value"]]]
+        fail_code += [[vname, ":=", expr["value"]]]
 
-        p[0]["code"] += cond_code + succ_code + [[elseLabel + ":"]] + fail_code
+        p[0]["code"] += cond_code + succ_code + [[elseLabel + ":"]] + fail_code + [[endLabel + ":"]]
 
         p[0]["type"] = tcast["type"]
         p[0]["pointer_lvl"] = tcast["pointer_lvl"]
         p[0]["value"] = vname
+
+        raise Exception("Conditional will only work in the special case of no function call / register swap")
 
 
 def p_assignment_expression(p):

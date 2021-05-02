@@ -421,7 +421,7 @@ def optimize_ir(code, indents, depth=5):
         no_change = no_change and nc
 
         if not encounter_label:
-            encounter_label = i > 0 and len(c) == 1 and c[0].endswith(":")
+            encounter_label = i > 0 and len(c) == 1 and c[0].endswith(":") or c[0] == "IF"
             if encounter_label:
                 first_label = i
 
