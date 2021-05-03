@@ -1,5 +1,6 @@
 from symtab import (
     SymbolTable,
+    compute_offset_size,
     get_current_symtab,
     get_global_symtab,
     get_tabname_mapping,
@@ -21,166 +22,207 @@ rel_ops = {
 }
 
 
-def is_number(s: str) -> bool:
+DATA_SECTION = []
+TEXT_SECTION = []
+
+data_number_counter = -1
+
+
+def get_tmp_data():
+    global data_number_counter
+    data_number_counter += 1
+    return f"__tmp_data_{data_number_counter}"
+
+
+def print_data(*s):
+    s = " ".join(s)
+    global DATA_SECTION
+    DATA_SECTION.append(s)
+
+
+def print_text(*s):
+    s = " ".join(s)
+    global TEXT_SECTION
+    TEXT_SECTION.append(s)
+
+
+#  TODO: relevant for nested procedures
+# def access_static_link(reg: str, n_level: int): # n_level = level_curr_fxn - level_callee
+#     print_text(f"\tlw\t{reg},\t-4($fp)")
+
+#     if n_level > -1:
+#         for i in range(0, n_level +1):
+#             print_text(f"\tlw\t{reg},\t-4({reg})")  # backtrace n_level + 1 times
+
+#     elif n_level < -1:
+#         # callee is nested deeper
+
+
+def is_number(s: str, return_instr = False):
     try:
         if not s.isnumeric():
             float(s)
-            return True
+            if return_instr:
+                var = get_tmp_data()
+                print_data(f"{var}: .float {s}")
+                return True, lambda reg: "\tl.s\t" + reg + ",\t" + var
+            else:
+                return True
         else:
-            return True
+            return True if not return_instr else (True, lambda reg: "\tli\t" + reg + ",\t" + s)
     except ValueError:
-        return False
+        return False if not return_instr else (False, lambda reg: "")
+
+
+def reset_registers():
+    global address_descriptor, activation_record, register_descriptor, free_registers, remember_to_restore
+    global parameter_descriptor, busy_registers, lru_list_fp, lru_list_int, registers_in_block, removed_registers
+    global integer_registers, fp_registers, free_registers_int
+    address_descriptor = dict()
+    activation_record = []
+    integer_registers = [f"$t{i}" for i in range(10)] + [f"$s{i}" for i in range(8)]
+    fp_registers = [f"$f{i}" for i in list(range(30, -1, -2))]
+    free_registers = integer_registers + fp_registers
+    register_descriptor = {reg: None for reg in free_registers}
+    removed_registers = dict()
+    registers_in_block = []
+    parameter_descriptor = {"$a1": None, "$a2": None, "$a3": None}
+    busy_registers = []
+    lru_list_fp = []
+    lru_list_int = []
+    remember_to_restore = []
+
+
+def access_dynamic_link(reg: str):
+    print_text(f"\tlw\t{reg},\t-4($fp)")  # loads pointer to parent AR inside reg
 
 
 def convert_varname(var: str, cur_symtab: SymbolTable) -> str:
     entry = cur_symtab.lookup(var)
     if entry is None and cur_symtab.func_scope is not None:
         entry = cur_symtab.lookup(var + ".static." + cur_symtab.func_scope)
-    # return entry["name"]
     name = "VAR-" + entry["table name"] + "-" + entry["name"]
-    return name
+    return name, entry
 
 
-def reset_registers():
-    global address_descriptor, activation_record, register_descriptor, free_registers, remember_to_restore
-    global parameter_descriptor, busy_registers, lru_list, registers_in_block, removed_registers
-    address_descriptor = dict()
-    activation_record = []
-    free_registers = [f"$s{i}" for i in range(8)] + [f"$t{i}" for i in range(10)]
-    register_descriptor = {reg: None for reg in free_registers}
-    removed_registers = dict()
-    registers_in_block = []
-    parameter_descriptor = {"$a1": None, "$a2": None, "$a3": None}
-    busy_registers = []
-    lru_list = []
-    remember_to_restore = []
+def get_type_cast_instr(t1, t2):  # t1 -> t2
+    # FIXME: Only for float and int
+    if t1 == "int":
+        if t2 == "float":
+            # FIXME: int -> float
+            pass
+    elif t1 == "float":
+        if t2 == "int":
+            return "cvt.w.s"
 
 
-def access_dynamic_link(reg: str):
-    print(f"\tlw\t{reg},\t-4($fp)")  # loads pointer to parent AR inside reg
+def type_cast_mips(c, dtype, current_symbol_table, offset):  # reg1 := (dtype) reg2
 
+    t1, offset = get_register(c[0], current_symbol_table, offset)
 
-#  TODO: relevant for nested procedures
-# def access_static_link(reg: str, n_level: int): # n_level = level_curr_fxn - level_callee
-#     print(f"\tlw\t{reg},\t-4($fp)")
+    is_num, instr = is_number(c[3], True)
 
-#     if n_level > -1:
-#         for i in range(0, n_level +1):
-#             print(f"\tlw\t{reg},\t-4({reg})")  # backtrace n_level + 1 times
+    # FIXME: Only works for float -> int
 
-#     elif n_level < -1:
-#         # callee is nested deeper
-
-
-def type_cast_mips(c, dtype, current_symbol_table):  # reg1 := (dtype)reg2
-
-    if c[0].startswith("__tmp"):
-        t1 = get_register(c[0], current_symbol_table)
-    else:
-        t1 = get_register(convert_varname(c[0], current_symbol_table), current_symbol_table)
-
-    if is_number(c[3]):
-        # load into t1
-        if dtype == "int":
-            print(f"\tli\t{t1},\t{c[3]}")
-        elif dtype == "float":
-            print(f"\tli.s\t{t1},\t{c[3]}")
-        elif dtype == "double":
-            print(f"\tli.d\t{t1},\t{c[3]}")
-
-    elif c[3].startswith("__tmp"):
-        t2 = get_register(c[3], current_symbol_table)
-
-        # load into new reg
-        if dtype == "int":
-            print(f"\tlw\t{t1},\t{t2}")
-        elif dtype == "float":
-            print(f"\tl.s\t{t1},\t{t2}")
-        elif dtype == "double":
-            print(f"\tl.d\t{t1},\t{t2}")
+    if is_num:
+        t2, offset = get_register(c[3], current_symbol_table, offset)
+        print_text(instr(t2))
+        instr = get_type_cast_instr("float" if dtype == "int" else "int", dtype)
+        ttemp, offset = get_register("0.0", current_symbol_table, offset)
+        print_text(f"\t{instr}\t{ttemp},\t{t2}")
+        print_text(f"\tmfc1\t{t1},\t{ttemp}")
 
     else:
-        t2 = get_register(convert_varname(c[3], current_symbol_table), current_symbol_table)
-        # load into new reg
-        if dtype == "int":
-            print(f"\tlw\t{t1},\t{t2}")
-        elif dtype == "float":
-            print(f"\tl.s\t{t1},\t{t2}")
-        elif dtype == "double":
-            print(f"\tl.d\t{t1},\t{t2}")
+        t2, offset, entry = get_register(c[3], current_symbol_table, offset, True)
+        instr = get_type_cast_instr(entry["type"], dtype)
+        ttemp, offset = get_register("0.0", current_symbol_table, offset)
+        print_text(f"\t{instr}\t{ttemp},\t{t2}")
+        print_text(f"\tmfc1\t{t1},\t{ttemp}")
+
+    return offset
 
 
-# def get_register(var, current_symbol_table):
-#     # FIXME ....
-#     global address_descriptor, activation_record, register_descriptor, free_registers, parameter_descriptor, busy_registers, lru_list, declared_variables, registers_in_block
-#     register = ""
-#     if var in register_descriptor.values():
-#         register = address_descriptor[var]
-#     else:
-#         if len(free_registers) == 0:
-#             for x in lru_list:
-#                 onhold_reg = x  # assigned register
-#                 assigned_var = register_descriptor[onhold_reg]  # checked the previously alloted variable
-#                 c_var = assigned_var.split("_")  # c code name of the variable
-#                 name = c_var[-1]
-#                 # TODO: Match semantics here
-#                 if not name.isdigit():  # if it is not a label
-#                     print("\tsw\t" + onhold_reg + ",\t" + assigned_var)  # store the register value in the memory
-#                     register_descriptor[onhold_reg] = var  # assign the register to the alloted variable
-#                     tmp_var = address_descriptor.pop(
-#                         assigned_var, None
-#                     )  # delete the entry from the address_descriptor
-#                     address_descriptor[var] = onhold_reg  # add entry to the address descriptor
-#                     break
-#             register = onhold_reg
-#             if register in lru_list:
-#                 lru_list.remove(register)
-#         else:
-#             register = free_registers.pop()
-#             address_descriptor[var] = register
-#             busy_registers.append(register)
-#             register_descriptor[register] = var
-#             if var in declared_variables:
-#                 print("\tlw\t" + register + ",\t" + var)
-#     lru_list.append(register)
-#     return register
+def requires_fp_register(val, entry):
+    if entry is not None:
+        return entry["type"] in ("float", "double", "long double")
+    else:
+        v = eval(val)
+        return isinstance(v, float)
 
 
-def get_register(var, current_symbol_table, offset):
-    if var != "-":
-        var = convert_varname(var, current_symbol_table)
-    return simple_register_allocator(var, current_symbol_table, offset)
+
+def get_register(var, current_symbol_table, offset, return_entry = False):
+    entry = None
+    if not is_number(var):
+        var, entry = convert_varname(var, current_symbol_table)
+    reg, offset = simple_register_allocator(var, current_symbol_table, offset, entry)
+    return (reg, offset) if not return_entry else (reg, offset, entry)
 
 
-def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int):
-    global register_descriptor, address_descriptor, registers_in_block, removed_registers, lru_list, remember_to_restore
+# NOTE: We are only supporting int and float as data types
+
+
+def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry):
+    global register_descriptor, address_descriptor, registers_in_block, removed_registers
+    global lru_list_int, lru_list_fp, remember_to_restore
     # GLOBALs wont work for now
+
+    if requires_fp_register(var, entry):
+        lru_list = lru_list_fp
+        free_registers = fp_registers
+    else:
+        lru_list = lru_list_int
+        free_registers = integer_registers
+
     if var in register_descriptor.values():
         # Already has a register allocated
         register = address_descriptor[var]
+        lru_list.append(register)
     else:
         if len(free_registers) == 0:
             # No free register available
             register = lru_list[0]
             if register[1] == "s":
                 remember_to_restore[-1].append(f"\tlw\t{register},\t{offset}($fp)")
-            removed_registers[register_descriptor[register]] = f"{offset}($fp)"
-            offset -= 4
-            ## Store the current value
-            print("\tsw\t" + register + ",\t" + removed_registers[register_descriptor[register]])
-            print("\tls\t$sp,\t-4($sp)")
+                removed_registers[register_descriptor[register]] = ("lw", f"{offset}($fp)")
+                offset -= 4
+                print_text("\tsw\t" + register + ",\t" + f"{offset}($fp)")
+                print_text("\tla\t$sp,\t-4($sp)")
+            elif register.startswith("$f"):
+                remember_to_restore[-1].append(f"\tl.s\t{register},\t{offset}($fp)")
+                removed_registers[register_descriptor[register]] = ("l.s", f"{offset}($fp)")
+                offset -= 4
+                print_text("\ts.s\t" + register + ",\t" + f"{offset}($fp)")
+                print_text("\tla\t$sp,\t-4($sp)")
             lru_list = lru_list[1:]
         else:
             # Free registers available
             register = free_registers.pop()
+            lru_list.append(register)
+
+            if register[1] == "s":
+                remember_to_restore[-1].append(f"\tlw\t{register},\t{offset}($fp)")
+                removed_registers[register_descriptor[register]] = ("lw", f"{offset}($fp)")
+                print_text("\tsw\t" + register + ",\t" + f"{offset}($fp)")
+                offset -= 4
+                print_text("\tla\t$sp,\t-4($sp)")
+            elif register.startswith("$f"):
+                remember_to_restore[-1].append(f"\tl.s\t{register},\t{offset}($fp)")
+                removed_registers[register_descriptor[register]] = ("l.s", f"{offset}($fp)")
+                print_text("\ts.s\t" + register + ",\t" + f"{offset}($fp)")
+                offset -= 4
+                print_text("\tla\t$sp,\t-4($sp)")
+
             if var in removed_registers:
-                print("\tlw\t" + register + ",\t" + removed_registers[var])
+                instr, loc = removed_registers[var]
+                print_text("\t" + instr + "\t" + register + ",\t" + loc)
                 del removed_registers[var]
+
         address_descriptor[var] = register
         busy_registers.append(register)
         register_descriptor[register] = var
         registers_in_block[-1].append(register)
-    lru_list.append(register)
+
     return register, offset
 
 
@@ -189,14 +231,14 @@ def store_temp_regs_in_use(offset: int) -> int:
     saves = 0
     for reg in busy_registers:
         if reg[1] == "t":
-            removed_registers[register_descriptor[reg]] = f"{offset}($fp)"
+            removed_registers[register_descriptor[reg]] = ("lw", f"{offset}($fp)")
             offset -= 4
             saves += 1
             ## Store the current value
-            print("\tsw\t" + reg + ",\t" + removed_registers[register_descriptor[reg]])
+            print_text("\tsw\t" + reg + ",\t" + f"{offset}($fp)")
             register_descriptor[reg] = None
     if saves >= 1:
-        print(f"\tla\t$sp,\t-{4 * saves}($sp)")
+        print_text(f"\tla\t$sp,\t-{4 * saves}($sp)")
     return offset
 
 
@@ -226,7 +268,7 @@ def store_registers_on_function_call() -> int:
 def load_registers_on_function_return(p_stack: str):
     global stored_registers, remember_to_restore
     for l in remember_to_restore[-1]:
-        print(l)
+        print_text(l)
 
 
 # NOTE:
@@ -237,20 +279,34 @@ def load_registers_on_function_return(p_stack: str):
 def generate_mips_from_3ac(code):
     global numeric_ops, rel_ops, STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL
 
-    print("## MIPS Assembly Code\n")
+    # print_text("## MIPS Assembly Code\n")
+
+    print_text()
+    print_text("main:")
+    print_text("\tsw\t$fp,\t-4($sp)")
+    print_text("\tsw\t$ra,\t-8($sp)")
+    print_text("\tla\t$fp,\t0($sp)")
+    print_text("\tla\t$sp,\t-4($sp)")
+    # Function Call
+    print_text("\tjal\tmain____")
+    print_text("\tmove\t$a0,\t$v0")
+    print_text("\tli\t$v0,\t1")
+    print_text("\tsyscall")
+    print_text("\tli\t$v0,\t10")
+    print_text("\tsyscall")
 
     tabname_mapping = get_tabname_mapping()
     gtab = get_global_symtab()
 
     # Generate the data part for the global variables
-    print(".data")
+    # print_text(".data")
     for var, entry in gtab._symtab_variables.items():
         # TODO: Might need to deal with alignment issues
-        print(f"\t{var}:\t.space\t{entry['size']}")
-    print()
+        print_data(f"\t{var}:\t.space\t{entry['size']}")
+    # print_text()
 
     # Generate the text part
-    print(".text")
+    # print_text(".text")
     current_symbol_table = gtab
 
     first_pushparam = True
@@ -258,30 +314,30 @@ def generate_mips_from_3ac(code):
 
     for part in code:
         for i, c in enumerate(part):
-            print("\n#", c)
+            print_text("\n# " + " ".join(c))
             if len(c) == 1:
                 if c[0].endswith(":"):
                     # Label
-                    print(c[0].replace("(", "__").replace(")", "__"))
+                    print_text(c[0].replace("(", "__").replace(")", "__"))
                 elif c[0] == "ENDFUNC":
-                    print("\tla\t$sp,\t0($fp)")
-                    print("\tlw\t$ra,\t-8($sp)")
-                    print("\tlw\t$fp,\t-4($sp)")
                     load_registers_on_function_return("sp")
-                    print("\tjr\t$ra")  # return
+                    print_text("\tla\t$sp,\t0($fp)")
+                    print_text("\tlw\t$ra,\t-8($sp)")
+                    print_text("\tlw\t$fp,\t-4($sp)")
+                    print_text("\tjr\t$ra")  # return
                     free_registers_in_block()
                     # STATIC_NESTING_LVL -= 1
 
                 elif c[0] == "RETURN":
                     DYNAMIC_NESTING_LVL -= 1
-                    print("\tla\t$sp,\t0($fp)")
-                    print("\tlw\t$ra,\t-8($sp)")
-                    print("\tlw\t$fp,\t-4($sp)")
                     load_registers_on_function_return("sp")
-                    print("\tjr\t$ra")  # return
+                    print_text("\tla\t$sp,\t0($fp)")
+                    print_text("\tlw\t$ra,\t-8($sp)")
+                    print_text("\tlw\t$fp,\t-4($sp)")
+                    print_text("\tjr\t$ra")  # return
 
                 else:
-                    print(c)
+                    print_text(c)
 
             elif len(c) == 2:
                 if c[0] == "SYMTAB":
@@ -291,27 +347,26 @@ def generate_mips_from_3ac(code):
                 elif c[0] == "BEGINFUNC":
                     # STATIC_NESTING_LVL += 1
                     # Has the overall size for the function
-                    print("\tsw\t$fp,\t-4($sp)")  # dynamic link (old fp)
-                    print("\tsw\t$ra,\t-8($sp)")
-                    print("\tla\t$fp,\t0($sp)")
+                    print_text("\tsw\t$fp,\t-4($sp)")  # dynamic link (old fp)
+                    print_text("\tsw\t$ra,\t-8($sp)")
+                    print_text("\tla\t$fp,\t0($sp)")
                     offset = store_registers_on_function_call()  #  - int(c[1])
-                    print(f"\tla\t$sp,\t{offset}($sp)")
+                    print_text(f"\tla\t$sp,\t{offset}($sp)")
                     create_new_register_block()
 
                 elif c[0] == "RETURN":
                     DYNAMIC_NESTING_LVL -= 1
-                    if is_number(c[1]):
-                        # FIXME: Might be Floating Point
-                        t, offset = get_register("-", current_symbol_table, offset)
-                        print(f"\tli\t{t},\t{c[1]}")
+                    is_num, instr = is_number(c[1], True)
+                    if is_num:
+                        print_text(instr("$v0"))
                     else:
                         t, offset = get_register(c[1], current_symbol_table, offset)
-                    print(f"\tmove\t$v0,\t{t}")
-                    print("\tla\t$sp,\t0($fp)")
-                    print("\tlw\t$ra,\t-8($sp)")
-                    print("\tlw\t$fp,\t-4($sp)")
+                        print_text(f"\tmove\t$v0,\t{t}")
                     load_registers_on_function_return("sp")
-                    print("\tjr\t$ra")
+                    print_text("\tla\t$sp,\t0($fp)")
+                    print_text("\tlw\t$ra,\t-8($sp)")
+                    print_text("\tlw\t$fp,\t-4($sp)")
+                    print_text("\tjr\t$ra")
 
                 elif c[0] == "PUSHPARAM":
                     if first_pushparam:
@@ -321,33 +376,35 @@ def generate_mips_from_3ac(code):
                     # push everything into the stack
                     if is_number(c[1]):
                         # TODO: Might be of type float
-                        t, offset = get_register("-", current_symbol_table, offset)
-                        print(f"\tli\t{t},\t{c[1]}")
+                        t, offset = get_register(c[1], current_symbol_table, offset)
+                        print_text(f"\tli\t{t},\t{c[1]}")
                     else:
                         t, offset = get_register(c[1], current_symbol_table, offset)
-                    # FIXME: size might be different from 4
-                    print(f"\tsw\t{t},\t-4($sp)")
-                    print(f"\tla\t$sp,\t-4($sp)")
+                    # NOTE: Only supporting size 4 datatypes
+                    print_text(f"\tsw\t{t},\t-4($sp)")
+                    print_text(f"\tla\t$sp,\t-4($sp)")
 
                 elif c[0] == "POPPARAMS":
                     first_pushparam = True
 
                 elif c[0] == "GOTO":
-                    print(f"\tj\t{c[1]}")
+                    print_text(f"\tj\t{c[1]}")
                 else:
-                    print(c)
+                    print_text(c)
 
             elif len(c) == 3:
                 if c[1] == ":=":
                     # Assignment
                     t1, offset = get_register(c[0], current_symbol_table, offset)
 
-                    if is_number(c[2]):
+                    is_num, instr = is_number(c[2], True)
+
+                    if is_num:
                         # Assignment with a constant
-                        print(f"\tli\t{t1},\t{c[2]}")
+                        print_text(instr(t1))
                     else:
                         t2, offset = get_register(c[2], current_symbol_table, offset)
-                        print(f"\tmove\t{t1},\t{t2}")
+                        print_text(f"\tmove\t{t1},\t{t2}")
 
                 elif c[0] == "SYMTAB":
                     # Symbol Table
@@ -358,21 +415,21 @@ def generate_mips_from_3ac(code):
                         entry = current_symbol_table.lookup(p)
                         t, offset = get_register(entry["name"], current_symbol_table, offset)
                         # FIXME: Sizes
-                        print(f"\tlw\t{t},\t{off}($fp)")
+                        print_text(f"\tlw\t{t},\t{off}($fp)")
                         off += entry["size"]
                 else:
-                    print(c)
+                    print_text(c)
 
             elif len(c) == 4:
                 if c[1] == ":=":
                     # typecast expression
                     if c[2].startswith("("):
                         datatype = c[2].replace("(", "").replace(")", "")
-                        # print("--convert--to-",datatype, "---")
-                        type_cast_mips(c, datatype, current_symbol_table)
+                        # print_text("--convert--to-",datatype, "---")
+                        offset = type_cast_mips(c, datatype, current_symbol_table, offset)
 
                 else:
-                    print(c)
+                    print_text(c)
 
             elif len(c) == 5:
                 if c[1] == ":=":
@@ -382,76 +439,65 @@ def generate_mips_from_3ac(code):
                         t1, offset = get_register(c[0], current_symbol_table, offset)
                         if first_pushparam:
                             offset = store_temp_regs_in_use(offset)
-                        print(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
+                        print_text(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
                         # caller pops the arguments
-                        print(f"\tla\t$sp,\t{c[4]}($sp)")
-                        print(f"\tmove\t{t1},\t$v0")  # store return value to LHS of assignment
+                        print_text(f"\tla\t$sp,\t{c[4]}($sp)")
+                        print_text(f"\tmove\t{t1},\t$v0")  # store return value to LHS of assignment
                         first_pushparam = True
 
                     else:
                         # Assignment + An op
                         op = c[3]
-                        instr = numeric_ops[op] if op in numeric_ops else rel_ops[op]
+                        instr_op = numeric_ops[op] if op in numeric_ops else rel_ops[op]
                         t1, offset = get_register(c[0], current_symbol_table, offset)
 
-                        if is_number(c[2]):
-                            t2, offset = get_register("-", current_symbol_table, offset)
-                            print(f"\tli\t{t2},\t{c[2]}")
+                        is_num, instr = is_number(c[2], True)
+                        if is_num:
+                            t2, offset = get_register(c[2], current_symbol_table, offset)
+                            print_text(instr(t2))
                         else:
                             t2, offset = get_register(c[2], current_symbol_table, offset)
 
-                        if is_number(c[4]):
-                            t3, offset = get_register("-", current_symbol_table, offset)
-                            print(f"\tli\t{t3},\t{c[4]}")
+                        is_num, instr = is_number(c[4], True)
+                        if is_num:
+                            t3, offset = get_register(c[4], current_symbol_table, offset)
+                            print_text(instr(t3))
                         else:
                             t3, offset = get_register(c[4], current_symbol_table, offset)
 
-                        print(f"\t{instr}\t{t1},\t{t2},\t{t3}")
+                        print_text(f"\t{instr_op}\t{t1},\t{t2},\t{t3}")
 
             elif len(c) == 6:
-                if c[0] == "IF" and c[4] == "GOTO":
+                if c[0] == "IF" and c[4] == "GOTO": # If reg != 0 goto label
                     op = c[2]
-                    instr = rel_ops[op]
+                    instr_op = rel_ops[op]
 
-                    if not is_number(c[1]):
-                        t1, offset = get_register(c[1], current_symbol_table, offset)
-                    else:
-                        t1, offset = get_register("-", current_symbol_table, offset)
-                        print(f"\tli\t{t1},\t{c[1]}")
-
-                    if not is_number(c[3]):
-                        t2, offset = get_register(c[3], current_symbol_table, offset)
-                    else:
-                        t2, offset = get_register("-", current_symbol_table, offset)
-                        print(f"\tli\t{t2},\t{c[3]}")
+                    t1, offset = get_register(c[1], current_symbol_table, offset)
 
                     # store in another reg
-                    t3, offset = get_register("-", current_symbol_table, offset)
+                    # t3, offset = get_register("999", current_symbol_table, offset)
 
                     global IF_LABEL
                     IF_LABEL += 1
 
-                    print(f"\t{instr}\t{t3},\t{t1},\t{t2}")
-                    print(f"\tbeq\t{t3},\t$0,\tIFBRANCH_{IF_LABEL}")
-                    print(f"\tj\t{c[5]}")
-                    print(f"IFBRANCH_{IF_LABEL}:")
+                    # print_text(f"\t{instr_op}\t{t3},\t{t1},\t$0")
+                    print_text(f"\tbne\t{t1},\t$0,\tIFBRANCH_{IF_LABEL}")
+                    print_text(f"\tj\t{c[5]}")
+                    print_text(f"IFBRANCH_{IF_LABEL}:")
 
             else:
-                print(c)
+                print_text(c)
 
+
+    # Dump the Assembly
+    global DATA_SECTION, TEXT_SECTION
+    print(".data")
+    for data in DATA_SECTION:
+        print(data)
     print()
-    print("main:")
-    print("\tsw\t$fp,\t-4($sp)")
-    print("\tsw\t$ra,\t-8($sp)")
-    print("\tla\t$fp,\t0($sp)")
-    print("\tla\t$sp,\t-4($sp)")
-    # Function Call
-    print("\tjal\tmain____")
-    print("\tmove\t$a0,\t$v0")
-    print("\tli\t$v0,\t1")
-    print("\tsyscall")
-    print("\tli\t$v0,\t10")
-    print("\tsyscall")
+    print(".text")
+    for text in TEXT_SECTION:
+        print(text)
 
 
 reset_registers()

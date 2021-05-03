@@ -5,7 +5,7 @@ import lex
 import ply.yacc as yacc
 import argparse
 import copy
-from dot import generate_graph_from_ast, parse_code, reduce_ast
+from dot import parse_code
 from type_utils import get_type_fields, get_flookup_type
 from symtab import (
     BASIC_TYPES,
@@ -143,7 +143,7 @@ def _get_conversion_function(p, tcast):
     if t1 == t2:
         return p
     else:
-        nvar = get_tmp_var()
+        nvar = get_tmp_var(t2)
         arg = {"value": nvar, "type": t2, "kind": "FUNCTION CALL"}
         arg["code"] = [
             [
@@ -169,7 +169,7 @@ def _get_conversion_function_expr(p, tcast):
     if t1 == t2:
         return {"value": p["value"], "code": []}
     else:
-        nvar = get_tmp_var()
+        nvar = get_tmp_var(t2)
         arg = {"value": nvar, "type": t2, "kind": "FUNCTION CALL"}
         arg["code"] = [
             [
@@ -391,7 +391,7 @@ def p_identifier(p):
 
 def p_f_const(p):
     """f_const : F_CONSTANT"""
-    p[0] = {"value": p[1], "code": [], "type": "double", "kind": "CONSTANT"}
+    p[0] = {"value": p[1], "code": [], "type": "float", "kind": "CONSTANT"}
 
 
 def p_i_const(p):
