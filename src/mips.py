@@ -185,14 +185,14 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             if register[1] == "s":
                 remember_to_restore[-1].append(f"\tlw\t{register},\t{offset}($fp)")
                 removed_registers[register_descriptor[register]] = ("lw", f"{offset}($fp)")
-                offset -= 4
                 print_text("\tsw\t" + register + ",\t" + f"{offset}($fp)")
+                offset -= 4
                 print_text("\tla\t$sp,\t-4($sp)")
             elif register.startswith("$f"):
                 remember_to_restore[-1].append(f"\tl.s\t{register},\t{offset}($fp)")
                 removed_registers[register_descriptor[register]] = ("l.s", f"{offset}($fp)")
-                offset -= 4
                 print_text("\ts.s\t" + register + ",\t" + f"{offset}($fp)")
+                offset -= 4
                 print_text("\tla\t$sp,\t-4($sp)")
             lru_list = lru_list[1:]
         else:
@@ -232,11 +232,11 @@ def store_temp_regs_in_use(offset: int) -> int:
     for reg in busy_registers:
         if reg[1] == "t":
             removed_registers[register_descriptor[reg]] = ("lw", f"{offset}($fp)")
-            offset -= 4
-            saves += 1
             ## Store the current value
             print_text("\tsw\t" + reg + ",\t" + f"{offset}($fp)")
             register_descriptor[reg] = None
+            offset -= 4
+            saves += 1
     if saves >= 1:
         print_text(f"\tla\t$sp,\t-{4 * saves}($sp)")
     return offset
@@ -310,6 +310,7 @@ def generate_mips_from_3ac(code):
     current_symbol_table = gtab
 
     first_pushparam = True
+    all_pushparams = []
     offset = 0
 
     for part in code:
@@ -318,7 +319,7 @@ def generate_mips_from_3ac(code):
             if len(c) == 1:
                 if c[0].endswith(":"):
                     # Label
-                    print_text(c[0].replace("(", "__").replace(")", "__"))
+                    print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_"))
                 elif c[0] == "ENDFUNC":
                     load_registers_on_function_return("sp")
                     print_text("\tla\t$sp,\t0($fp)")
@@ -374,15 +375,13 @@ def generate_mips_from_3ac(code):
                         offset = store_temp_regs_in_use(offset)
                     # We should ideally be using the a0..a2 registers, but for ease of use we will
                     # push everything into the stack
-                    if is_number(c[1]):
-                        # TODO: Might be of type float
-                        t, offset = get_register(c[1], current_symbol_table, offset)
-                        print_text(f"\tli\t{t},\t{c[1]}")
-                    else:
-                        t, offset = get_register(c[1], current_symbol_table, offset)
+                    is_num, instr = is_number(c[1], True)
+                    t, offset = get_register(c[1], current_symbol_table, offset)
+                    if is_num:
+                        print_text(instr(t))
                     # NOTE: Only supporting size 4 datatypes
-                    print_text(f"\tsw\t{t},\t-4($sp)")
-                    print_text(f"\tla\t$sp,\t-4($sp)")
+                    # TODO: Floats
+                    all_pushparams.extend([f"\tsw\t{t},\t-4($sp)", f"\tla\t$sp,\t-4($sp)"])
 
                 elif c[0] == "POPPARAMS":
                     first_pushparam = True
@@ -411,7 +410,7 @@ def generate_mips_from_3ac(code):
                     current_symbol_table = tabname_mapping[c[2]]
                     params = current_symbol_table._paramtab
                     off = 0
-                    for p in reversed(params):
+                    for p in params:
                         entry = current_symbol_table.lookup(p)
                         t, offset = get_register(entry["name"], current_symbol_table, offset)
                         # FIXME: Sizes
@@ -436,11 +435,14 @@ def generate_mips_from_3ac(code):
                     if c[2] == "CALL":
                         # Function Call
                         DYNAMIC_NESTING_LVL += 1
-                        t1, offset = get_register(c[0], current_symbol_table, offset)
                         if first_pushparam:
                             offset = store_temp_regs_in_use(offset)
-                        print_text(f"\tjal\t{c[3].replace('(', '__').replace(')', '__')}")
+                        for params in all_pushparams:
+                            print_text(params)
+                        all_pushparams = []
+                        print_text(f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_')}")
                         # caller pops the arguments
+                        t1, offset = get_register(c[0], current_symbol_table, offset)
                         print_text(f"\tla\t$sp,\t{c[4]}($sp)")
                         print_text(f"\tmove\t{t1},\t$v0")  # store return value to LHS of assignment
                         first_pushparam = True

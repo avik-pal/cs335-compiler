@@ -1296,7 +1296,7 @@ def p_assignment_expression(p):
                     continue
                 codes += _a["code"]
                 _a["code"] = []
-            nvar = get_tmp_var()
+            nvar = get_tmp_var(fentry["return type"])
             expr = {
                 "value": nvar,
                 "type": fentry["return type"],
@@ -2659,29 +2659,39 @@ def get_args():
     return parser
 
 
+def preprocessor(lines):
+    new_lines = []
+    for line in lines:
+        if "@include" in line:
+            expanded_lines = preprocessor(open(line.split(" ")[-1][1:-2], "r").readlines())
+            new_lines += expanded_lines
+        else:
+            new_lines += [line]
+    return new_lines
+
+
 if __name__ == "__main__":
     args = get_args().parse_args()
     if args.input == None:
         print("No input file specified")
     else:
-        with open(str(args.input), "r+") as file:
-            data = file.read()
+        data = "".join(preprocessor(open(args.input)))    
+    
+        push_scope(new_scope(get_current_symtab()))
+        populate_global_symbol_table()
 
-            push_scope(new_scope(get_current_symtab()))
-            populate_global_symbol_table()
+        tree = yacc.parse(data, tracking=True)
 
-            tree = yacc.parse(data, tracking=True)
+        gtab = pop_scope()
 
-            gtab = pop_scope()
+        if args.output[-4:] == ".dot":
+            args.output = args.output[:-4]
 
-            if args.output[-4:] == ".dot":
-                args.output = args.output[:-4]
+        for err in GLOBAL_ERROR_LIST:
+            print(err)
 
-            for err in GLOBAL_ERROR_LIST:
-                print(err)
+        if len(GLOBAL_ERROR_LIST) > 0:
+            raise Exception("Compilation Errors detected. Fix before proceeding")
 
-            if len(GLOBAL_ERROR_LIST) > 0:
-                raise Exception("Compilation Errors detected. Fix before proceeding")
-
-            code = parse_code(tree, args.output)
-            generate_mips_from_3ac(code)
+        code = parse_code(tree, args.output)
+        generate_mips_from_3ac(code)

@@ -172,7 +172,7 @@ def get_lhs_rhs_variables(expr):
     elif tag == "IF":
         return [], [expr[1]], False
     elif "CALL" in expr:
-        return [], [], False
+        return [expr[0]], [], True
     elif "RETURN" in expr:
         return (
             [],
