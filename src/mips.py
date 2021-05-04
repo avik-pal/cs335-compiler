@@ -97,6 +97,17 @@ def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: s
         return [f"\t{op_mips}\t{reg3},\t{reg1},\t{reg2}"]
 
 
+def type_of_number(s: str):
+    try:
+        if not s.isnumeric():
+            float(s)
+            return "float"
+        else:
+            return "int"
+    except ValueError:
+        return None
+
+
 def is_number(s: str, return_instr=False):
     try:
         if not s.isnumeric():
@@ -145,38 +156,47 @@ def convert_varname(var: str, cur_symtab: SymbolTable) -> str:
 
 
 def get_type_cast_instr(t1, t2):  # t1 -> t2
-    # FIXME: Only for float and int
-    if t1 == "int":
-        if t2 == "float":
-            # FIXME: int -> float
-            pass
-    elif t1 == "float":
-        if t2 == "int":
-            return "cvt.w.s"
+    if t2 == "int":
+        if t1 == "float":
+            return ["cvt.w.s", "mfc1"]
+        elif t1 == "double":
+            return ["cvt.w.d", "mfc1.d"]
+    elif t2 == "float":
+        if t1 == "int":
+            return ["mtc1", "cvt.s.w"]
+        elif t1 == "double":
+            return ["cvt.s.d"]
+    elif t2 == "double":
+        if t1 == "int":
+            return ["mtc1.d", "cvt.d.w"]
+        elif t1 == "float":
+            return ["cvt.d.s"]
+    raise NotImplementedError
 
 
 def type_cast_mips(c, dtype, current_symbol_table, offset):  # reg1 := (dtype) reg2
 
     t1, offset = get_register(c[0], current_symbol_table, offset)
-
     is_num, instr = is_number(c[3], True)
-
-    # FIXME: Only works for float -> int
+    t2, offset, entry = get_register(c[3], current_symbol_table, offset, True)
 
     if is_num:
-        t2, offset = get_register(c[3], current_symbol_table, offset)
+        _type = type_of_number(c[3])
         print_text(instr(t2))
-        instr = get_type_cast_instr("float" if dtype == "int" else "int", dtype)
-        ttemp, offset = get_register("0.0", current_symbol_table, offset)
-        print_text(f"\t{instr}\t{ttemp},\t{t2}")
-        print_text(f"\tmfc1\t{t1},\t{ttemp}")
-
     else:
-        t2, offset, entry = get_register(c[3], current_symbol_table, offset, True)
-        instr = get_type_cast_instr(entry["type"], dtype)
+        _type = entry["type"]
+
+    instrs = get_type_cast_instr(_type, dtype)
+    
+    if len(instrs) == 2:
         ttemp, offset = get_register("0.0", current_symbol_table, offset)
-        print_text(f"\t{instr}\t{ttemp},\t{t2}")
-        print_text(f"\tmfc1\t{t1},\t{ttemp}")
+        if instrs[0].startswith("mtc1"):
+            print_text(f"\t{instrs[0]}\t{t2},\t{ttemp}")
+        else:
+            print_text(f"\t{instrs[0]}\t{ttemp},\t{t2}")        
+        print_text(f"\t{instrs[1]}\t{t1},\t{ttemp}")
+    else:
+        print_text(f"\t{instrs[0]}\t{t1},\t{t2}")
 
     return offset
 
@@ -464,7 +484,6 @@ def generate_mips_from_3ac(code):
                     # typecast expression
                     if c[2].startswith("("):
                         datatype = c[2].replace("(", "").replace(")", "")
-                        # print_text("--convert--to-",datatype, "---")
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
 
                 else:

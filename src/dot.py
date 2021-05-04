@@ -365,7 +365,7 @@ def parse_code(tree, output_file):
 
         # print("After Compiler Optimizations")
         # print()
-        # code, indents = optimize_ir(code, indents)
+        code, indents = optimize_ir(code, indents)
         # for c, idt in zip(code, indents):
         #     _z = " ".join(c)
         #     if _z[-1] == ":":
