@@ -11,20 +11,51 @@ STATIC_NESTING_LVL = -1
 DYNAMIC_NESTING_LVL = -1
 declared_variables = []
 
-numeric_ops = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
-rel_ops = {
-    "<=": "sle",
-    "<": "slt",
-    "!=": "sne",
-    "==": "seq",
-    ">": "sge",
-    ">=": "sgt",
+BINARY_REL_OPS = ["==", ">", "<", ">=", "<=", "!="]
+
+BINARY_OPS_TO_INSTR = {
+    "int": {
+        "+": "add",
+        "-": "sub",
+        "*": "mul",
+        "/": "div",
+        "<=": "sle",
+        "<": "slt",
+        "!=": "sne",
+        "==": "seq",
+        ">": "sge",
+        ">=": "sgt",
+    },
+    "float": {
+        "+": "add.s",
+        "-": "sub.s",
+        "*": "mul.s",
+        "/": "div.s",
+        "<=": "c.le.s",
+        "<": "c.lt.s",
+        "!=": "c.ne.s",
+        "==": "c.eq.s",
+        ">": "c.ge.s",
+        ">=": "c.gt.s",
+    },
+    "double": {
+        "+": "add.d",
+        "-": "sub.d",
+        "*": "mul.d",
+        "/": "div.d",
+        "<=": "c.le.d",
+        "<": "c.lt.d",
+        "!=": "c.ne.d",
+        "==": "c.eq.d",
+        ">": "c.ge.d",
+        ">=": "c.gt.d",
+    }
 }
 
 
 DATA_SECTION = []
 TEXT_SECTION = []
-
+FLOAT_CMP_COUNTER = 0
 data_number_counter = -1
 
 
@@ -46,19 +77,25 @@ def print_text(*s):
     TEXT_SECTION.append(s)
 
 
-#  TODO: relevant for nested procedures
-# def access_static_link(reg: str, n_level: int): # n_level = level_curr_fxn - level_callee
-#     print_text(f"\tlw\t{reg},\t-4($fp)")
+def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: str) -> str:
+    # reg3 := reg1 op reg2
+    global BINARY_OPS_TO_INSTR, BINARY_REL_OPS, FLOAT_CMP_COUNTER
+    op = BINARY_OPS_TO_INSTR[t][op]
+    if op in BINARY_REL_OPS and t in ("float", "double"):
+        FLOAT_CMP_COUNTER += 1
+        label = "__float_cmp_label_" + str(FLOAT_CMP_COUNTER)
+        return [
+            f"\t{op}\t{reg1},\t{reg2}",
+            f"\tbc1f\t{label}",
+            f"\tli\t{reg3},\t1",
+            f"{label}:",
+            f"\tli\t{reg3},\t0",
+        ]
+    else:
+        return [f"\t{op}\t{reg3},\t{reg1},\t{reg2}"]
 
-#     if n_level > -1:
-#         for i in range(0, n_level +1):
-#             print_text(f"\tlw\t{reg},\t-4({reg})")  # backtrace n_level + 1 times
 
-#     elif n_level < -1:
-#         # callee is nested deeper
-
-
-def is_number(s: str, return_instr = False):
+def is_number(s: str, return_instr=False):
     try:
         if not s.isnumeric():
             float(s)
@@ -150,8 +187,7 @@ def requires_fp_register(val, entry):
         return isinstance(v, float)
 
 
-
-def get_register(var, current_symbol_table, offset, return_entry = False):
+def get_register(var, current_symbol_table, offset, return_entry=False):
     entry = None
     if not is_number(var):
         var, entry = convert_varname(var, current_symbol_table)
@@ -277,7 +313,7 @@ def load_registers_on_function_return(p_stack: str):
 
 
 def generate_mips_from_3ac(code):
-    global numeric_ops, rel_ops, STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL
+    global STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL
 
     # print_text("## MIPS Assembly Code\n")
 
@@ -394,7 +430,7 @@ def generate_mips_from_3ac(code):
             elif len(c) == 3:
                 if c[1] == ":=":
                     # Assignment
-                    t1, offset = get_register(c[0], current_symbol_table, offset)
+                    t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
 
                     is_num, instr = is_number(c[2], True)
 
@@ -403,7 +439,9 @@ def generate_mips_from_3ac(code):
                         print_text(instr(t1))
                     else:
                         t2, offset = get_register(c[2], current_symbol_table, offset)
-                        print_text(f"\tmove\t{t1},\t{t2}")
+                        _type = entry["type"]
+                        instr = "move" if _type == "int" else ("mov.s" if _type == "float" else "mov.d")
+                        print_text(f"\t{instr}\t{t1},\t{t2}")
 
                 elif c[0] == "SYMTAB":
                     # Symbol Table
@@ -450,34 +488,28 @@ def generate_mips_from_3ac(code):
                     else:
                         # Assignment + An op
                         op = c[3]
-                        instr_op = numeric_ops[op] if op in numeric_ops else rel_ops[op]
-                        t1, offset = get_register(c[0], current_symbol_table, offset)
+                        t1, offset, entry3 = get_register(c[0], current_symbol_table, offset, True)
 
                         is_num, instr = is_number(c[2], True)
+                        t2, offset, entry1 = get_register(c[2], current_symbol_table, offset, True)
                         if is_num:
-                            t2, offset = get_register(c[2], current_symbol_table, offset)
                             print_text(instr(t2))
-                        else:
-                            t2, offset = get_register(c[2], current_symbol_table, offset)
 
                         is_num, instr = is_number(c[4], True)
+                        t3, offset, entry2 = get_register(c[4], current_symbol_table, offset, True)
                         if is_num:
-                            t3, offset = get_register(c[4], current_symbol_table, offset)
                             print_text(instr(t3))
-                        else:
-                            t3, offset = get_register(c[4], current_symbol_table, offset)
 
-                        print_text(f"\t{instr_op}\t{t1},\t{t2},\t{t3}")
+                        _type = (entry1["type"] if entry1 is not None else (entry2["type"] if entry2 is not None else entry3["type"]))
+
+                        instrs = get_mips_instr_from_binary_op(op, _type, t2, t3, t1)
+                        for instr in instrs:
+                            print_text(instr)
 
             elif len(c) == 6:
-                if c[0] == "IF" and c[4] == "GOTO": # If reg != 0 goto label
+                if c[0] == "IF" and c[4] == "GOTO":  # If reg != 0 goto label
                     op = c[2]
-                    instr_op = rel_ops[op]
-
                     t1, offset = get_register(c[1], current_symbol_table, offset)
-
-                    # store in another reg
-                    # t3, offset = get_register("999", current_symbol_table, offset)
 
                     global IF_LABEL
                     IF_LABEL += 1
@@ -489,7 +521,6 @@ def generate_mips_from_3ac(code):
 
             else:
                 print_text(c)
-
 
     # Dump the Assembly
     global DATA_SECTION, TEXT_SECTION

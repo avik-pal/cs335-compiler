@@ -2675,8 +2675,8 @@ if __name__ == "__main__":
     if args.input == None:
         print("No input file specified")
     else:
-        data = "".join(preprocessor(open(args.input)))    
-    
+        data = "".join(preprocessor(open(args.input)))
+
         push_scope(new_scope(get_current_symtab()))
         populate_global_symbol_table()
 
