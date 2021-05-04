@@ -455,18 +455,28 @@ def p_postfix_expression(p):
 
     elif len(p) == 4:
         if p[2] == ".":
-            # TODO
             # p[1] is a struct
             symTab = get_current_symtab()
-            entry = symTab.lookup(p[1]["value"])
+            struct_identifier = p[1]["value"]
+            _ss = struct_identifier.split(".")
+            struct_identifier = _ss[0]
+            fields_hierarchy = _ss[1:] + [p[3]]
+
+            entry = symTab.lookup(struct_identifier)
             if entry is None:
                 err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared identifier used"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception  # undeclared identifier
-            struct_entry = symTab.lookup_type(entry["type"])  # not needed if already checked at time of storing
+
+            _type = entry["type"]
+            for d in fields_hierarchy[:-1]:
+                _entry = symTab.lookup_type(_type)
+                _type = _entry["field types"][_entry["field names"].index(d)]
+
+            struct_entry = symTab.lookup_type(_type)  # not needed if already checked at time of storing
             if struct_entry is None:
-                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared Struct/Union used"
+                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared Struct/Union used or using . after a non indexable type"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception  # undeclared struct used
@@ -2655,6 +2665,8 @@ def populate_global_symbol_table() -> None:
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=str, default=None, help="Input file")
+    parser.add_argument("-O", "--optimize", action="store_true", help="Optimize")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print IR")
     parser.add_argument("-o", "--output", type=str, default="AST", help="Output file")
     return parser
 
@@ -2693,5 +2705,5 @@ if __name__ == "__main__":
         if len(GLOBAL_ERROR_LIST) > 0:
             raise Exception("Compilation Errors detected. Fix before proceeding")
 
-        code = parse_code(tree, args.output)
+        code = parse_code(tree, args.output, args.optimize, args.verbose)
         generate_mips_from_3ac(code)

@@ -630,7 +630,7 @@ def get_default_value(type: str):
     elif type[-1] == "*":
         return "NULL"
     else:
-        return -1
+        return None
 
 
 STDLIB_CODES = dict()

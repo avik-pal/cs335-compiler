@@ -3,6 +3,7 @@ from graphviz import Digraph
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.drawing.nx_pydot import graphviz_layout, write_dot
+from mips import print_data
 from symtab import (
     get_stdlib_codes,
     get_tmp_label,
@@ -43,7 +44,7 @@ def _rewrite_code(code, sizes):
 
     if not code[0][0].endswith(":"):
         for v, entry in tabname_mapping["GLOBAL"]._symtab_variables.items():
-            if not entry.get("is_parameter", False):
+            if not entry.get("is_parameter", False) and entry["value"] is not None:
                 new_code.append([v, ":=", str(entry["value"])])
                 indent_arr.append(cur_indent)
     for c in code:
@@ -136,14 +137,32 @@ def _rewrite_code(code, sizes):
             new_code.append(c)
             for v, entry in tabname_mapping[c[2]]._symtab_variables.items():
                 if not entry.get("is_parameter", False):
-                    new_code.append([v, ":=", str(entry["value"])])
-                    indent_arr.append(cur_indent)
+                    if entry["value"] is None:
+                        codes = _resolve_initialization(v, entry["type"], tabname_mapping[c[2]])
+                        new_code += codes
+                        indent_arr.extend([cur_indent] * len(codes))
+                    else:
+                        new_code.append([v, ":=", str(entry["value"])])
+                        indent_arr.append(cur_indent)
         else:
             new_code.append(c)
         if not already_app:
             indent_arr.append(cur_indent)
         already_app = False
     return new_code, indent_arr
+
+
+def _resolve_initialization(v, vtype, symtab):
+    entry_type = symtab.lookup_type(vtype)
+    codes = []
+    for f, t in zip(entry_type["field names"], entry_type["field types"]):
+        d = get_default_value(t)
+        if d is not None:
+            codes += [[f"{v}.{f}", ":=", f"{d}"]]
+        else:
+            _c = _resolve_initialization(f"{v}.{f}", t, symtab)
+            codes += _c
+    return codes
 
 
 def size_of_child(symtab):
@@ -166,6 +185,7 @@ def is_number(s: str) -> bool:
 
 def get_lhs_rhs_variables(expr):
     # For function call send empty lhs since we dont want to remove that line
+
     tag = expr[0]
     if tag == "PUSHPARAM":
         return [], [] if is_number(expr[1]) else [expr[1]], False
@@ -328,7 +348,7 @@ def optimize_ir(code, indents, depth=5):
     return (new_code, new_indents) if depth == 1 or no_change else optimize_ir(new_code, new_indents, depth - 1)
 
 
-def parse_code(tree, output_file):
+def parse_code(tree, output_file, optimize, print_code):
     # global NODE_COUNTER, NODE_MAPPING
     # G = nx.DiGraph()
 
@@ -351,29 +371,32 @@ def parse_code(tree, output_file):
             continue
 
         code = t["code"]
-        # print("Before Compiler Optimizations")
-        # print()
         code, indents = _rewrite_code(code, sizes)
-        for c, idt in zip(code, indents):
-            _z = " ".join(c)
-            if _z[-1] == ":":
-                idt -= 16
-            else:
-                _z = _z + ";"
-            # print(" " * idt + _z)
-        # print()
+        if print_code:
+            print("Before Compiler Optimizations")
+            print()
+            for c, idt in zip(code, indents):
+                _z = " ".join(c)
+                if _z[-1] == ":":
+                    idt -= 16
+                else:
+                    _z = _z + ";"
+                print(" " * idt + _z)
+            print()
 
-        # print("After Compiler Optimizations")
-        # print()
-        code, indents = optimize_ir(code, indents)
-        # for c, idt in zip(code, indents):
-        #     _z = " ".join(c)
-        #     if _z[-1] == ":":
-        #         idt -= 16
-        #     else:
-        #         _z = _z + ";"
-        #     print(" " * idt + _z)
-        # print()
+        if optimize:
+            code, indents = optimize_ir(code, indents)
+            if print_code:
+                print("After Compiler Optimizations")
+                print()
+                for c, idt in zip(code, indents):
+                    _z = " ".join(c)
+                    if _z[-1] == ":":
+                        idt -= 16
+                    else:
+                        _z = _z + ";"
+                    print(" " * idt + _z)
+                print()
 
         codes.append(code)
 

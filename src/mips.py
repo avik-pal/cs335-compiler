@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from symtab import (
     SymbolTable,
     compute_offset_size,
@@ -148,10 +150,18 @@ def access_dynamic_link(reg: str):
 
 
 def convert_varname(var: str, cur_symtab: SymbolTable) -> str:
-    entry = cur_symtab.lookup(var)
+    splits = var.split(".")
+    identifier = splits[0]
+    entry = cur_symtab.lookup(identifier)
     if entry is None and cur_symtab.func_scope is not None:
-        entry = cur_symtab.lookup(var + ".static." + cur_symtab.func_scope)
-    name = "VAR-" + entry["table name"] + "-" + entry["name"]
+        entry = cur_symtab.lookup(identifier + ".static." + cur_symtab.func_scope)
+    _type = entry["type"]
+    for f in splits[1:]:
+        type_entry = cur_symtab.lookup_type(_type)
+        _type = type_entry["field types"][type_entry["field names"].index(f)]
+    entry = deepcopy(entry)
+    entry["type"] = _type
+    name = "VAR-" + entry["table name"] + "-" + var
     return name, entry
 
 
@@ -434,8 +444,14 @@ def generate_mips_from_3ac(code):
                             )
                         )
                         if reg == 1:
-                            raise NotImplementedError
-                        print_text(f"\t{instr}\t{reg},\t{t}")
+                            # custom type
+                            type_details = current_symbol_table.lookup_type(_type)
+
+                            print_assembly()
+                            print("L440", type_details)
+                            raise Exception("Work in Progress")
+                        else:
+                            print_text(f"\t{instr}\t{reg},\t{t}")
 
                     load_registers_on_function_return("sp")
                     print_text("\tla\t$sp,\t0($fp)")
@@ -570,6 +586,10 @@ def generate_mips_from_3ac(code):
             else:
                 print_text(c)
 
+    print_assembly()
+
+
+def print_assembly():
     # Dump the Assembly
     global DATA_SECTION, TEXT_SECTION
     print(".data")
