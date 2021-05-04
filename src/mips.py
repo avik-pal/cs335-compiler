@@ -4,7 +4,7 @@ from symtab import (
     get_current_symtab,
     get_global_symtab,
     get_tabname_mapping,
-    get_tmp_label
+    get_tmp_label,
 )
 
 IF_LABEL = -1
@@ -50,7 +50,7 @@ BINARY_OPS_TO_INSTR = {
         "==": "c.eq.d",
         ">": "c.ge.d",
         ">=": "c.gt.d",
-    }
+    },
 }
 
 
@@ -131,7 +131,7 @@ def reset_registers():
     address_descriptor = dict()
     activation_record = []
     integer_registers = [f"$t{i}" for i in range(10)] + [f"$s{i}" for i in range(8)]
-    fp_registers = [f"$f{i}" for i in list(range(30, -1, -2))]
+    fp_registers = [f"$f{i}" for i in list(range(30, 2, -2))]
     free_registers = integer_registers + fp_registers
     register_descriptor = {reg: None for reg in free_registers}
     removed_registers = dict()
@@ -187,13 +187,13 @@ def type_cast_mips(c, dtype, current_symbol_table, offset):  # reg1 := (dtype) r
         _type = entry["type"]
 
     instrs = get_type_cast_instr(_type, dtype)
-    
+
     if len(instrs) == 2:
         ttemp, offset = get_register("0.0", current_symbol_table, offset)
         if instrs[0].startswith("mtc1"):
             print_text(f"\t{instrs[0]}\t{t2},\t{ttemp}")
         else:
-            print_text(f"\t{instrs[0]}\t{ttemp},\t{t2}")        
+            print_text(f"\t{instrs[0]}\t{ttemp},\t{t2}")
         print_text(f"\t{instrs[1]}\t{t1},\t{ttemp}")
     else:
         print_text(f"\t{instrs[0]}\t{t1},\t{t2}")
@@ -416,11 +416,27 @@ def generate_mips_from_3ac(code):
                 elif c[0] == "RETURN":
                     DYNAMIC_NESTING_LVL -= 1
                     is_num, instr = is_number(c[1], True)
+
                     if is_num:
-                        print_text(instr("$v0"))
+                        _type = type_of_number(c[1])
+                        reg = "$f0" if _type in ("float", "double") else "$v0"
+                        print_text(instr(reg))
                     else:
-                        t, offset = get_register(c[1], current_symbol_table, offset)
-                        print_text(f"\tmove\t$v0,\t{t}")
+                        t, offset, entry = get_register(c[1], current_symbol_table, offset, True)
+                        _type = entry["type"]
+                        reg, instr = (
+                            ("$f0", "mov.d")
+                            if _type == "double"
+                            else (
+                                ("$f0", "mov.s")
+                                if _type == "float"
+                                else (("$v0", "move") if _type == "int" else (1, 1))
+                            )
+                        )
+                        if reg == 1:
+                            raise NotImplementedError
+                        print_text(f"\t{instr}\t{reg},\t{t}")
+
                     load_registers_on_function_return("sp")
                     print_text("\tla\t$sp,\t0($fp)")
                     print_text("\tlw\t$ra,\t-8($sp)")
@@ -434,12 +450,14 @@ def generate_mips_from_3ac(code):
                     # We should ideally be using the a0..a2 registers, but for ease of use we will
                     # push everything into the stack
                     is_num, instr = is_number(c[1], True)
-                    t, offset = get_register(c[1], current_symbol_table, offset)
+                    t, offset, entry = get_register(c[1], current_symbol_table, offset, True)
                     if is_num:
+                        _type = type_of_number(c[1])
                         print_text(instr(t))
-                    # NOTE: Only supporting size 4 datatypes
-                    # TODO: Floats
-                    all_pushparams.extend([f"\tsw\t{t},\t-4($sp)", f"\tla\t$sp,\t-4($sp)"])
+                    else:
+                        _type = entry["type"]
+                    instr, s = ("s.s", 4) if _type == "float" else (("s.d", 8) if _type == "double" else ("sw", 4))
+                    all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
 
                 elif c[0] == "POPPARAMS":
                     first_pushparam = True
@@ -472,9 +490,9 @@ def generate_mips_from_3ac(code):
                     off = 0
                     for p in params:
                         entry = current_symbol_table.lookup(p)
-                        t, offset = get_register(entry["name"], current_symbol_table, offset)
-                        # FIXME: Sizes
-                        print_text(f"\tlw\t{t},\t{off}($fp)")
+                        t, offset, entry = get_register(entry["name"], current_symbol_table, offset, True)
+                        instr = "l.s" if entry["type"] == "float" else ("l.d" if entry["type"] == "double" else "lw")
+                        print_text(f"\t{instr}\t{t},\t{off}($fp)")
                         off += entry["size"]
                 else:
                     print_text(c)
@@ -501,9 +519,15 @@ def generate_mips_from_3ac(code):
                         all_pushparams = []
                         print_text(f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_')}")
                         # caller pops the arguments
-                        t1, offset = get_register(c[0], current_symbol_table, offset)
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        _type = entry["type"]
                         print_text(f"\tla\t$sp,\t{c[4]}($sp)")
-                        print_text(f"\tmove\t{t1},\t$v0")  # store return value to LHS of assignment
+                        instr, reg = (
+                            ("move", "$v0")
+                            if _type == "int"
+                            else (("mov.s", "$f0") if _type == "float" else ("mov.d", "$f0"))
+                        )
+                        print_text(f"\t{instr}\t{t1},\t{reg}")  # store return value to LHS of assignment
                         first_pushparam = True
 
                     else:
@@ -521,7 +545,11 @@ def generate_mips_from_3ac(code):
                         if is_num:
                             print_text(instr(t3))
 
-                        _type = (entry1["type"] if entry1 is not None else (entry2["type"] if entry2 is not None else entry3["type"]))
+                        _type = (
+                            entry1["type"]
+                            if entry1 is not None
+                            else (entry2["type"] if entry2 is not None else entry3["type"])
+                        )
 
                         instrs = get_mips_instr_from_binary_op(op, _type, t2, t3, t1)
                         for instr in instrs:
