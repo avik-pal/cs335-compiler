@@ -4,6 +4,7 @@ from symtab import (
     get_current_symtab,
     get_global_symtab,
     get_tabname_mapping,
+    get_tmp_label
 )
 
 IF_LABEL = -1
@@ -55,7 +56,6 @@ BINARY_OPS_TO_INSTR = {
 
 DATA_SECTION = []
 TEXT_SECTION = []
-FLOAT_CMP_COUNTER = 0
 data_number_counter = -1
 
 
@@ -79,20 +79,22 @@ def print_text(*s):
 
 def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: str) -> str:
     # reg3 := reg1 op reg2
-    global BINARY_OPS_TO_INSTR, BINARY_REL_OPS, FLOAT_CMP_COUNTER
-    op = BINARY_OPS_TO_INSTR[t][op]
+    global BINARY_OPS_TO_INSTR, BINARY_REL_OPS
+    op_mips = BINARY_OPS_TO_INSTR[t][op]
     if op in BINARY_REL_OPS and t in ("float", "double"):
-        FLOAT_CMP_COUNTER += 1
-        label = "__float_cmp_label_" + str(FLOAT_CMP_COUNTER)
+        label1 = get_tmp_label()
+        label2 = get_tmp_label()
         return [
-            f"\t{op}\t{reg1},\t{reg2}",
-            f"\tbc1f\t{label}",
+            f"\t{op_mips}\t{reg1},\t{reg2}",
+            f"\tbc1f\t{label1}",
             f"\tli\t{reg3},\t1",
-            f"{label}:",
+            f"\tj\t{label2}",
+            f"{label1}:",
             f"\tli\t{reg3},\t0",
+            f"{label2}:",
         ]
     else:
-        return [f"\t{op}\t{reg3},\t{reg1},\t{reg2}"]
+        return [f"\t{op_mips}\t{reg3},\t{reg1},\t{reg2}"]
 
 
 def is_number(s: str, return_instr=False):
