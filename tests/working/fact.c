@@ -10,5 +10,5 @@ int fact(int n)
 // Driver Code
 int main()
 {
-    return fact(2);
+    return fact(5);
 }

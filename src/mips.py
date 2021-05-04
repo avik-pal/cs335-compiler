@@ -513,13 +513,12 @@ def generate_mips_from_3ac(code):
                     op = c[2]
                     t1, offset = get_register(c[1], current_symbol_table, offset)
 
-                    global IF_LABEL
-                    IF_LABEL += 1
+                    label = get_tmp_label()
 
                     # print_text(f"\t{instr_op}\t{t3},\t{t1},\t$0")
-                    print_text(f"\tbne\t{t1},\t$0,\tIFBRANCH_{IF_LABEL}")
+                    print_text(f"\tbne\t{t1},\t$0,\t{label}")
                     print_text(f"\tj\t{c[5]}")
-                    print_text(f"IFBRANCH_{IF_LABEL}:")
+                    print_text(f"{label}:")
 
             else:
                 print_text(c)
