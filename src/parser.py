@@ -750,7 +750,7 @@ def p_unary_expression(p):
                                 "value": p[2]["value"],
                                 "type": get_flookup_type(p[2]),
                                 "kind": p[2].get("kind", "CONSTANT"),
-                                "code": p[2].get("code", [])
+                                "code": p[2].get("code", []),
                             }
                         ],
                         nvar,
@@ -2652,7 +2652,6 @@ def populate_global_symbol_table() -> None:
             },
             1,
         )
-    
 
     # for * (de-reference)
     for _type in BASIC_TYPES:
@@ -2665,7 +2664,7 @@ def populate_global_symbol_table() -> None:
             },
             1,
         )
-    
+
     # # for unary operators on pointers
     # for _type in BASIC_TYPES:
     #     _type = _type.lower()

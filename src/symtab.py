@@ -603,7 +603,7 @@ def get_tmp_var(vartype=None) -> str:
                     "type": vartype[:-ptr_level],
                     "is_array": False,
                     "dimensions": [],
-                    "pointer_lvl": ptr_level
+                    "pointer_lvl": ptr_level,
                 }
             )
         else:

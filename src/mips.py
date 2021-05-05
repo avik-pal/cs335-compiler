@@ -537,7 +537,7 @@ def generate_mips_from_3ac(code):
                             instr = MOVE_INSTRUCTIONS[t1]
                             # print_text(f"# {reg1} -> {l}, {reg2} -> {r}")
                             print_text(f"\t{instr}\t{reg1},\t{reg2}")
-                    else:    
+                    else:
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
 
                         is_num, instr = is_number(c[2], True)
@@ -600,7 +600,7 @@ def generate_mips_from_3ac(code):
                                 print_text(f"\t{load_instr}\t{reg},\t{_o}($sp)")
                                 _o -= int(s)
                         else:
-                            instr = MOVE_INSTRUCTIONS[_type]                
+                            instr = MOVE_INSTRUCTIONS[_type]
                             print_text(f"\t{instr}\t{t1},\t{reg}")
                         print_text(f"\tla\t$sp,\t{c[4]}($sp)")
                         first_pushparam = True
