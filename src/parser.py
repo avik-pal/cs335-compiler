@@ -476,7 +476,11 @@ def p_postfix_expression(p):
 
             struct_entry = symTab.lookup_type(_type)  # not needed if already checked at time of storing
             if struct_entry is None:
-                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared Struct/Union used or using . after a non indexable type"
+                err_msg = (
+                    "Error at line number "
+                    + str(p.lineno(1))
+                    + ": Undeclared Struct/Union used or using . after a non indexable type"
+                )
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception  # undeclared struct used
@@ -746,7 +750,7 @@ def p_unary_expression(p):
                                 "value": p[2]["value"],
                                 "type": get_flookup_type(p[2]),
                                 "kind": p[2].get("kind", "CONSTANT"),
-                                "code": p[2].get("code", [])
+                                "code": p[2].get("code", []),
                             }
                         ],
                         nvar,
@@ -2648,7 +2652,6 @@ def populate_global_symbol_table() -> None:
             },
             1,
         )
-    
 
     # for * (de-reference)
     for _type in BASIC_TYPES:
@@ -2661,7 +2664,7 @@ def populate_global_symbol_table() -> None:
             },
             1,
         )
-    
+
     # # for unary operators on pointers
     # for _type in BASIC_TYPES:
     #     _type = _type.lower()
@@ -2733,5 +2736,5 @@ if __name__ == "__main__":
         if len(GLOBAL_ERROR_LIST) > 0:
             raise Exception("Compilation Errors detected. Fix before proceeding")
 
-        code = parse_code(tree, args.output, args.optimize, True)
-        # generate_mips_from_3ac(code)
+        code = parse_code(tree, args.output, args.optimize, args.verbose)
+        generate_mips_from_3ac(code)

@@ -7,6 +7,8 @@ from symtab import (
     get_global_symtab,
     get_tabname_mapping,
     get_tmp_label,
+    get_default_value,
+    DATATYPE2SIZE,
 )
 
 # STATIC_NESTING_LVL = -1
@@ -52,6 +54,38 @@ BINARY_OPS_TO_INSTR = {
         ">": "c.ge.d",
         ">=": "c.gt.d",
     },
+}
+
+SAVE_INSTRUCTIONS = {
+    "char": "sb",
+    "int": "sw",
+    "long": "sd",
+    "float": "s.s",
+    "double": "s.d",
+}
+
+LOAD_INSTRUCTIONS = {
+    "char": "lb",
+    "int": "lw",
+    "long": "ld",
+    "float": "l.s",
+    "double": "l.d",
+}
+
+RETURN_REGISTERS = {
+    "char": "$v0",
+    "int": "$v0",
+    "long": "$v0",
+    "float": "$f0",
+    "double": "$f0",
+}
+
+MOVE_INSTRUCTIONS = {
+    "char": "move",
+    "int": "move",
+    "long": "move",
+    "float": "mov.s",
+    "double": "mov.d",
 }
 
 
@@ -148,7 +182,7 @@ def access_dynamic_link(reg: str):
     print_text(f"\tlw\t{reg},\t-4($fp)")  # loads pointer to parent AR inside reg
 
 
-def convert_varname(var: str, cur_symtab: SymbolTable) -> str:
+def convert_varname(var: str, cur_symtab: SymbolTable):
     splits = var.split(".")
     identifier = splits[0]
     entry = cur_symtab.lookup(identifier)
@@ -244,11 +278,10 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
     if var in register_descriptor.values():
         # Already has a register allocated
         register = address_descriptor[var]
-        lru_list.append(register)
     else:
         if len(free_registers) == 0:
             # No free register available
-            register = lru_list[0]
+            register = lru_list.pop(0)
             if register[1] == "s":
                 remember_to_restore[-1].append(f"\tlw\t{register},\t{offset}($fp)")
                 removed_registers[register_descriptor[register]] = ("lw", f"{offset}($fp)")
@@ -261,11 +294,9 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
                 print_text("\ts.s\t" + register + ",\t" + f"{offset}($fp)")
                 offset -= 4
                 print_text("\tla\t$sp,\t-4($sp)")
-            lru_list = lru_list[1:]
         else:
             # Free registers available
             register = free_registers.pop()
-            lru_list.append(register)
 
             if register[1] == "s":
                 remember_to_restore[-1].append(f"\tlw\t{register},\t{offset}($fp)")
@@ -289,6 +320,12 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         busy_registers.append(register)
         register_descriptor[register] = var
         registers_in_block[-1].append(register)
+
+    try:
+        while True:
+            lru_list.remove(register)
+    except ValueError:
+        lru_list.append(register)
 
     return register, offset
 
@@ -448,7 +485,7 @@ def generate_mips_from_3ac(code):
                     print_text("\tsw\t$fp,\t-4($sp)")  # dynamic link (old fp)
                     print_text("\tsw\t$ra,\t-8($sp)")
                     print_text("\tla\t$fp,\t0($sp)")
-                    offset = store_registers_on_function_call()  #  - int(c[1])
+                    offset = store_registers_on_function_call() - int(c[1].split(",")[1])
                     print_text(f"\tla\t$sp,\t{offset}($sp)")
                     create_new_register_block()
 
@@ -474,11 +511,14 @@ def generate_mips_from_3ac(code):
                         )
                         if reg == 1:
                             # custom type
-                            type_details = current_symbol_table.lookup_type(_type)
-
-                            print_assembly()
-                            print("L440", type_details)
-                            raise Exception("Work in Progress")
+                            # type_details = current_symbol_table.lookup_type(_type)
+                            stack_pushables = _return_stack_custom_types(c[1], _type, current_symbol_table)
+                            _o = -12
+                            for (var, s, _t) in stack_pushables:
+                                reg, offset = get_register(var, current_symbol_table, offset)
+                                save_instr = SAVE_INSTRUCTIONS[_t]
+                                print_text(f"\t{save_instr}\t{reg},\t{_o}($fp)")
+                                _o -= int(s)
                         else:
                             print_text(f"\t{instr}\t{reg},\t{t}")
 
@@ -515,18 +555,30 @@ def generate_mips_from_3ac(code):
             elif len(c) == 3:
                 if c[1] == ":=":
                     # Assignment
-                    t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
-
-                    is_num, instr = is_number(c[2], True)
-
-                    if is_num:
-                        # Assignment with a constant
-                        print_text(instr(t1))
+                    _, entry = convert_varname(c[0], current_symbol_table)
+                    if get_default_value(entry["type"]) is None:
+                        all_fields_lhs = _return_stack_custom_types(c[0], entry["type"], current_symbol_table)
+                        all_fields_rhs = _return_stack_custom_types(c[2], entry["type"], current_symbol_table)
+                        for ((l, _, t1), (r, _, t2)) in zip(all_fields_lhs, all_fields_rhs):
+                            assert t1 == t2, AssertionError(f"Something went wrong {t1} != {t2}")
+                            reg1, offset = get_register(l, current_symbol_table, offset)
+                            reg2, offset = get_register(r, current_symbol_table, offset)
+                            instr = MOVE_INSTRUCTIONS[t1]
+                            # print_text(f"# {reg1} -> {l}, {reg2} -> {r}")
+                            print_text(f"\t{instr}\t{reg1},\t{reg2}")
                     else:
-                        t2, offset = get_register(c[2], current_symbol_table, offset)
-                        _type = entry["type"]
-                        instr = "move" if _type == "int" else ("mov.s" if _type == "float" else "mov.d")
-                        print_text(f"\t{instr}\t{t1},\t{t2}")
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+
+                        is_num, instr = is_number(c[2], True)
+
+                        if is_num:
+                            # Assignment with a constant
+                            print_text(instr(t1))
+                        else:
+                            t2, offset = get_register(c[2], current_symbol_table, offset)
+                            _type = entry["type"]
+                            instr = MOVE_INSTRUCTIONS[_type]
+                            print_text(f"\t{instr}\t{t1},\t{t2}")
 
                 elif c[0] == "SYMTAB":
                     # Symbol Table
@@ -566,13 +618,20 @@ def generate_mips_from_3ac(code):
                         # caller pops the arguments
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
                         _type = entry["type"]
+
+                        reg = RETURN_REGISTERS.get(_type, None)
+                        if reg is None:
+                            stack_pushables = _return_stack_custom_types(c[0], _type, current_symbol_table)
+                            _o = -12
+                            for (var, s, _t) in stack_pushables:
+                                reg, offset = get_register(var, current_symbol_table, offset)
+                                load_instr = LOAD_INSTRUCTIONS[_t]
+                                print_text(f"\t{load_instr}\t{reg},\t{_o}($sp)")
+                                _o -= int(s)
+                        else:
+                            instr = MOVE_INSTRUCTIONS[_type]
+                            print_text(f"\t{instr}\t{t1},\t{reg}")
                         print_text(f"\tla\t$sp,\t{c[4]}($sp)")
-                        instr, reg = (
-                            ("move", "$v0")
-                            if _type == "int"
-                            else (("mov.s", "$f0") if _type == "float" else ("mov.d", "$f0"))
-                        )
-                        print_text(f"\t{instr}\t{t1},\t{reg}")  # store return value to LHS of assignment
                         first_pushparam = True
 
                     else:
@@ -616,6 +675,19 @@ def generate_mips_from_3ac(code):
                 print_text(c)
 
     print_assembly()
+
+
+def _return_stack_custom_types(v, vtype, symtab):
+    entry_type = symtab.lookup_type(vtype)
+    var_name_sizes = []
+    for f, t in zip(entry_type["field names"], entry_type["field types"]):
+        d = get_default_value(t)
+        if d is not None:
+            s = DATATYPE2SIZE[t.upper()]
+            var_name_sizes += [[f"{v}.{f}", str(s), t]]
+        else:
+            var_name_sizes += _return_stack_custom_types(f"{v}.{f}", t, symtab)
+    return var_name_sizes
 
 
 def print_assembly():

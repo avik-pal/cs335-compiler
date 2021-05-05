@@ -28,7 +28,7 @@ def _resolve_fcall_graph_names(args):
     return new_args
 
 
-def _rewrite_code(code, sizes):
+def _rewrite_code(code, sizes, ret_sizes):
     tabname_mapping = get_tabname_mapping()
     new_code = []
     switch_depth = 0
@@ -66,7 +66,7 @@ def _rewrite_code(code, sizes):
             indent_arr.append(cur_indent)
             already_app = True
             cur_indent += 20
-            new_code.append(["BEGINFUNC", str(sizes[c[2]])])
+            new_code.append(["BEGINFUNC", str(sizes[c[2]]) + "," + str(ret_sizes[c[2]])])
             indent_arr.append(cur_indent)
         elif c[0] == "ENDFUNCTION":
             indent_arr.append(cur_indent)
@@ -361,8 +361,10 @@ def parse_code(tree, output_file, optimize, print_code):
 
     gtab = get_global_symtab()
     sizes = {}
+    ret_sizes = {}
     for child in gtab.children:
         sizes[child.func_scope] = size_of_child(child)
+        ret_sizes[child.func_scope] = gtab.lookup(child.func_scope)["return type size"]
 
     codes = []
 
@@ -371,7 +373,7 @@ def parse_code(tree, output_file, optimize, print_code):
             continue
 
         code = t["code"]
-        code, indents = _rewrite_code(code, sizes)
+        code, indents = _rewrite_code(code, sizes, ret_sizes)
         if print_code:
             print("Before Compiler Optimizations")
             print()
