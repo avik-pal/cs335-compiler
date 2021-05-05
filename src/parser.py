@@ -476,7 +476,11 @@ def p_postfix_expression(p):
 
             struct_entry = symTab.lookup_type(_type)  # not needed if already checked at time of storing
             if struct_entry is None:
-                err_msg = "Error at line number " + str(p.lineno(1)) + ": Undeclared Struct/Union used or using . after a non indexable type"
+                err_msg = (
+                    "Error at line number "
+                    + str(p.lineno(1))
+                    + ": Undeclared Struct/Union used or using . after a non indexable type"
+                )
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception  # undeclared struct used

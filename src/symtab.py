@@ -185,6 +185,9 @@ class SymbolTable:
                 entry["local scope"] = None
                 self._symtab_functions[name] = entry
                 self._symtab_functions[name]["name resolution"] = name
+                ret_type = entry["return type"]
+                _s = compute_storage_size({"type": ret_type}, self.lookup_type(ret_type))
+                entry["return type size"] = _s
                 param_size = 0
                 for p in entry["parameter types"]:
                     t = self.lookup_type(p)
