@@ -3,6 +3,7 @@ from copy import deepcopy
 from symtab import (
     SymbolTable,
     compute_offset_size,
+    compute_storage_size,
     get_current_symtab,
     get_global_symtab,
     get_tabname_mapping,
@@ -164,7 +165,10 @@ def reset_registers():
     global address_descriptor, activation_record, register_descriptor, free_registers, remember_to_restore
     global parameter_descriptor, busy_registers, lru_list_fp, lru_list_int, registers_in_block, removed_registers
     global integer_registers, fp_registers, free_registers_int
+    global register_loader, register_saver
     address_descriptor = dict()
+    register_loader = dict()
+    register_saver = dict()
     activation_record = []
     integer_registers = [f"$t{i}" for i in range(10)] + [f"$s{i}" for i in range(8)]
     fp_registers = [f"$f{i}" for i in list(range(30, 2, -2))]
@@ -247,10 +251,13 @@ def type_cast_mips(c, dtype, current_symbol_table, offset):  # reg1 := (dtype) r
 
 def requires_fp_register(val, entry):
     if entry is not None:
-        return entry["type"] in ("float", "double", "long double")
+        return (entry["type"] in ("float", "double", "long double"), entry["type"])
     else:
         v = eval(val)
-        return isinstance(v, float)
+        if isinstance(v, float):
+            return True, "float"
+        else:
+            return False, "int"
 
 
 def get_register(var, current_symbol_table, offset, return_entry=False):
@@ -261,15 +268,14 @@ def get_register(var, current_symbol_table, offset, return_entry=False):
     return (reg, offset) if not return_entry else (reg, offset, entry)
 
 
-# NOTE: We are only supporting int and float as data types
-
-
 def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry):
     global register_descriptor, address_descriptor, registers_in_block, removed_registers
-    global lru_list_int, lru_list_fp, remember_to_restore
+    global lru_list_int, lru_list_fp, remember_to_restore, register_saver, register_loader
     # GLOBALs wont work for now
 
-    if requires_fp_register(var, entry):
+    req_fp, _type = requires_fp_register(var, entry)
+    _s = DATATYPE2SIZE[_type.upper()]
+    if req_fp:
         lru_list = lru_list_fp
         free_registers = fp_registers
     else:
@@ -283,34 +289,25 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         if len(free_registers) == 0:
             # No free register available
             register = lru_list.pop(0)
-            if register[1] == "s":
-                remember_to_restore[-1].append(f"\tlw\t{register},\t{offset}($fp)")
-                removed_registers[register_descriptor[register]] = ("lw", f"{offset}($fp)")
-                print_text("\tsw\t" + register + ",\t" + f"{offset}($fp)")
-                offset -= 4
-                print_text("\tla\t$sp,\t-4($sp)")
-            elif register.startswith("$f"):
-                remember_to_restore[-1].append(f"\tl.s\t{register},\t{offset}($fp)")
-                removed_registers[register_descriptor[register]] = ("l.s", f"{offset}($fp)")
-                print_text("\ts.s\t" + register + ",\t" + f"{offset}($fp)")
-                offset -= 4
-                print_text("\tla\t$sp,\t-4($sp)")
+            load_instr = register_loader[register]
+            save_instr = register_saver[register]
+            if register.startswith("$s") or register.startswith("$f"):
+                remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
+                removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
+                print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
+                offset -= _s
+                print_text(f"\tla\t$sp,\t-{_s}($sp)")
         else:
             # Free registers available
             register = free_registers.pop()
-
-            if register[1] == "s":
-                remember_to_restore[-1].append(f"\tlw\t{register},\t{offset}($fp)")
-                removed_registers[register_descriptor[register]] = ("lw", f"{offset}($fp)")
-                print_text("\tsw\t" + register + ",\t" + f"{offset}($fp)")
-                offset -= 4
-                print_text("\tla\t$sp,\t-4($sp)")
-            elif register.startswith("$f"):
-                remember_to_restore[-1].append(f"\tl.s\t{register},\t{offset}($fp)")
-                removed_registers[register_descriptor[register]] = ("l.s", f"{offset}($fp)")
-                print_text("\ts.s\t" + register + ",\t" + f"{offset}($fp)")
-                offset -= 4
-                print_text("\tla\t$sp,\t-4($sp)")
+            load_instr = LOAD_INSTRUCTIONS[_type]
+            save_instr = SAVE_INSTRUCTIONS[_type]
+            if register.startswith("$s") or register.startswith("$f"):
+                remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
+                removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
+                print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
+                offset -= _s
+                print_text(f"\tla\t$sp,\t-{_s}($sp)")
 
             if var in removed_registers:
                 instr, loc = removed_registers[var]
@@ -321,6 +318,8 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         busy_registers.append(register)
         register_descriptor[register] = var
         registers_in_block[-1].append(register)
+        register_loader[register] = LOAD_INSTRUCTIONS[_type]
+        register_saver[register] = SAVE_INSTRUCTIONS[_type]
 
     try:
         while True:
@@ -349,9 +348,12 @@ def store_temp_regs_in_use(offset: int) -> int:
 
 def free_registers_in_block():
     global registers_in_block, register_descriptor, address_descriptor, remember_to_restore
+    global register_loader, register_saver
     for reg in registers_in_block[-1]:
         var = register_descriptor[reg]
         register_descriptor[reg] = None
+        del register_saver[reg]
+        del register_loader[reg]
         busy_registers.remove(reg)
         # del address_descriptor[var]
     registers_in_block = registers_in_block[:-1]
@@ -376,10 +378,8 @@ def load_registers_on_function_return(p_stack: str):
         print_text(l)
 
 
-# NOTE:
-# 3. Handle data type sizes properly. All instructions wont be lw
-# 4. IMP: int main() should be present and with no other form of definition
-
+# NOTE: int main() should be present and with no other form of definition
+# NOTE: we don't support double since it has alignment issues which are non-trivial to deal with
 
 def generate_mips_from_3ac(code):
     global STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL

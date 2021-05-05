@@ -167,11 +167,11 @@ def _get_conversion_function(p, tcast):
 def _get_conversion_function_expr(p, tcast):
     t1, t2 = get_flookup_type(p), get_flookup_type(tcast)
     if t1 == t2:
-        return {"value": p["value"], "code": []}
+        return p
     else:
         nvar = get_tmp_var(t2)
         arg = {"value": nvar, "type": t2, "kind": "FUNCTION CALL"}
-        arg["code"] = [
+        arg["code"] = p["code"] + [
             [
                 "FUNCTION CALL",
                 t1,
