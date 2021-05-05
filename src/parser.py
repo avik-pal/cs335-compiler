@@ -732,8 +732,7 @@ def p_unary_expression(p):
             p[0]["code"] = p[2]["code"]
 
         elif p[1].startswith("*"):
-            # print(p[1])
-            p[0] = p[2]
+            p[0] = copy.deepcopy(p[2])
             # p[0]["deref"] = p[0].get("deref", 0) + len(p[1])
             if p[2].get("pointer_lvl", 0) > 0:
                 nvar = get_tmp_var(get_flookup_type(p[2]))
@@ -741,42 +740,45 @@ def p_unary_expression(p):
                     [
                         "FUNCTION CALL",
                         get_flookup_type(p[2]),
-                        f"__deref({p[0]['value']})",
+                        f"__deref({get_flookup_type(p[2])})",
                         [
                             {
-                                "value": get_default_value(get_flookup_type(p[2])),
+                                "value": p[2]["value"],
                                 "type": get_flookup_type(p[2]),
                                 "kind": p[2].get("kind", "CONSTANT"),
+                                "code": p[2].get("code", [])
                             }
                         ],
                         nvar,
                     ]
                 ]
                 p[0]["pointer_lvl"] -= 1
+                p[0]["value"] = nvar
             else:
                 err_msg = "Cannot Dereference a non-pointer : %s" % ((p[0]["value"]))
                 GLOBAL_ERROR_LIST.append(err_msg)
 
         elif p[1].startswith("&"):
-            p[0] = p[2]
+            p[0] = copy.deepcopy(p[2])
             nvar = get_tmp_var(get_flookup_type(p[2]))
-            p[0]["code"] = [
+            p[0]["code"] += [
                 [
                     "FUNCTION CALL",
                     get_flookup_type(p[2]),
-                    f"__deref({p[0]['value']})",
+                    f"__ref({get_flookup_type(p[2])})",
                     [
                         {
-                            "value": get_default_value(get_flookup_type(p[2])),
+                            "value": p[2]["value"],
                             "type": get_flookup_type(p[2]),
                             "kind": p[2].get("kind", "CONSTANT"),
+                            # "arguments"
                         }
                     ],
                     nvar,
                 ]
             ]
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
-            # print(p[0])
+            p[0]["value"] = nvar
 
         elif p[1] == "+" or p[1] == "-":
 
@@ -2021,7 +2023,7 @@ def p_direct_declarator_1(p):
                 "is_array": True,
                 "dimensions": p[1].get("dimensions", []),
             }
-            print(p[0])
+            # print(p[0])
             if "variable" not in p[0]["dimensions"]:
                 # smth
                 p[0]["dimensions"].append("variable")
@@ -2634,17 +2636,43 @@ def populate_global_symbol_table() -> None:
             },
             1,
         )
-    # for unary operators on pointers
+
+    # for & (reference)
     for _type in BASIC_TYPES:
         _type = _type.lower()
         table.insert(
             {
-                "name": "__get_array_element",
-                "return type": _type,
-                "parameter types": [f"{_type}*", "int"],
+                "name": "__ref",
+                "return type": f"{_type}*",
+                "parameter types": [f"{_type}"],
             },
             1,
         )
+    
+
+    # for * (de-reference)
+    for _type in BASIC_TYPES:
+        _type = _type.lower()
+        table.insert(
+            {
+                "name": "__deref",
+                "return type": f"{_type}",
+                "parameter types": [f"{_type}*"],
+            },
+            1,
+        )
+    
+    # # for unary operators on pointers
+    # for _type in BASIC_TYPES:
+    #     _type = _type.lower()
+    #     table.insert(
+    #         {
+    #             "name": "__get_array_element",
+    #             "return type": _type,
+    #             "parameter types": [f"{_type}*", "int"],
+    #         },
+    #         1,
+    #     )
 
     # For unary operators + and - (for p_cast)
     for op in ("+", "-"):
@@ -2705,5 +2733,5 @@ if __name__ == "__main__":
         if len(GLOBAL_ERROR_LIST) > 0:
             raise Exception("Compilation Errors detected. Fix before proceeding")
 
-        code = parse_code(tree, args.output, args.optimize, args.verbose)
-        generate_mips_from_3ac(code)
+        code = parse_code(tree, args.output, args.optimize, True)
+        # generate_mips_from_3ac(code)
