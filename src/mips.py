@@ -9,8 +9,7 @@ from symtab import (
     get_tmp_label,
 )
 
-IF_LABEL = -1
-STATIC_NESTING_LVL = -1
+# STATIC_NESTING_LVL = -1
 DYNAMIC_NESTING_LVL = -1
 declared_variables = []
 
@@ -338,6 +337,36 @@ def load_registers_on_function_return(p_stack: str):
     for l in remember_to_restore[-1]:
         print_text(l)
 
+
+###############################################  File IO functions ###################################################################
+def read_from_file(fd_reg, buf, len):
+    printf("li\t$v0,\t14")       # syscall number to read
+    printf(f"move\t$a0,\t{fd_reg}")      # register for file descriptor 
+    printf(f"la\t$a1,\t{buf}")    # address of buffer to which to read
+    printf(f"li\t$a2,\t{len}")     # buffer length
+    printf("syscall")           
+
+
+def write_to_file(fd_reg, buf, len):
+    printf("li\t$v0,\t15")       # syscall number to read
+    printf(f"move\t$a0,\t{fd_reg}")      # register for file descriptor 
+    printf(f"la\t$a1,\t{buf}")    # buffer address
+    printf(f"li\t$a2,\t{len}")     # buffer length
+    printf("syscall")           
+
+def open_file(fil_nm, fd_reg, mode): # mode: 0->read, 1->write
+    printf("li\t$v0,\t13")       # syscall number to open
+    printf(f"la\t$a0,\t{fil_nm}")     
+    printf(f"li\t$a1,\t{mode}")        
+    printf("li\t$a2,\t0")
+    printf("syscall")           # file descriptor returned in $v0
+    printf(f"move\t{fd_reg},\t$v0")      # save the file descriptor 
+
+def close_file(fd_reg):
+    printf("li\t$v0,\t16")
+    printf(f"move\t$a0,\t{fd_reg}")
+    printf("syscall")
+#########################################################################################################################################
 
 # NOTE:
 # 3. Handle data type sizes properly. All instructions wont be lw
