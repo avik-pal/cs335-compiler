@@ -2737,5 +2737,5 @@ if __name__ == "__main__":
         if len(GLOBAL_ERROR_LIST) > 0:
             raise Exception("Compilation Errors detected. Fix before proceeding")
 
-        code = parse_code(tree, args.output, args.optimize, True)
-        # generate_mips_from_3ac(code)
+        code = parse_code(tree, args.output, args.optimize, args.verbose)
+        generate_mips_from_3ac(code)
