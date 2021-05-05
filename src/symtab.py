@@ -594,14 +594,27 @@ def get_tmp_var(vartype=None) -> str:
     vname = f"__tmp_var_{TMP_VAR_COUNTER}"
     if vartype is not None:
         symTab = get_current_symtab()
-        symTab.insert(
-            {
-                "name": vname,
-                "type": vartype,
-                "is_array": False,
-                "dimensions": [],
-            }
-        )
+
+        ptr_level = vartype.count("*")
+        if ptr_level > 0:
+            symTab.insert(
+                {
+                    "name": vname,
+                    "type": vartype[:-ptr_level],
+                    "is_array": False,
+                    "dimensions": [],
+                    "pointer_lvl": ptr_level
+                }
+            )
+        else:
+            symTab.insert(
+                {
+                    "name": vname,
+                    "type": vartype,
+                    "is_array": False,
+                    "dimensions": [],
+                }
+            )
     return vname
 
 
