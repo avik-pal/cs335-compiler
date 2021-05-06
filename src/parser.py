@@ -1579,7 +1579,6 @@ def p_declaration(p):
                     kind=0,
                     fname=LAST_FUNCTION_DECLARATION,
                 )
-                # print(entry)
             if not valid:
                 # print(f"Error at {_p}")
                 err_msg = (
@@ -2698,6 +2697,7 @@ def get_args():
     parser.add_argument("input", type=str, default=None, help="Input file")
     parser.add_argument("-O", "--optimize", action="store_true", help="Optimize")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print IR")
+    parser.add_argument("--no-assembly", action="store_true", help="Don't Generate Assembly Code")
     parser.add_argument("-o", "--output", type=str, default="AST", help="Output file")
     return parser
 
@@ -2737,4 +2737,5 @@ if __name__ == "__main__":
             raise Exception("Compilation Errors detected. Fix before proceeding")
 
         code = parse_code(tree, args.output, args.optimize, args.verbose)
-        generate_mips_from_3ac(code)
+        if not args.no_assembly:
+            generate_mips_from_3ac(code)

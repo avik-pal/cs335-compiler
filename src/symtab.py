@@ -4,9 +4,11 @@ import os
 
 DATATYPE2SIZE = {
     "VOID": 0,
-    "CHAR": 1,
-    "SIGNED CHAR": 1,
-    "UNSIGNED CHAR": 1,
+    "CHAR": 4,  # Char is not 4 bytes, but this allows us to support all
+                # unicode characters and also prevents potential alignment
+                # issues
+    "SIGNED CHAR": 4,
+    "UNSIGNED CHAR": 4,
     "SHORT": 2,
     "SHORT INT": 2,
     "SIGNED SHORT": 2,
@@ -153,7 +155,10 @@ class SymbolTable:
                     raise Exception(f"{entry['type']} is not a valid data type")
                 t = self.lookup_type(entry["type"])
                 entry["size"] = compute_storage_size(entry, t)
-                entry["value"] = entry.get("value", get_default_value(entry["type"]))
+                
+                _type = _get_correct_type(entry)
+
+                entry["value"] = entry.get("value", get_default_value(_type))
                 entry["offset"] = self.current_offset + entry["size"]
                 self.current_offset = entry["offset"]
 
@@ -538,6 +543,15 @@ def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry
         return offset[::-1]
 
 
+def _get_correct_type(entry: dict):
+    # TODO: Pointer to an array?
+    if entry["is_array"]:
+        return entry["type"] + "*"
+    if entry["pointer_lvl"] > 0:
+        return entry["type"] + "*" * entry["pointer_lvl"]
+    return entry["type"]
+
+
 def compute_storage_size(entry, typeentry) -> int:
     _c = entry["type"].count("*")
     if _c > 0:
@@ -642,7 +656,7 @@ def get_default_value(type: str):
     elif type.upper() in FLOATING_POINT_TYPES:
         return 0.0
     elif type.upper() in CHARACTER_TYPES:
-        return ""
+        return 0
     elif type[-1] == "*":
         return "NULL"
     else:

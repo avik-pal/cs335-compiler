@@ -94,10 +94,10 @@ def _rewrite_code(code, sizes, ret_sizes):
             new_code.append(["GOTO", loop_labels[-1][0]])
         elif c[0] == "CASE":
             _nlabel_case = get_tmp_label()
-            new_code.append(["IF", switch_var[-1], "!=", c[1], "GOTO", _nlabel_case])
             if nlabel_case[-1] is not None:
                 indent_arr.append(cur_indent)
                 new_code.append([nlabel_case[-1] + ":"])
+            new_code.append(["IF", switch_var[-1], "!=", c[1], "GOTO", _nlabel_case])
             nlabel_case[-1] = _nlabel_case
         elif c[0] == "DEFAULT":
             new_code.append([nlabel_case[-1] + ":"])
@@ -115,7 +115,11 @@ def _rewrite_code(code, sizes, ret_sizes):
                 upcode = [c[0], c[1], c[2], new_args, c[4]]
 
             if c[2].startswith("__store"):
-                new_code.append([upcode[3][0], ":=", upcode[3][1]])
+                rhs = upcode[3][1]
+                if isinstance(rhs, str) and rhs[0] == "'" and rhs[-1] == "'":
+                    new_code.append([upcode[3][0], ":=", str(ord(eval(rhs)))])
+                else:
+                    new_code.append([upcode[3][0], ":=", rhs])
             elif c[2].startswith("__convert"):
                 t = c[2].split(",")[-1].split(")")[0]
                 new_code.append([upcode[4], ":=", "(" + t + ")", upcode[3][0]])

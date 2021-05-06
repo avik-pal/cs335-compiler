@@ -19,6 +19,18 @@ declared_variables = []
 BINARY_REL_OPS = ["==", ">", "<", ">=", "<=", "!="]
 
 BINARY_OPS_TO_INSTR = {
+    "char": {
+        "+": "add",
+        "-": "sub",
+        "*": "mul",
+        "/": "div",
+        "<=": "sle",
+        "<": "slt",
+        "!=": "sne",
+        "==": "seq",
+        ">": "sge",
+        ">=": "sgt",
+    },
     "int": {
         "+": "add",
         "-": "sub",
@@ -58,7 +70,7 @@ BINARY_OPS_TO_INSTR = {
 }
 
 SAVE_INSTRUCTIONS = {
-    "char": "sb",
+    "char": "sw",
     "int": "sw",
     "long": "sd",
     "float": "s.s",
@@ -66,7 +78,7 @@ SAVE_INSTRUCTIONS = {
 }
 
 LOAD_INSTRUCTIONS = {
-    "char": "lb",
+    "char": "lw",
     "int": "lw",
     "long": "ld",
     "float": "l.s",
@@ -208,6 +220,8 @@ def get_type_cast_instr(t1, t2):  # t1 -> t2
             return ["cvt.w.s", "mfc1"]
         elif t1 == "double":
             return ["cvt.w.d", "mfc1.d"]
+        elif t1 == "char":
+            return ["move"]
     elif t2 == "float":
         if t1 == "int":
             return ["mtc1", "cvt.s.w"]
@@ -218,6 +232,13 @@ def get_type_cast_instr(t1, t2):  # t1 -> t2
             return ["mtc1.d", "cvt.d.w"]
         elif t1 == "float":
             return ["cvt.d.s"]
+    elif t2 == "char":
+        if t1 == "int":
+            return ["move"]
+        elif t1 == "float":
+            return ["cvt.w.s", "mfc1"]
+        elif t1 == "double":
+            return ["cvt.w.d", "mfc1.d"]
     raise NotImplementedError
 
 
@@ -242,7 +263,7 @@ def type_cast_mips(c, dtype, current_symbol_table, offset):  # reg1 := (dtype) r
         else:
             print_text(f"\t{instrs[0]}\t{ttemp},\t{t2}")
         print_text(f"\t{instrs[1]}\t{t1},\t{ttemp}")
-    else:
+    elif len(instrs) == 1:
         print_text(f"\t{instrs[0]}\t{t1},\t{t2}")
 
     return offset
@@ -280,6 +301,8 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
     else:
         lru_list = lru_list_int
         free_registers = integer_registers
+        if entry is None and eval(var) == 0:
+            return "$0", offset
 
     if var in register_descriptor.values():
         # Already has a register allocated
@@ -408,8 +431,8 @@ def close_file(fd_reg):
 #########################################################################################################################################
 
 # NOTE:
-# 3. Handle data type sizes properly. All instructions wont be lw
-# 4. IMP: int main() should be present and with no other form of definition
+# It is important to initialize arrays. Default values are not guaranteed for arrays
+# IMP: int main() should be present and with no other form of definition
 
 
 def generate_mips_from_3ac(code):
@@ -664,14 +687,14 @@ def generate_mips_from_3ac(code):
             elif len(c) == 6:
                 if c[0] == "IF" and c[4] == "GOTO":  # If reg != 0 goto label
                     op = c[2]
-                    t1, offset = get_register(c[1], current_symbol_table, offset)
-
-                    label = get_tmp_label()
-
-                    # print_text(f"\t{instr_op}\t{t3},\t{t1},\t$0")
-                    print_text(f"\tbne\t{t1},\t$0,\t{label}")
-                    print_text(f"\tj\t{c[5]}")
-                    print_text(f"{label}:")
+                    t1, offset, entry = get_register(c[1], current_symbol_table, offset, True)
+                    is_num, instrs = is_number(c[3], True)
+                    t2, offset = get_register(c[3], current_symbol_table, offset)
+                    if is_num:
+                        print_text(instrs(t2))
+                    instr = BINARY_OPS_TO_INSTR[entry["type"]][op]
+                    instr = "b" + instr[1:]
+                    print_text(f"\t{instr}\t{t1},\t{t2},\t{c[5]}")
 
             else:
                 print_text(c)
