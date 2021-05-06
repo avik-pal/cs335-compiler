@@ -5,8 +5,8 @@ import os
 DATATYPE2SIZE = {
     "VOID": 0,
     "CHAR": 4,  # Char is not 4 bytes, but this allows us to support all
-                # unicode characters and also prevents potential alignment
-                # issues
+    # unicode characters and also prevents potential alignment
+    # issues
     "SIGNED CHAR": 4,
     "UNSIGNED CHAR": 4,
     "SHORT": 2,
@@ -155,7 +155,7 @@ class SymbolTable:
                     raise Exception(f"{entry['type']} is not a valid data type")
                 t = self.lookup_type(entry["type"])
                 entry["size"] = compute_storage_size(entry, t)
-                
+
                 _type = _get_correct_type(entry)
 
                 entry["value"] = entry.get("value", get_default_value(_type))

@@ -9,6 +9,7 @@ from dot import parse_code
 from type_utils import get_type_fields, get_flookup_type
 from symtab import (
     BASIC_TYPES,
+    INTEGER_TYPES,
     pop_scope,
     push_scope,
     new_scope,
@@ -2306,6 +2307,15 @@ def p_selection_statement(p):
             p[0]["code"] += [[finishLabel + ":"]]
     else:
         # p[0] = ("selection_statement",) + tuple(p[-len(p) + 1 :])
+        if p[3]["type"] not in INTEGER_TYPES:
+            err_msg = (
+                "Error at line number "
+                + str(p.lineno(1))
+                + ": "
+                + f"Switch Expression must have integral type. Current Type: {p[3]['type']}"
+            )
+            GLOBAL_ERROR_LIST.append(err_msg)
+            raise SyntaxError
         p[0] = {"code": p[3]["code"] + [["BEGINSWITCH", p[3]["value"]]] + p[5]["code"] + [["ENDSWITCH"]]}
 
 

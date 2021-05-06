@@ -402,32 +402,36 @@ def load_registers_on_function_return(p_stack: str):
 
 ###############################################  File IO functions ###################################################################
 def read_from_file(fd_reg, buf, len):
-    print_text("li\t$v0,\t14")       # syscall number to read
-    print_text(f"move\t$a0,\t{fd_reg}")      # register for file descriptor 
-    print_text(f"la\t$a1,\t{buf}")    # address of buffer to which to read
-    print_text(f"li\t$a2,\t{len}")     # buffer length
-    print_text("syscall")           
+    print_text("li\t$v0,\t14")  # syscall number to read
+    print_text(f"move\t$a0,\t{fd_reg}")  # register for file descriptor
+    print_text(f"la\t$a1,\t{buf}")  # address of buffer to which to read
+    print_text(f"li\t$a2,\t{len}")  # buffer length
+    print_text("syscall")
 
 
 def write_to_file(fd_reg, buf, len):
-    print_text("li\t$v0,\t15")       # syscall number to read
-    print_text(f"move\t$a0,\t{fd_reg}")      # register for file descriptor 
-    print_text(f"la\t$a1,\t{buf}")    # buffer address
-    print_text(f"li\t$a2,\t{len}")     # buffer length
-    print_text("syscall")           
+    print_text("li\t$v0,\t15")  # syscall number to read
+    print_text(f"move\t$a0,\t{fd_reg}")  # register for file descriptor
+    print_text(f"la\t$a1,\t{buf}")  # buffer address
+    print_text(f"li\t$a2,\t{len}")  # buffer length
+    print_text("syscall")
 
-def open_file(fil_nm, fd_reg, mode): # mode: 0->read, 1->write
-    print_text("li\t$v0,\t13")       # syscall number to open
-    print_text(f"la\t$a0,\t{fil_nm}")     
-    print_text(f"li\t$a1,\t{mode}")        
+
+def open_file(fil_nm, fd_reg, mode):  # mode: 0->read, 1->write
+    print_text("li\t$v0,\t13")  # syscall number to open
+    print_text(f"la\t$a0,\t{fil_nm}")
+    print_text(f"li\t$a1,\t{mode}")
     print_text("li\t$a2,\t0")
-    print_text("syscall")           # file descriptor returned in $v0
-    print_text(f"move\t{fd_reg},\t$v0")      # save the file descriptor 
+    print_text("syscall")  # file descriptor returned in $v0
+    print_text(f"move\t{fd_reg},\t$v0")  # save the file descriptor
+
 
 def close_file(fd_reg):
     print_text("li\t$v0,\t16")
     print_text(f"move\t$a0,\t{fd_reg}")
     print_text("syscall")
+
+
 #########################################################################################################################################
 
 # NOTE:
