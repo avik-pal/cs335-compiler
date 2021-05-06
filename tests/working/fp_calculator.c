@@ -10,5 +10,5 @@ float pow(float a, int n) {
 
 int main() {
     float c = pow(2.0, 4);
-    return (int) c;    
+    return (int) c;
 }

@@ -167,6 +167,8 @@ def is_number(s: str, return_instr=False):
             else:
                 return True
         else:
+            if s == "0":
+                return True if not return_instr else (True, lambda reg: "")
             return True if not return_instr else (True, lambda reg: "\tli\t" + reg + ",\t" + s)
     except ValueError:
         return False if not return_instr else (False, lambda reg: "")
@@ -182,7 +184,7 @@ def reset_registers():
     register_saver = dict()
     activation_record = []
     # We are not using a* for passing arguments so we might as well use them for operations
-    integer_registers = [f"$t{i}" for i in range(10)] + [f"$s{i}" for i in range(8)] + [f"$a{i}" for i in range(4)]
+    integer_registers = [f"$t{i}" for i in range(10)] + [f"$s{i}" for i in range(8)]
     fp_registers = [f"$f{i}" for i in list(range(30, 2, -2))]
     free_registers = integer_registers + fp_registers
     register_descriptor = {reg: None for reg in free_registers}
