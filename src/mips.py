@@ -362,7 +362,8 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             if var in removed_registers:
                 instr, loc = removed_registers[var]
                 print_text("\t" + instr + "\t" + register + ",\t" + loc)
-                del removed_registers[var]
+                if removed_registers.get(var, None):
+                    del removed_registers[var]
 
         address_descriptor[var] = register
         busy_registers.append(register)
@@ -402,8 +403,10 @@ def free_registers_in_block():
     for reg in registers_in_block[-1]:
         var = register_descriptor[reg]
         register_descriptor[reg] = None
-        del register_saver[reg]
-        del register_loader[reg]
+        if register_saver.get(reg, None):
+            del register_saver[reg]
+        if register_loader.get(reg, None):
+            del register_loader[reg]
         busy_registers.remove(reg)
         # del address_descriptor[var]
     registers_in_block = registers_in_block[:-1]
@@ -507,9 +510,17 @@ def generate_mips_from_3ac(code):
 
     # Generate the data part for the global variables
     # print_text(".data")
-    # for var, entry in gtab._symtab_variables.items():
+    for var, entry in gtab._symtab_variables.items():
         # TODO: Might need to deal with alignment issues
-        # print_data(f"\t{var}:\t.space\t{entry['size']}")
+        # TODO: intialized global arrays 
+        # if entry["is_array"] == True:
+        #     if entry["type"] == "int":
+        #         print_data(f"\t{var}:\t.word\t{}")
+        #     elif if entry["type"] == "char":
+        #         print_data(f"\t{var}:\t.byte\t{}")
+
+        print_data(f"\t{var}:\t.space\t{entry['size']}")
+
     # print_text()
 
     # Generate the text part
@@ -639,6 +650,23 @@ def generate_mips_from_3ac(code):
             elif len(c) == 3:
                 if c[1] == ":=":
                     # Assignment
+                    if c[0].endswith("]"):
+                        # TODO: arr[0] := something
+                        t0, offset, entry = get_register(c[0].split('[')[0], current_symbol_table, offset, True)
+                        index = c[0].split('[')[1].split(']')[0]
+                        is_num, instr = is_number(index, True)
+                        t1, offset = get_register(index, current_symbol_table, offset)
+                        print_text(instr(t1))
+                        
+                        is_num, instr = is_number(c[2], True)
+                        t2, offset = get_register(c[2], current_symbol_table, offset)
+                        print_text(instr(t2))
+                        
+                        print_text(f"\tsll\t{t1},\t{t1},\t2")
+                        print_text(f"\tadd\t{t0},\t{t0},\t{t1}")
+                        print_text(f"\tsw\t{t2},\t0({t0})")
+                        continue
+                    
                     _, entry = convert_varname(c[0], current_symbol_table)
                     _type = entry["type"]
                     if _type.startswith("struct"):
@@ -673,12 +701,19 @@ def generate_mips_from_3ac(code):
                                 print_text(instr(t1))
                         else:
                             t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                            if entry["is_array"] == True:
+                                print_text(f"\tla\t{t1},\t0($sp)")
+                                print_text(f"\tla\t$sp,\t-{entry['size']}($sp)")
+                                print("\nEntry and t",entry, t1)
+
                             if global_scope:
                                 raise Exception("Non constant initialization in global scope")
-                            t2, offset = get_register(c[2], current_symbol_table, offset)
-                            _type = entry["type"]
-                            instr = MOVE_INSTRUCTIONS[_type]
-                            print_text(f"\t{instr}\t{t1},\t{t2}")
+                            
+                            if not c[2]== "NULL":
+                                t2, offset = get_register(c[2], current_symbol_table, offset)
+                                _type = entry["type"]
+                                instr = MOVE_INSTRUCTIONS[_type]
+                                print_text(f"\t{instr}\t{t1},\t{t2}")
 
                 elif c[0] == "SYMTAB":
                     # Symbol Table
@@ -700,6 +735,28 @@ def generate_mips_from_3ac(code):
                     if c[2].startswith("("):
                         datatype = c[2].replace("(", "").replace(")", "")
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
+
+                    elif c[2].startswith("&"): # ref
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        # t2, offset = get_register(c[3], current_symbol_table, offset)
+                        print_text(f"\tla\t{t1},\t{c[3]}")
+
+                    elif c[2].startswith("*"): # deref
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t2, offset = get_register(c[3], current_symbol_table, offset)
+                        print_text(f"\tlw\t{t1},\t({t2})")
+
+                    elif c[3].startswith("["): # array indexing
+                        t0, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t1, offset, entry_arr = get_register(c[2], current_symbol_table, offset, True)
+                        print("\nEntry and t now ", entry_arr, t1)
+                        ind = c[3].replace('[', '').replace(']', '')
+                        is_num, instr = is_number(ind, True)
+                        t2, offset = get_register(ind, current_symbol_table, offset)
+                        print_text(instr(t2))
+                        print_text(f"\tsll\t{t2},\t{t2},\t2")
+                        print_text(f"\tadd\t{t1},\t{t1},\t{t2}")
+                        print_text(f"\tlw\t{t0},\t({t1})")
 
                 else:
                     print_text(c)

@@ -7,6 +7,7 @@ from mips import print_data
 from symtab import (
     get_stdlib_codes,
     get_tmp_label,
+    get_tmp_var,
     get_global_symtab,
     get_default_value,
     get_tabname_mapping,
@@ -113,6 +114,7 @@ def _rewrite_code(code, sizes, ret_sizes):
             else:
                 new_args = _resolve_fcall_graph_names(c[3])
                 upcode = [c[0], c[1], c[2], new_args, c[4]]
+                # print(upcode)
 
             if c[2].startswith("__store"):
                 rhs = upcode[3][1]
@@ -123,6 +125,16 @@ def _rewrite_code(code, sizes, ret_sizes):
             elif c[2].startswith("__convert"):
                 t = c[2].split(",")[-1].split(")")[0]
                 new_code.append([upcode[4], ":=", "(" + t + ")", upcode[3][0]])
+
+            elif c[2].startswith("__get_array_element"):
+                new_code.append([upcode[4], ":=", upcode[3][0] , "[" + upcode[3][1] + "]"])
+
+            elif c[2].startswith("__ref"):
+                new_code.append([upcode[4], ":=",  "&", upcode[3][0]])
+
+            elif c[2].startswith("__deref"):
+                new_code.append([upcode[4], ":=",  "*" , upcode[3][0]])
+
             else:
                 # TODO: Push Parameters to call stack (Check MIPS Specification)
                 f = get_global_symtab().lookup(upcode[2])
