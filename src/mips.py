@@ -72,6 +72,7 @@ BINARY_OPS_TO_INSTR = {
 SAVE_INSTRUCTIONS = {
     "char": "sw",
     "int": "sw",
+    "void": "sw",
     "long": "sd",
     "float": "s.s",
     "double": "s.d",
@@ -80,6 +81,7 @@ SAVE_INSTRUCTIONS = {
 LOAD_INSTRUCTIONS = {
     "char": "lw",
     "int": "lw",
+    "void": "lw",
     "long": "ld",
     "float": "l.s",
     "double": "l.d",
@@ -96,6 +98,7 @@ RETURN_REGISTERS = {
 MOVE_INSTRUCTIONS = {
     "char": "move",
     "int": "move",
+    "void": "move",
     "long": "move",
     "float": "mov.s",
     "double": "mov.d",
@@ -178,6 +181,12 @@ def is_number(s: str, return_instr=False):
             return True if not return_instr else (True, lambda reg: "\tli\t" + reg + ",\t" + s)
     except ValueError:
         return False if not return_instr else (False, lambda reg: "")
+
+
+def is_char(s: str):
+    if s[0] == "'" and s[-1] == "'":
+        return True, lambda reg: "\tli\t" + reg + ",\t" + s
+    return False, None
 
 
 def reset_registers():
@@ -292,7 +301,7 @@ def requires_fp_register(val, entry):
 
 def get_register(var, current_symbol_table, offset, return_entry=False):
     entry = None
-    if not is_number(var):
+    if not is_number(var) and not is_char(var)[0]:
         var, entry = convert_varname(var, current_symbol_table)
     reg, offset = simple_register_allocator(var, current_symbol_table, offset, entry)
     return (reg, offset) if not return_entry else (reg, offset, entry)
@@ -558,10 +567,13 @@ def generate_mips_from_3ac(code):
                 elif c[0] == "RETURN":
                     DYNAMIC_NESTING_LVL -= 1
                     is_num, instr = is_number(c[1], True)
-
+                    is_ch, instr2 = is_char(c[1])
                     if is_num:
                         _type = type_of_number(c[1])
-                        reg = "$f0" if _type in ("float", "double") else "$v0"
+                        reg = RETURN_REGISTERS[_type]
+                        print_text(instr(reg))
+                    elif is_ch:
+                        reg = RETURN_REGISTERS["char"]
                         print_text(instr(reg))
                     else:
                         entry = current_symbol_table.lookup(c[1])
@@ -579,15 +591,8 @@ def generate_mips_from_3ac(code):
                         else:
                             t, offset, entry = get_register(c[1], current_symbol_table, offset, True)
                             _type = entry["type"]
-                            reg, instr = (
-                                ("$f0", "mov.d")
-                                if _type == "double"
-                                else (
-                                    ("$f0", "mov.s")
-                                    if _type == "float"
-                                    else (("$v0", "move") if _type == "int" else (1, 1))
-                                )
-                            )
+                            reg = RETURN_REGISTERS[_type]
+                            instr = MOVE_INSTRUCTIONS[_type]
                             print_text(f"\t{instr}\t{reg},\t{t}")
 
                     load_registers_on_function_return("sp")
@@ -602,14 +607,20 @@ def generate_mips_from_3ac(code):
                         offset = store_temp_regs_in_use(offset)
                     # We should ideally be using the a0..a2 registers, but for ease of use we will
                     # push everything into the stack
-                    is_num, instr = is_number(c[1], True)
+                    is_num, instr1 = is_number(c[1], True)
+                    is_ch, instr2 = is_char(c[1])
                     t, offset, entry = get_register(c[1], current_symbol_table, offset, True)
                     if is_num:
                         _type = type_of_number(c[1])
-                        print_text(instr(t))
+                        print_text(instr1(t))
+                    elif is_ch:
+                        _type = "char"
+                        print_text(instr2(t))
                     else:
                         _type = entry["type"]
-                    instr, s = ("s.s", 4) if _type == "float" else (("s.d", 8) if _type == "double" else ("sw", 4))
+                    instr = SAVE_INSTRUCTIONS[_type] 
+                    s = 4  # wont work for double
+                    # instr, s = ("s.s", 4) if _type == "float" else (("s.d", 8) if _type == "double" else ("sw", 4))
                     all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
 
                 elif c[0] == "POPPARAMS":
@@ -648,9 +659,11 @@ def generate_mips_from_3ac(code):
                             raise Exception("Only native datatypes can be directly assigned in global scope")
                     else:
                         is_num, instr = is_number(c[2], True)
+                        is_ch, instr2 = is_char(c[2])
 
-                        if is_num:
+                        if is_num or is_ch:
                             # Assignment with a constant
+                            instr = instr if is_num else instr2
                             if global_scope:
                                 entry = current_symbol_table.lookup(c[0])
                                 fp = requires_fp_register(entry['value'], entry)[0]
@@ -707,7 +720,7 @@ def generate_mips_from_3ac(code):
                         _type = entry["type"]
 
                         reg = RETURN_REGISTERS.get(_type, None)
-                        if reg is None:
+                        if reg is None and _type != "void":
                             stack_pushables = _return_stack_custom_types(c[0], _type, current_symbol_table)
                             _o = -12
                             for (var, s, _t) in stack_pushables:
@@ -715,7 +728,7 @@ def generate_mips_from_3ac(code):
                                 load_instr = LOAD_INSTRUCTIONS[_t]
                                 print_text(f"\t{load_instr}\t{reg},\t{_o}($sp)")
                                 _o -= int(s)
-                        else:
+                        elif _type != "void":
                             t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
                             instr = MOVE_INSTRUCTIONS[_type]
                             print_text(f"\t{instr}\t{t1},\t{reg}")
@@ -727,14 +740,18 @@ def generate_mips_from_3ac(code):
                         op = c[3]
                         t1, offset, entry3 = get_register(c[0], current_symbol_table, offset, True)
 
-                        is_num, instr = is_number(c[2], True)
+                        is_const, instr = is_number(c[2], True)
+                        if not is_const:
+                            is_const, instr = is_char(c[2])
                         t2, offset, entry1 = get_register(c[2], current_symbol_table, offset, True)
-                        if is_num:
+                        if is_const:
                             print_text(instr(t2))
 
-                        is_num, instr = is_number(c[4], True)
+                        is_const, instr = is_number(c[4], True)
+                        if not is_const:
+                            is_const, instr = is_char(c[4])
                         t3, offset, entry2 = get_register(c[4], current_symbol_table, offset, True)
-                        if is_num:
+                        if is_const:
                             print_text(instr(t3))
 
                         _type = (
@@ -751,9 +768,11 @@ def generate_mips_from_3ac(code):
                 if c[0] == "IF" and c[4] == "GOTO":  # If reg != 0 goto label
                     op = c[2]
                     t1, offset, entry = get_register(c[1], current_symbol_table, offset, True)
-                    is_num, instrs = is_number(c[3], True)
+                    is_const, instrs = is_number(c[3], True)
+                    if not is_const:
+                        is_const, instrs = is_char(c[3])
                     t2, offset = get_register(c[3], current_symbol_table, offset)
-                    if is_num:
+                    if is_const:
                         print_text(instrs(t2))
                     instr = BINARY_OPS_TO_INSTR[entry["type"]][op]
                     instr = "b" + instr[1:]

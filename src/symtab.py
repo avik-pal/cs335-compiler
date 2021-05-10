@@ -661,6 +661,8 @@ def get_default_value(type: str):
         return 0
     elif type[-1] == "*":
         return "NULL"
+    elif type == "void":
+        return -1
     else:
         return None
 

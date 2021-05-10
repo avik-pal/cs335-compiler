@@ -146,6 +146,8 @@ def _rewrite_code(code, sizes, ret_sizes):
                         new_code += codes
                         indent_arr.extend([cur_indent] * len(codes))
                     else:
+                        if entry["type"] == "void":
+                            continue
                         new_code.append([v, ":=", str(entry["value"])])
                         indent_arr.append(cur_indent)
         else:
@@ -346,6 +348,8 @@ def optimize_ir(code, indents, depth=5):
                 if r >= first_label:
                     break
                 no_change = False
+                if "CALL" in new_code[r]:
+                    continue
                 new_code[r] = []
                 new_indents[r] = []
 
