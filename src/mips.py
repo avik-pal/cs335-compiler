@@ -617,6 +617,11 @@ def generate_mips_from_3ac(code):
 
                 elif c[0] == "GOTO":
                     print_text(f"\tj\t{c[1]}")
+
+                elif c[0] == "ASSEMBLY_DIRECTIVE":
+                    instr = "\t".join(c[1][1:-1].split(" "))
+                    print_text("\t" + instr)
+
                 else:
                     print_text(c)
 

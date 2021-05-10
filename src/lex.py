@@ -38,6 +38,7 @@ reserved = (
     "PRIVATE",
     "PUBLIC",
     "PROTECTED",
+    "ASSEMBLY_DIRECTIVE"
 )
 
 tokens = reserved + (
@@ -97,6 +98,7 @@ tokens = reserved + (
 )
 
 disallowed_identifiers = {r.lower(): r for r in reserved}
+disallowed_identifiers["__asm_direc"] = "ASSEMBLY_DIRECTIVE"
 
 t_I_CONSTANT = r"\d+([uU]|[lL]|[uU][lL]|[lL][uU])?"
 t_F_CONSTANT = r"((\d+)(\.\d+)(e(\+|-)?(\d+))? | (\d+)e(\+|-)?(\d+))([lL]|[fF])?"

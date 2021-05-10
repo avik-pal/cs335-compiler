@@ -2249,6 +2249,11 @@ def p_compound_statement_2(p):
     p[0]["code"] = [["SYMTAB", "PUSH", p[len(p) - 1]["popped_table"].table_name]] + p[0]["code"] + [["SYMTAB", "POP"]]
 
 
+def p_compound_statement_3(p):
+    """compound_statement : ASSEMBLY_DIRECTIVE STRING_LITERAL"""
+    p[0] = {"code": [["ASSEMBLY_DIRECTIVE", p[2]]]}
+
+
 def p_declaration_list(p):
     """declaration_list : declaration
     | declaration_list declaration"""
