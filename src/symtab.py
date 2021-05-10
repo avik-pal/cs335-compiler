@@ -153,6 +153,8 @@ class SymbolTable:
             if kind == 0:
                 if not self.check_type(entry["type"]):
                     raise Exception(f"{entry['type']} is not a valid data type")
+                if entry["type"].startswith("enum"):
+                    entry["type"] = "int"
                 t = self.lookup_type(entry["type"])
                 entry["size"] = compute_storage_size(entry, t)
 
@@ -236,7 +238,7 @@ class SymbolTable:
                     _, nentry = self.insert(
                         {
                             "name": var,
-                            "type": f"enum {name}",
+                            "type": f"int",
                             "is_array": False,
                             "dimensions": [],
                             "value": entry["field values"][i],
