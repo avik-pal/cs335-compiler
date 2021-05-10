@@ -328,6 +328,8 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             load_instr = LOAD_INSTRUCTIONS[_type]
             save_instr = SAVE_INSTRUCTIONS[_type]
             if register.startswith("$s") or register.startswith("$f"):
+                if remember_to_restore == []:
+                    remember_to_restore = [[]]
                 remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
                 removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
                 print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
@@ -337,11 +339,14 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             if var in removed_registers:
                 instr, loc = removed_registers[var]
                 print_text("\t" + instr + "\t" + register + ",\t" + loc)
-                del removed_registers[var]
+                if removed_registers.get(var, None):
+                    del removed_registers[var]
 
         address_descriptor[var] = register
         busy_registers.append(register)
         register_descriptor[register] = var
+        if registers_in_block == []:
+            registers_in_block = [[]]
         registers_in_block[-1].append(register)
         register_loader[register] = LOAD_INSTRUCTIONS[_type]
         register_saver[register] = SAVE_INSTRUCTIONS[_type]
@@ -377,8 +382,10 @@ def free_registers_in_block():
     for reg in registers_in_block[-1]:
         var = register_descriptor[reg]
         register_descriptor[reg] = None
-        del register_saver[reg]
-        del register_loader[reg]
+        if register_saver.get(reg, None):
+            del register_saver[reg]
+        if register_loader.get(reg, None):
+            del register_loader[reg]
         busy_registers.remove(reg)
         # del address_descriptor[var]
     registers_in_block = registers_in_block[:-1]
@@ -468,7 +475,15 @@ def generate_mips_from_3ac(code):
     # print_text(".data")
     for var, entry in gtab._symtab_variables.items():
         # TODO: Might need to deal with alignment issues
+        # TODO: intialized global arrays 
+        # if entry["is_array"] == True:
+        #     if entry["type"] == "int":
+        #         print_data(f"\t{var}:\t.word\t{}")
+        #     elif if entry["type"] == "char":
+        #         print_data(f"\t{var}:\t.byte\t{}")
+
         print_data(f"\t{var}:\t.space\t{entry['size']}")
+
     # print_text()
 
     # Generate the text part
@@ -586,31 +601,52 @@ def generate_mips_from_3ac(code):
 
             elif len(c) == 3:
                 if c[1] == ":=":
-                    # Assignment
-                    _, entry = convert_varname(c[0], current_symbol_table)
-                    if get_default_value(entry["type"]) is None:
-                        all_fields_lhs = _return_stack_custom_types(c[0], entry["type"], current_symbol_table)
-                        all_fields_rhs = _return_stack_custom_types(c[2], entry["type"], current_symbol_table)
-                        for ((l, _, t1), (r, _, t2)) in zip(all_fields_lhs, all_fields_rhs):
-                            assert t1 == t2, AssertionError(f"Something went wrong {t1} != {t2}")
-                            reg1, offset = get_register(l, current_symbol_table, offset)
-                            reg2, offset = get_register(r, current_symbol_table, offset)
-                            instr = MOVE_INSTRUCTIONS[t1]
-                            # print_text(f"# {reg1} -> {l}, {reg2} -> {r}")
-                            print_text(f"\t{instr}\t{reg1},\t{reg2}")
-                    else:
-                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                    if c[0].endswith("]"):
+                        # TODO: arr[0] := something
+                        t0, offset, entry = get_register(c[0].split('[')[0], current_symbol_table, offset, True)
+
+                        index = c[0].split('[')[1].split(']')[0]
+                        is_num, instr = is_number(index, True)
+                        t1, offset = get_register(index, current_symbol_table, offset)
+                        print_text(instr(t1))
 
                         is_num, instr = is_number(c[2], True)
+                        t2, offset = get_register(c[2], current_symbol_table, offset)
+                        print_text(instr(t2))
 
-                        if is_num:
-                            # Assignment with a constant
-                            print_text(instr(t1))
+                        print_text(f"\tsll\t{t1},\t{t1},\t2")
+                        print_text(f"\tadd\t{t0},\t{t0},\t{t1}")
+                        print_text(f"\tsw\t{t2},\t({t0})")
+                    # print(c)
+                    # Assignment
+                    else:
+                        _, entry = convert_varname(c[0], current_symbol_table)
+                        if get_default_value(entry["type"]) is None:
+                            all_fields_lhs = _return_stack_custom_types(c[0], entry["type"], current_symbol_table)
+                            all_fields_rhs = _return_stack_custom_types(c[2], entry["type"], current_symbol_table)
+                            for ((l, _, t1), (r, _, t2)) in zip(all_fields_lhs, all_fields_rhs):
+                                assert t1 == t2, AssertionError(f"Something went wrong {t1} != {t2}")
+                                reg1, offset = get_register(l, current_symbol_table, offset)
+                                reg2, offset = get_register(r, current_symbol_table, offset)
+                                instr = MOVE_INSTRUCTIONS[t1]
+                                # print_text(f"# {reg1} -> {l}, {reg2} -> {r}")
+                                print_text(f"\t{instr}\t{reg1},\t{reg2}")
                         else:
-                            t2, offset = get_register(c[2], current_symbol_table, offset)
-                            _type = entry["type"]
-                            instr = MOVE_INSTRUCTIONS[_type]
-                            print_text(f"\t{instr}\t{t1},\t{t2}")
+                            t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                            if entry["is_array"] == True:
+                                print_text(f"\tla\t{t1},\t0($sp)")
+                                print_text(f"\tla\t$sp,\t-{entry['size']}($sp)")
+
+                            is_num, instr = is_number(c[2], True)
+
+                            if is_num:
+                                # Assignment with a constant
+                                print_text(instr(t1))
+                            elif not c[2] == "NULL":
+                                t2, offset = get_register(c[2], current_symbol_table, offset)
+                                _type = entry["type"]
+                                instr = MOVE_INSTRUCTIONS[_type]
+                                print_text(f"\t{instr}\t{t1},\t{t2}")
 
                 elif c[0] == "SYMTAB":
                     # Symbol Table
@@ -632,6 +668,24 @@ def generate_mips_from_3ac(code):
                     if c[2].startswith("("):
                         datatype = c[2].replace("(", "").replace(")", "")
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
+
+                    elif c[2].startswith("&"): # ref
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        print_text(f"\tla\t{t1},\t{c[3]}")
+
+                    elif c[2].startswith("*"): # deref
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t2, offset = get_register(c[3], current_symbol_table, offset)
+                        print_text(f"\tlw\t{t1},\t({t2})")
+
+                    elif c[3].startswith("["): # array indexing
+                        t0, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t1, offset, entry_arr = get_register(c[2], current_symbol_table, offset, True)
+                        ind = c[3].replace('[', '').replace(']', '')
+                        t2, offset = get_register(ind, current_symbol_table, offset)
+                        print_text(f"\tsll\t{t2},\t{t2},\t2")
+                        print_text(f"\tadd\t{t1},\t{t1},\t{t2}")
+                        print_text(f"\tlw\t{t0},\t({t1})")
 
                 else:
                     print_text(c)
