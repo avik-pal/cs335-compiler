@@ -507,7 +507,8 @@ def generate_mips_from_3ac(code):
         #     elif if entry["type"] == "char":
         #         print_data(f"\t{var}:\t.byte\t{}")
 
-        print_data(f"\t{var}:\t.space\t{entry['size']}")
+        # print_data(f"\t{var}:\t.space\t{entry['size']}")
+        pass
 
     # print_text()
 
