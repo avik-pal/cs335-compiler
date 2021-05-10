@@ -337,33 +337,24 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             register = lru_list.pop(0)
             load_instr = register_loader[register]
             save_instr = register_saver[register]
-            if register.startswith("$s") or register.startswith("$f"):
-                remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
-                removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
-                print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
-                offset -= _s
-                print_text(f"\tla\t$sp,\t-{_s}($sp)")
-                if is_global:
-                    print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
         else:
             # Free registers available
             register = free_registers.pop()
             load_instr = LOAD_INSTRUCTIONS[_type]
             save_instr = SAVE_INSTRUCTIONS[_type]
-            if register.startswith("$s") or register.startswith("$f"):
-                remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
-                removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
-                print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
-                offset -= _s
-                print_text(f"\tla\t$sp,\t-{_s}($sp)")
-                if is_global:
-                    print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
-
-            if var in removed_registers:
-                instr, loc = removed_registers[var]
-                print_text("\t" + instr + "\t" + register + ",\t" + loc)
-                if removed_registers.get(var, None):
-                    del removed_registers[var]
+        if register.startswith("$s") or register.startswith("$f"):
+            remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
+            removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
+            print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
+            offset -= _s
+            print_text(f"\tla\t$sp,\t-{_s}($sp)")
+            if is_global:
+                print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
+        if var in removed_registers:
+            instr, loc = removed_registers[var]
+            print_text("\t" + instr + "\t" + register + ",\t" + loc)
+            if removed_registers.get(var, None):
+                del removed_registers[var]
 
         address_descriptor[var] = register
         busy_registers.append(register)
