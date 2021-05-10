@@ -38,7 +38,7 @@ reserved = (
     "PRIVATE",
     "PUBLIC",
     "PROTECTED",
-    "ASSEMBLY_DIRECTIVE"
+    "ASSEMBLY_DIRECTIVE",
 )
 
 tokens = reserved + (

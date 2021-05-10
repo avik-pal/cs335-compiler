@@ -133,10 +133,7 @@ def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: s
     global BINARY_OPS_TO_INSTR, BINARY_REL_OPS
     if op == "%":
         div_op = BINARY_OPS_TO_INSTR[t]["/"]
-        return [
-            f"\t{div_op}\t{reg1},\t{reg2}",
-            f"\tmfhi\t{reg3}"
-        ]
+        return [f"\t{div_op}\t{reg1},\t{reg2}", f"\tmfhi\t{reg3}"]
     op_mips = BINARY_OPS_TO_INSTR[t][op]
     if op in BINARY_REL_OPS and t in ("float", "double"):
         label1 = get_tmp_label()
@@ -503,7 +500,7 @@ def generate_mips_from_3ac(code):
     # print_text(".data")
     for var, entry in gtab._symtab_variables.items():
         # TODO: Might need to deal with alignment issues
-        # TODO: intialized global arrays 
+        # TODO: intialized global arrays
         # if entry["is_array"] == True:
         #     if entry["type"] == "int":
         #         print_data(f"\t{var}:\t.word\t{}")
@@ -522,7 +519,7 @@ def generate_mips_from_3ac(code):
     all_pushparams = []
     offset = 0
     global_scope = True
-    
+
     for part in code:
         for i, c in enumerate(part):
             print_text("\n# " + " ".join(c))
@@ -620,7 +617,7 @@ def generate_mips_from_3ac(code):
                         print_text(instr2(t))
                     else:
                         _type = entry["type"]
-                    instr = SAVE_INSTRUCTIONS[_type] 
+                    instr = SAVE_INSTRUCTIONS[_type]
                     s = 4  # wont work for double
                     # instr, s = ("s.s", 4) if _type == "float" else (("s.d", 8) if _type == "double" else ("sw", 4))
                     all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
@@ -643,21 +640,21 @@ def generate_mips_from_3ac(code):
                     # Assignment
                     if c[0].endswith("]"):
                         # TODO: arr[0] := something
-                        t0, offset, entry = get_register(c[0].split('[')[0], current_symbol_table, offset, True)
-                        index = c[0].split('[')[1].split(']')[0]
+                        t0, offset, entry = get_register(c[0].split("[")[0], current_symbol_table, offset, True)
+                        index = c[0].split("[")[1].split("]")[0]
                         is_num, instr = is_number(index, True)
                         t1, offset = get_register(index, current_symbol_table, offset)
                         print_text(instr(t1))
-                        
+
                         is_num, instr = is_number(c[2], True)
                         t2, offset = get_register(c[2], current_symbol_table, offset)
                         print_text(instr(t2))
-                        
+
                         print_text(f"\tsll\t{t1},\t{t1},\t2")
                         print_text(f"\tadd\t{t0},\t{t0},\t{t1}")
                         print_text(f"\tsw\t{t2},\t0({t0})")
                         continue
-                    
+
                     _, entry = convert_varname(c[0], current_symbol_table)
                     _type = entry["type"]
                     if _type.startswith("struct"):
@@ -685,7 +682,7 @@ def generate_mips_from_3ac(code):
                             instr = instr if is_num else instr2
                             if global_scope:
                                 entry = current_symbol_table.lookup(c[0])
-                                fp = requires_fp_register(entry['value'], entry)[0]
+                                fp = requires_fp_register(entry["value"], entry)[0]
                                 print_data(f"{c[0]}: .{size_to_mips_standard(entry['size'], fp)} {entry['value']}")
                             else:
                                 t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
@@ -695,12 +692,12 @@ def generate_mips_from_3ac(code):
                             if entry["is_array"] == True:
                                 print_text(f"\tla\t{t1},\t0($sp)")
                                 print_text(f"\tla\t$sp,\t-{entry['size']}($sp)")
-                                print("\nEntry and t",entry, t1)
+                                print("\nEntry and t", entry, t1)
 
                             if global_scope:
                                 raise Exception("Non constant initialization in global scope")
-                            
-                            if not c[2]== "NULL":
+
+                            if not c[2] == "NULL":
                                 t2, offset = get_register(c[2], current_symbol_table, offset)
                                 _type = entry["type"]
                                 instr = MOVE_INSTRUCTIONS[_type]
@@ -727,21 +724,21 @@ def generate_mips_from_3ac(code):
                         datatype = c[2].replace("(", "").replace(")", "")
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
 
-                    elif c[2].startswith("&"): # ref
+                    elif c[2].startswith("&"):  # ref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
                         # t2, offset = get_register(c[3], current_symbol_table, offset)
                         print_text(f"\tla\t{t1},\t{c[3]}")
 
-                    elif c[2].startswith("*"): # deref
+                    elif c[2].startswith("*"):  # deref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
                         t2, offset = get_register(c[3], current_symbol_table, offset)
                         print_text(f"\tlw\t{t1},\t({t2})")
 
-                    elif c[3].startswith("["): # array indexing
+                    elif c[3].startswith("["):  # array indexing
                         t0, offset, entry = get_register(c[0], current_symbol_table, offset, True)
                         t1, offset, entry_arr = get_register(c[2], current_symbol_table, offset, True)
                         print("\nEntry and t now ", entry_arr, t1)
-                        ind = c[3].replace('[', '').replace(']', '')
+                        ind = c[3].replace("[", "").replace("]", "")
                         is_num, instr = is_number(ind, True)
                         t2, offset = get_register(ind, current_symbol_table, offset)
                         print_text(instr(t2))

@@ -127,13 +127,13 @@ def _rewrite_code(code, sizes, ret_sizes):
                 new_code.append([upcode[4], ":=", "(" + t + ")", upcode[3][0]])
 
             elif c[2].startswith("__get_array_element"):
-                new_code.append([upcode[4], ":=", upcode[3][0] , "[" + upcode[3][1] + "]"])
+                new_code.append([upcode[4], ":=", upcode[3][0], "[" + upcode[3][1] + "]"])
 
             elif c[2].startswith("__ref"):
-                new_code.append([upcode[4], ":=",  "&", upcode[3][0]])
+                new_code.append([upcode[4], ":=", "&", upcode[3][0]])
 
             elif c[2].startswith("__deref"):
-                new_code.append([upcode[4], ":=",  "*" , upcode[3][0]])
+                new_code.append([upcode[4], ":=", "*", upcode[3][0]])
 
             else:
                 # TODO: Push Parameters to call stack (Check MIPS Specification)
