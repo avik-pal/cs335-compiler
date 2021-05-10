@@ -128,6 +128,12 @@ def print_text(*s):
 def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: str) -> str:
     # reg3 := reg1 op reg2
     global BINARY_OPS_TO_INSTR, BINARY_REL_OPS
+    if op == "%":
+        div_op = BINARY_OPS_TO_INSTR[t]["/"]
+        return [
+            f"\t{div_op}\t{reg1},\t{reg2}",
+            f"\tmfhi\t{reg3}"
+        ]
     op_mips = BINARY_OPS_TO_INSTR[t][op]
     if op in BINARY_REL_OPS and t in ("float", "double"):
         label1 = get_tmp_label()
@@ -310,7 +316,8 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         if entry is None and eval(var) == 0:
             return "$0", offset
 
-    is_global = var.split("-")[1] == "GLOBAL"
+    sp = var.split("-")
+    is_global = sp[1] == "GLOBAL" if len(sp) == 3 else False
 
     if var in register_descriptor.values():
         # Already has a register allocated
