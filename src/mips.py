@@ -815,14 +815,29 @@ def generate_mips_from_3ac(code):
             elif len(c) == 6:
                 if c[0] == "IF" and c[4] == "GOTO":  # If reg != 0 goto label
                     op = c[2]
+
+                    is_const, instrs = is_number(c[1], True)
+                    _type = None
+                    if not is_const:
+                        is_const, instrs = is_char(c[1])
+                        if is_const:
+                            _type = "char"
+                    else:
+                        _type = type_of_number(c[1])
                     t1, offset, entry = get_register(c[1], current_symbol_table, offset, True)
+                    if _type is None:
+                        _type = entry["type"]
+                    if is_const:
+                        print_text(instrs(t1))
+
                     is_const, instrs = is_number(c[3], True)
                     if not is_const:
                         is_const, instrs = is_char(c[3])
                     t2, offset = get_register(c[3], current_symbol_table, offset)
                     if is_const:
                         print_text(instrs(t2))
-                    instr = BINARY_OPS_TO_INSTR[entry["type"]][op]
+
+                    instr = BINARY_OPS_TO_INSTR[_type][op]
                     instr = "b" + instr[1:]
                     print_text(f"\t{instr}\t{t1},\t{t2},\t{c[5]}")
 
