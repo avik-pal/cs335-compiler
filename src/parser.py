@@ -2473,7 +2473,7 @@ def p_function_definition(p):
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError
                     # raise Exception("Return type not matching declared type")
-                elif len(code) > 1 and p[1]["value"] != code[1]["type"]:
+                elif len(code) > 1 and p[1]["value"] != code[1]["type"] and not (p[1]["value"] == "int" and code[1]["type"].startswith("enum")):
                     err_msg = "Error at line number " + str(p.lineno(1)) + ": Return type not matching declared type"
                     GLOBAL_ERROR_LIST.append(err_msg)
                     raise SyntaxError

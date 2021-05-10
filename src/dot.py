@@ -170,6 +170,9 @@ def _rewrite_code(code, sizes, ret_sizes):
 
 def _resolve_initialization(v, vtype, symtab):
     entry_type = symtab.lookup_type(vtype)
+    if entry_type["kind"] == 4:
+        # Enum
+        return [[v, ":=", "0"]]
     codes = []
     for f, t in zip(entry_type["field names"], entry_type["field types"]):
         d = get_default_value(t)
