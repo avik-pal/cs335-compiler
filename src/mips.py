@@ -463,14 +463,16 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
     return register, offset
 
 
-def dump_value_to_mem(reg: str, force: bool = True):
+def dump_value_to_mem(reg: str, force: bool = False):
     # tmp vars will be dumped only if force is set to True
-    var = register_descriptor[reg]
-    var = var.split("-")[-1]
+    global removed_registers
+    varname = register_descriptor[reg]
+    var = varname.split("-")[-1]
     if is_tmp_var(var) and not force:
         return
     desc = var_to_mem[var]
     print_text(desc["store function"](reg))
+    removed_registers[varname] = (desc["load instruction"], desc["memory address"])
 
 
 def store_temp_regs_in_use(offset: int) -> int:
