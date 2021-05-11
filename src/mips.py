@@ -339,6 +339,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             register = free_registers.pop()
             load_instr = LOAD_INSTRUCTIONS[_type]
             save_instr = SAVE_INSTRUCTIONS[_type]
+
         if register.startswith("$s") or register.startswith("$f"):
             remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
             removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
@@ -387,7 +388,7 @@ def store_temp_regs_in_use(offset: int) -> int:
 
 def free_registers_in_block():
     global registers_in_block, register_descriptor, address_descriptor, remember_to_restore
-    global register_loader, register_saver
+    global register_loader, register_saver, lru_list_fp, lru_list_int, integer_registers, fp_registers
     for reg in registers_in_block[-1]:
         var = register_descriptor[reg]
         register_descriptor[reg] = None
@@ -396,7 +397,20 @@ def free_registers_in_block():
         if register_loader.get(reg, None):
             del register_loader[reg]
         busy_registers.remove(reg)
-        # del address_descriptor[var]
+
+        if reg.startswith("$f"):
+            lru_list = lru_list_fp
+            fp_registers.append(reg)
+        else:
+            lru_list = lru_list_int
+            integer_registers.append(reg)
+
+        try:
+            while True:
+                lru_list.remove(reg)
+        except ValueError:
+            continue
+
     registers_in_block = registers_in_block[:-1]
     remember_to_restore = remember_to_restore[:-1]
 
