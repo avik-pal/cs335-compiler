@@ -537,6 +537,7 @@ def generate_mips_from_3ac(code):
 
     for part in code:
         for i, c in enumerate(part):
+            # print("\n# " + " ".join(c))
             print_text("\n# " + " ".join(c))
             if len(c) == 1:
                 if c[0].endswith(":"):
@@ -653,22 +654,30 @@ def generate_mips_from_3ac(code):
             elif len(c) == 3:
                 if c[1] == ":=":
                     # Assignment
-                    if c[0].endswith("]"):
-                        # TODO: arr[0] := something
-                        t0, offset, entry = get_register(c[0].split("[")[0], current_symbol_table, offset, True)
+                    if c[0].endswith("]"): # arr[x] := y
+                        t0, offset, entry = get_register(c[0].split("[")[0], current_symbol_table, offset, True) # reg of arr
                         index = c[0].split("[")[1].split("]")[0]
                         is_num, instr = is_number(index, True)
-                        t1, offset = get_register(index, current_symbol_table, offset)
+                        t1, offset = get_register(index, current_symbol_table, offset) # reg of x
                         print_text(instr(t1))
 
                         is_num, instr = is_number(c[2], True)
-                        t2, offset = get_register(c[2], current_symbol_table, offset)
+                        t2, offset = get_register(c[2], current_symbol_table, offset) # reg of y
                         print_text(instr(t2))
 
                         print_text(f"\tsll\t{t1},\t{t1},\t2")
                         print_text(f"\tadd\t{t0},\t{t0},\t{t1}")
                         print_text(f"\tsw\t{t2},\t0({t0})")
                         continue
+
+                    if c[0].startswith("*"): # *ptr = x
+                        t0, offset, entry = get_register(c[0].split("*")[1], current_symbol_table, offset, True) # reg of ptr
+                        is_num, instr = is_number(c[2], True)
+                        t2, offset = get_register(c[2], current_symbol_table, offset) # reg of x
+                        print_text(instr(t2))
+                        print_text(f"\tsw\t{t2},\t0({t0})")
+                        continue
+
 
                     _, entry = convert_varname(c[0], current_symbol_table)
                     _type = entry["type"]
@@ -707,7 +716,6 @@ def generate_mips_from_3ac(code):
                             if entry["is_array"] == True:
                                 print_text(f"\tla\t{t1},\t0($sp)")
                                 print_text(f"\tla\t$sp,\t-{entry['size']}($sp)")
-                                print("\nEntry and t", entry, t1)
 
                             if global_scope:
                                 raise Exception("Non constant initialization in global scope")
@@ -752,7 +760,6 @@ def generate_mips_from_3ac(code):
                     elif c[3].startswith("["):  # array indexing
                         t0, offset, entry = get_register(c[0], current_symbol_table, offset, True)
                         t1, offset, entry_arr = get_register(c[2], current_symbol_table, offset, True)
-                        print("\nEntry and t now ", entry_arr, t1)
                         ind = c[3].replace("[", "").replace("]", "")
                         is_num, instr = is_number(ind, True)
                         t2, offset = get_register(ind, current_symbol_table, offset)

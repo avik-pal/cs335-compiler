@@ -8,6 +8,7 @@ int main()
     ptr = &new_arr[2];
     ptr++; 
     a = *ptr;
+    *ptr = 3;
 
     return 0;
 }
