@@ -406,7 +406,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
     if register in count_which_reg_used:
         count_which_reg_used[register] += 1
     else:
-        count_which_reg_used[register] = 1)
+        count_which_reg_used[register] = 1
 
     return register, offset
 
