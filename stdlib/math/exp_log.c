@@ -1,8 +1,9 @@
 float exp(float x){
 	float sum = 1.0; // initialize sum of series
     int i = 30;
-    for (; i > 0; i=i-1 )
-        sum = 1 + x * sum / i;
+    for (; i > 0; i--) {
+        sum = 1.0 + x * sum / i;
+    }
  
     return sum;
 }
@@ -15,7 +16,7 @@ float log(float n)
     float sum = 0;
     int mul;
     int i = 1;
-    for (; i <= 1000; i=i+1) {
+    for (; i <= 10; i++) {
         mul = 2*i - 1;
         cal = pow(num, mul);
         cal = cal / mul;

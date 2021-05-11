@@ -146,7 +146,7 @@ def _get_conversion_function(p, tcast):
     else:
         nvar = get_tmp_var(t2)
         arg = {"value": nvar, "type": t2, "kind": "FUNCTION CALL"}
-        arg["code"] = [
+        arg["code"] = p.get("code", []) + [
             [
                 "FUNCTION CALL",
                 t2,
@@ -184,7 +184,7 @@ def _get_conversion_function_expr(p, tcast):
                         "type": t2,
                         "kind": "CONSTANT",
                     },
-                ],  # FIXME: We might need the entry for p["value"]
+                ],
                 nvar,
             ]
         ]
@@ -1300,7 +1300,7 @@ def p_assignment_expression(p):
             assert len(p[1]["code"]) <= 1, AssertionError(f"Fix this case-> {p[1]['code']}, len: {len(p[1]['code'])}")
 
             if (not p[1]["code"] == []) and (p[1]["code"][0][2].startswith("__get_array_element")):
-                rep = p[1]["code"][0][3][0]["value"] + "[" +  p[1]["code"][0][3][1]["value"] + "]"
+                rep = p[1]["code"][0][3][0]["value"] + "[" + p[1]["code"][0][3][1]["value"] + "]"
                 p[0]["arguments"][0]["value"] = rep
                 p[1]["code"] = []
 
@@ -1329,7 +1329,6 @@ def p_assignment_expression(p):
             del p[0]["arguments"]
 
         else:
-            # FIXME (M4): Order of type conversion for +=, -=, etc.
             fname, fentry, args = resolve_function_name_uniform_types(p[2][:-1], [p[1], p[3]])
             codes = []
             for _a in args:
@@ -2317,12 +2316,12 @@ def p_selection_statement(p):
     if p[1] == "if":
         p[0] = {"code": []}
         elseLabel = get_tmp_label()
-        if len(p[3]["code"]) > 0:
-            p[0]["code"] += p[3]["code"]
         if p[3]["value"] is not None:
             expr = _get_conversion_function_expr(p[3], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 p[0]["code"] += expr["code"]
+            else:
+                p[0]["code"] += p[3]["code"]
             p[0]["code"] += [["IF", expr["value"], "==", "0", "GOTO", elseLabel]]
         if len(p[5]["code"]) > 0:
             p[0]["code"] += p[5]["code"]
@@ -2332,6 +2331,8 @@ def p_selection_statement(p):
             finishLabel = get_tmp_label()
             p[0]["code"] += [["GOTO", finishLabel], [elseLabel + ":"]]
             if len(p[7]["code"]) > 0:
+                p[0]["code"] += p[7]["code"]
+            else:
                 p[0]["code"] += p[7]["code"]
             p[0]["code"] += [[finishLabel + ":"]]
     else:
@@ -2358,12 +2359,12 @@ def p_iteration_statement(p):
     code = [["LOOPBEGIN", beginLabel, endLabel]]
     if p[1] == "while":
         code += [[beginLabel + ":"]]
-        if len(p[3]["code"]) > 0:
-            code += p[3]["code"]
         if p[3]["value"] != "":
             expr = _get_conversion_function_expr(p[3], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
+            else:
+                code += p[3]["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
         if len(p[5]["code"]) > 0:
             code += p[5]["code"]
@@ -2372,24 +2373,24 @@ def p_iteration_statement(p):
         code += [[beginLabel + ":"]]
         if len(p[2]["code"]) > 0:
             code += p[2]["code"]
-        if len(p[5]["code"]) > 0:
-            code += p[5]["code"]
         if p[5]["value"] != "":
             expr = _get_conversion_function_expr(p[5], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
+            else:
+                code += p[5]["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
 
     elif p[1] == "for":
         if len(p[3]["code"]) > 0:
             code += p[3]["code"]
         code += [[beginLabel + ":"]]
-        if len(p[4]["code"]) > 0:
-            code += p[4]["code"]
         if p[4]["value"] != "":
             expr = _get_conversion_function_expr(p[4], {"type": "int", "pointer_lvl": 0})
             if len(expr["code"]) > 0:
                 code += expr["code"]
+            else:
+                code += p[4]["code"]
             code += [["IF", expr["value"], "==", "0", "GOTO", endLabel]]
         if len(p[len(p) - 1]["code"]) > 0:
             code += p[len(p) - 1]["code"]
