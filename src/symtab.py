@@ -569,14 +569,14 @@ def compute_storage_size(entry, typeentry) -> int:
         for d in entry["dimensions"]:
             if d == "variable":
                 return "var"
-            if isinstance(d,str):
+            if isinstance(d, str):
                 prod *= int(d)
-            elif isinstance(d,int):
+            elif isinstance(d, int):
                 prod *= d
             else:
                 prod *= int(d["value"])
         return prod
-        
+
     if entry.get("pointer_lvl", 0) > 0:
         return 8
     if entry["type"].startswith("enum "):
