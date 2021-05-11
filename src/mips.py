@@ -28,8 +28,8 @@ BINARY_OPS_TO_INSTR = {
         "<": "slt",
         "!=": "sne",
         "==": "seq",
-        ">": "sge",
-        ">=": "sgt",
+        ">": "sgt",
+        ">=": "sge",
     },
     "int": {
         "+": "add",
@@ -40,8 +40,8 @@ BINARY_OPS_TO_INSTR = {
         "<": "slt",
         "!=": "sne",
         "==": "seq",
-        ">": "sge",
-        ">=": "sgt",
+        ">": "sgt",
+        ">=": "sge",
     },
     "float": {
         "+": "add.s",
@@ -52,8 +52,8 @@ BINARY_OPS_TO_INSTR = {
         "<": "c.lt.s",
         "!=": "c.ne.s",
         "==": "c.eq.s",
-        ">": "c.ge.s",
-        ">=": "c.gt.s",
+        ">": "c.gt.s",
+        ">=": "c.ge.s",
     },
     "double": {
         "+": "add.d",
@@ -64,8 +64,8 @@ BINARY_OPS_TO_INSTR = {
         "<": "c.lt.d",
         "!=": "c.ne.d",
         "==": "c.eq.d",
-        ">": "c.ge.d",
-        ">=": "c.gt.d",
+        ">": "c.gt.d",
+        ">=": "c.ge.d",
     },
 }
 
@@ -654,15 +654,17 @@ def generate_mips_from_3ac(code):
             elif len(c) == 3:
                 if c[1] == ":=":
                     # Assignment
-                    if c[0].endswith("]"): # arr[x] := y
-                        t0, offset, entry = get_register(c[0].split("[")[0], current_symbol_table, offset, True) # reg of arr
+                    if c[0].endswith("]"):  # arr[x] := y
+                        t0, offset, entry = get_register(
+                            c[0].split("[")[0], current_symbol_table, offset, True
+                        )  # reg of arr
                         index = c[0].split("[")[1].split("]")[0]
                         is_num, instr = is_number(index, True)
-                        t1, offset = get_register(index, current_symbol_table, offset) # reg of x
+                        t1, offset = get_register(index, current_symbol_table, offset)  # reg of x
                         print_text(instr(t1))
 
                         is_num, instr = is_number(c[2], True)
-                        t2, offset = get_register(c[2], current_symbol_table, offset) # reg of y
+                        t2, offset = get_register(c[2], current_symbol_table, offset)  # reg of y
                         print_text(instr(t2))
 
                         print_text(f"\tsll\t{t1},\t{t1},\t2")
@@ -670,14 +672,15 @@ def generate_mips_from_3ac(code):
                         print_text(f"\tsw\t{t2},\t0({t0})")
                         continue
 
-                    if c[0].startswith("*"): # *ptr = x
-                        t0, offset, entry = get_register(c[0].split("*")[1], current_symbol_table, offset, True) # reg of ptr
+                    if c[0].startswith("*"):  # *ptr = x
+                        t0, offset, entry = get_register(
+                            c[0].split("*")[1], current_symbol_table, offset, True
+                        )  # reg of ptr
                         is_num, instr = is_number(c[2], True)
-                        t2, offset = get_register(c[2], current_symbol_table, offset) # reg of x
+                        t2, offset = get_register(c[2], current_symbol_table, offset)  # reg of x
                         print_text(instr(t2))
                         print_text(f"\tsw\t{t2},\t0({t0})")
                         continue
-
 
                     _, entry = convert_varname(c[0], current_symbol_table)
                     _type = entry["type"]

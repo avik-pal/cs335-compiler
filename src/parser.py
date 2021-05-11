@@ -1290,7 +1290,7 @@ def p_assignment_expression(p):
             assert len(p[1]["code"]) <= 1, AssertionError(f"Fix this case-> {p[1]['code']}, len: {len(p[1]['code'])}")
 
             if (not p[1]["code"] == []) and (p[1]["code"][0][2].startswith("__get_array_element")):
-                rep = p[1]["code"][0][3][0]["value"] + "[" +  p[1]["code"][0][3][1]["value"] + "]"
+                rep = p[1]["code"][0][3][0]["value"] + "[" + p[1]["code"][0][3][1]["value"] + "]"
                 p[0]["arguments"][0]["value"] = rep
                 p[1]["code"] = []
 

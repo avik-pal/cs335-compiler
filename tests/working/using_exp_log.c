@@ -1,5 +1,4 @@
 @include "stdlib/io/console_output.c"
-@include "stdlib/math/pow.c"
 @include "stdlib/math/exp_log.c"
 
 int main(){
