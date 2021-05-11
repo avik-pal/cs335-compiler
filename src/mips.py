@@ -12,26 +12,15 @@ from symtab import (
     DATATYPE2SIZE,
 )
 
+import random
+
 # STATIC_NESTING_LVL = -1
 DYNAMIC_NESTING_LVL = -1
 declared_variables = []
 
 BINARY_REL_OPS = ["==", ">", "<", ">=", "<=", "!="]
 
-UNARY_OPS_TO_INSTR = {
-    "int": {
-        "-": "neg"
-    },
-    "char": {
-        "-": "neg"
-    },
-    "float": {
-        "-": "neg.s"
-    },
-    "double": {
-        "-": "neg.d"
-    }
-}
+UNARY_OPS_TO_INSTR = {"int": {"-": "neg"}, "char": {"-": "neg"}, "float": {"-": "neg.s"}, "double": {"-": "neg.d"}}
 
 BINARY_OPS_TO_INSTR = {
     "char": {
@@ -122,6 +111,9 @@ MOVE_INSTRUCTIONS = {
 
 DATA_SECTION = []
 TEXT_SECTION = []
+BACKPATCH_SECTION = []
+BACKPATCH_OFFSET = -1
+BACKPATCH_INDEX = -1
 data_number_counter = -1
 
 
@@ -149,6 +141,19 @@ def print_text(*s):
     s = " ".join(s)
     global TEXT_SECTION
     TEXT_SECTION.append(s)
+
+
+def print_backpatch(*s):
+    s = " ".join(s)
+    global BACKPATCH_SECTION
+    BACKPATCH_SECTION.append(s)
+
+
+def dump_backpatch():
+    global BACKPATCH_SECTION, TEXT_SECTION
+    idx = BACKPATCH_INDEX
+    TEXT_SECTION = TEXT_SECTION[:idx] + BACKPATCH_SECTION + TEXT_SECTION[idx:]
+    BACKPATCH_SECTION = []
 
 
 def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: str) -> str:
@@ -200,7 +205,9 @@ def is_number(s: str, return_instr=False):
                 return True
         else:
             if s == "0":
-                return True if not return_instr else (True, lambda reg: "" if reg == "$0" else "\tmove\t" + reg + ",\t$0")
+                return (
+                    True if not return_instr else (True, lambda reg: "" if reg == "$0" else "\tmove\t" + reg + ",\t$0")
+                )
             return True if not return_instr else (True, lambda reg: "\tli\t" + reg + ",\t" + s)
     except ValueError:
         return False if not return_instr else (False, lambda reg: "")
@@ -226,6 +233,9 @@ def reset_registers():
     integer_registers = [f"$t{i}" for i in range(10)] + [f"$s{i}" for i in range(8)]
     fp_registers = [f"$f{i}" for i in list(range(30, 2, -2))]
     free_registers = integer_registers + fp_registers
+    # FIXME: Maybe not do this
+    random.shuffle(integer_registers)
+    random.shuffle(fp_registers)
     register_descriptor = {reg: None for reg in free_registers}
     removed_registers = dict()
     registers_in_block = [[]]
@@ -334,7 +344,7 @@ def get_register(var, current_symbol_table, offset, return_entry=False, no_flush
 def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry, no_flush):
     global register_descriptor, address_descriptor, registers_in_block, removed_registers
     global lru_list_int, lru_list_fp, remember_to_restore, register_saver, register_loader
-    global global_vars, count_which_reg_used
+    global global_vars, count_which_reg_used, BACKPATCH_OFFSET
 
     # FIXME: Global mutation and stuff....
 
@@ -369,17 +379,31 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
 
         no_flush = var in removed_registers or no_flush
 
-        if register.startswith("$s") or register.startswith("$f"):
-            remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
+        if register in count_which_reg_used:
+            # Register in use in the current block
             removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
             print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
-            offset -= _s
             print_text(f"\tla\t$sp,\t-{_s}($sp)")
+            offset -= _s
             if not no_flush:
                 if req_fp:
                     print_text(f"\t{load_instr}\t{register},\t__zero_data")
                 else:
                     print_text(f"\tli\t{register},\t0")
+        else:
+            # Register is not being used rn in the current block
+            # If it is a saved register we need to backpatch it
+            if register.startswith("$s") or register.startswith("$f"):
+                # Saved Registers. All fp registers are saved regs
+                remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{BACKPATCH_OFFSET}($fp)")
+                print_backpatch(f"\t{save_instr}\t" + register + ",\t" + f"{BACKPATCH_OFFSET}($fp)")
+                # print_backpatch(f"\tla\t$sp,\t-{_s}($sp)")
+                BACKPATCH_OFFSET -= _s
+                if not no_flush:
+                    if req_fp:
+                        print_text(f"\t{load_instr}\t{register},\t__zero_data")
+                    else:
+                        print_text(f"\tli\t{register},\t0")
 
         if is_global:
             print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
@@ -530,7 +554,7 @@ def close_file(fd_reg):
 
 
 def generate_mips_from_3ac(code):
-    global STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL, global_vars
+    global STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL, global_vars, BACKPATCH_OFFSET, BACKPATCH_INDEX
 
     # print_text("## MIPS Assembly Code\n")
 
@@ -550,7 +574,6 @@ def generate_mips_from_3ac(code):
 
     tabname_mapping = get_tabname_mapping()
     gtab = get_global_symtab()
-
 
     print_data("__zero_data: .float 0.0")
     # Generate the data part for the global variables
@@ -581,7 +604,7 @@ def generate_mips_from_3ac(code):
 
     for part in code:
         for i, c in enumerate(part):
-            print("\n# " + " ".join(c))
+            # print("\n# " + " ".join(c))
             print_text("\n# " + " ".join(c))
             if len(c) == 1:
                 if c[0].endswith(":"):
@@ -589,6 +612,7 @@ def generate_mips_from_3ac(code):
                     # Label
                     print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_"))
                 elif c[0] == "ENDFUNC":
+                    dump_backpatch()
                     load_registers_on_function_return("sp")
                     print_text("\tla\t$sp,\t0($fp)")
                     print_text("\tlw\t$ra,\t-8($sp)")
@@ -621,9 +645,10 @@ def generate_mips_from_3ac(code):
                     print_text("\tla\t$fp,\t0($sp)")
                     sp = c[1].split(",")
                     offset = store_registers_on_function_call() - int(sp[1])
-                    backpatching_offset = offset
+                    BACKPATCH_OFFSET = offset
                     offset -= int(sp[0])
                     print_text(f"\tla\t$sp,\t{offset}($sp)")
+                    BACKPATCH_INDEX = len(TEXT_SECTION)
                     create_new_register_block()
 
                 elif c[0] == "RETURN":
@@ -671,7 +696,9 @@ def generate_mips_from_3ac(code):
                     # push everything into the stack
                     is_num, instr1 = is_number(c[1], True)
                     is_ch, instr2 = is_char(c[1])
-                    t, offset, entry = get_register(c[1], current_symbol_table, offset, True, no_flush=(is_num or is_ch))
+                    t, offset, entry = get_register(
+                        c[1], current_symbol_table, offset, True, no_flush=(is_num or is_ch)
+                    )
                     if is_num:
                         _type = type_of_number(c[1])
                         print_text(instr1(t))
@@ -727,7 +754,7 @@ def generate_mips_from_3ac(code):
                         t0, offset, entry = get_register(
                             c[0].split("*")[1], current_symbol_table, offset, True, no_flush=True
                         )  # reg of ptr
-                        
+
                         is_num, instr = is_number(c[2], True)
                         t2, offset = get_register(c[2], current_symbol_table, offset)  # reg of x
                         print_text(instr(t2))
@@ -735,7 +762,7 @@ def generate_mips_from_3ac(code):
                         req_fp, _type = requires_fp_register(c[2], entry)
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
-                        
+
                         print_text(f"\t{save_instr}\t{t2},\t0({t0})")
                         continue
 
@@ -766,7 +793,9 @@ def generate_mips_from_3ac(code):
                                 fp = requires_fp_register(entry["value"], entry)[0]
                                 print_data(f"{c[0]}: .{size_to_mips_standard(entry['size'], fp)} {entry['value']}")
                             else:
-                                t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
+                                t1, offset, entry = get_register(
+                                    c[0], current_symbol_table, offset, True, no_flush=True
+                                )
                                 print_text(instr(t1))
                         else:
                             t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
@@ -790,7 +819,9 @@ def generate_mips_from_3ac(code):
                     off = 0
                     for p in params:
                         entry = current_symbol_table.lookup(p)
-                        t, offset, entry = get_register(entry["name"], current_symbol_table, offset, True, no_flush=True)
+                        t, offset, entry = get_register(
+                            entry["name"], current_symbol_table, offset, True, no_flush=True
+                        )
                         instr = LOAD_INSTRUCTIONS[entry["type"]]
                         print_text(f"\t{instr}\t{t},\t{off}($fp)")
                         off += entry["size"]
@@ -809,8 +840,8 @@ def generate_mips_from_3ac(code):
                         req_fp, _type = requires_fp_register(c[0], entry)
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
-                        
-                        if c[3].endswith("]"): # & arr [x]
+
+                        if c[3].endswith("]"):  # & arr [x]
                             arr_name = c[3].split()[0]
                             t2, offset = get_register(arr_name, current_symbol_table, offset)
 

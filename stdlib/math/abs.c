@@ -6,6 +6,6 @@ int abs(int val){
 
 float abs(float val){
 	if(val < 0)
-		return -1*val;
+		return -val;
 	return val;
 }

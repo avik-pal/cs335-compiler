@@ -769,10 +769,10 @@ def p_unary_expression(p):
             # TODO: handle cases when len(p[1]["code"] > 1
             assert len(p[2]["code"]) <= 1, AssertionError(f"Fix this case-> {p[2]['code']}, len: {len(p[2]['code'])}")
 
-            if (not p[2]["code"] == []) and (p[2]["code"][0][2].startswith("__get_array_element")): # &a[i]
-                rep = p[2]["code"][0][3][0]["value"] + " [" +  p[2]["code"][0][3][1]["value"] + "]"
+            if (not p[2]["code"] == []) and (p[2]["code"][0][2].startswith("__get_array_element")):  # &a[i]
+                rep = p[2]["code"][0][3][0]["value"] + " [" + p[2]["code"][0][3][1]["value"] + "]"
                 p[2]["value"] = rep
-            
+
             p[0] = copy.deepcopy(p[2])
             p[0]["code"] = []
             nvar = get_tmp_var(get_flookup_type(p[2]))
@@ -793,7 +793,6 @@ def p_unary_expression(p):
             ]
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
             p[0]["value"] = nvar
-
 
         elif p[1] == "+" or p[1] == "-":
 
