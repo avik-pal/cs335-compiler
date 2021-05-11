@@ -719,7 +719,9 @@ def p_unary_expression(p):
             nvar = get_tmp_var(p[0]["type"])
             # p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["code"] = (
-                p[1]["code"] + [[p[1]["value"], ":=", p[1]["value"], p[2][0], str(offset)]] + [[nvar, ":=", p[1]["value"]]]
+                p[1]["code"]
+                + [[p[1]["value"], ":=", p[1]["value"], p[2][0], str(offset)]]
+                + [[nvar, ":=", p[1]["value"]]]
             )
             # print(p[0]["code"])
             p[0]["value"] = nvar
