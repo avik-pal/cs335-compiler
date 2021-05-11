@@ -427,7 +427,7 @@ def p_postfix_expression(p):
             arg_type = "long"
 
         else:
-            offset = 0
+            offset = 1
             arg_type = p[1]["type"]
 
         funcname = p[2] + f"({arg_type})"
@@ -448,7 +448,7 @@ def p_postfix_expression(p):
 
         nvar = get_tmp_var(p[0]["type"])
         p[0]["code"] = (
-            p[1]["code"] + [[nvar, ":=", p[1]["value"]]] + [[p[1]["value"], ":=", p[1]["value"], p[2][0], "1"]]
+            p[1]["code"] + [[nvar, ":=", p[1]["value"]]] + [[p[1]["value"], ":=", p[1]["value"], p[2][0], str(offset)]]
         )
         p[0]["value"] = nvar
         del p[0]["arguments"]
@@ -696,7 +696,7 @@ def p_unary_expression(p):
                 arg_type = "long"
 
             else:
-                offset = 0
+                offset = 1
                 arg_type = p[2]["type"]
 
             funcname = p[1] + f"({arg_type})"
@@ -719,7 +719,7 @@ def p_unary_expression(p):
             nvar = get_tmp_var(p[0]["type"])
             # p[0]["code"] = [[p[0]["kind"], p[0]["type"], p[0]["value"], p[0]["arguments"], nvar]]
             p[0]["code"] = (
-                p[1]["code"] + [[p[1]["value"], ":=", p[1]["value"], p[2][0], "1"]] + [[nvar, ":=", p[1]["value"]]]
+                p[1]["code"] + [[p[1]["value"], ":=", p[1]["value"], p[2][0], str(offset)]] + [[nvar, ":=", p[1]["value"]]]
             )
             # print(p[0]["code"])
             p[0]["value"] = nvar
@@ -764,7 +764,6 @@ def p_unary_expression(p):
                 GLOBAL_ERROR_LIST.append(err_msg)
 
         elif p[1].startswith("&"):
-            print(p[2])
 
             # TODO: handle cases when len(p[1]["code"] > 1
             assert len(p[2]["code"]) <= 1, AssertionError(f"Fix this case-> {p[2]['code']}, len: {len(p[2]['code'])}")

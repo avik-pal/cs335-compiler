@@ -851,7 +851,7 @@ def generate_mips_from_3ac(code):
                             print_text(instr(t3))
                             print_text(f"\tsll\t{t3},\t{t3},\t2")
                             print_text(f"\tadd\t{t2},\t{t2},\t{t3}")
-                            print_text(f"\t{load_instr}\t{t1},\t{t2}")
+                            print_text(f"\t{load_instr}\t{t1},\t0({t2})")
                         else:
                             # doesn't work yet
                             t3, offset = get_register(c[3], current_symbol_table, offset)
@@ -864,7 +864,7 @@ def generate_mips_from_3ac(code):
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
                         t2, offset = get_register(c[3], current_symbol_table, offset)
-                        print_text(f"\t{load_instr}\t{t1},\t({t2})")
+                        print_text(f"\t{load_instr}\t{t1},\t0({t2})")
 
                     elif c[3].startswith("["):  # array indexing
                         t0, offset, entry = get_register(c[0], current_symbol_table, offset, True)
