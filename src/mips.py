@@ -855,7 +855,7 @@ def generate_mips_from_3ac(code):
 
                             print_text(f"\tsll\t{t3},\t{t3},\t2")
                             print_text(f"\tadd\t{tmp_reg},\t{t2},\t{t3}")
-                            print_text(f"\t{load_instr}\t{t1},\t0({tmp_reg})")
+                            print_text(f"\tla\t{t1},\t0({tmp_reg})")
                         else:
                             # doesn't work yet
                             t3, offset = get_register(c[3], current_symbol_table, offset)
