@@ -903,12 +903,13 @@ def generate_mips_from_3ac(code):
 
                             index = c[3].split()[1].replace("[", "").replace("]", "")
                             is_num, instr = is_number(index, True)
-                            t3, offset = get_register(index, current_symbol_table, offset)
-                            print_text(instr(t3))
-                            tmp_reg, offset = get_register("1", current_symbol_table, offset)
+                            t3, offset = get_register(index, current_symbol_table, offset, no_flush=is_num)
+                            if is_num:
+                                print_text(instr(t3))
+                            tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
 
-                            print_text(f"\tsll\t{t3},\t{t3},\t2")
-                            print_text(f"\tadd\t{tmp_reg},\t{t2},\t{t3}")
+                            print_text(f"\tsll\t{tmp_reg},\t{t3},\t2")
+                            print_text(f"\tadd\t{tmp_reg},\t{t2},\t{tmp_reg}")
                             print_text(f"\tla\t{t1},\t0({tmp_reg})")
                         else:
                             # doesn't work yet
@@ -937,7 +938,7 @@ def generate_mips_from_3ac(code):
                         t2, offset = get_register(ind, current_symbol_table, offset, no_flush=is_num)
                         if is_num:
                             print_text(instr(t2))
-                        tmp_reg, offset = get_register("1", current_symbol_table, offset)
+                        tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
 
                         print_text(f"\tsll\t{tmp_reg},\t{t2},\t2")
                         print_text(f"\tadd\t{tmp_reg},\t{t1},\t{tmp_reg}")
