@@ -581,7 +581,7 @@ def generate_mips_from_3ac(code):
 
     for part in code:
         for i, c in enumerate(part):
-            # print("\n# " + " ".join(c))
+            print("\n# " + " ".join(c))
             print_text("\n# " + " ".join(c))
             if len(c) == 1:
                 if c[0].endswith(":"):
@@ -704,6 +704,7 @@ def generate_mips_from_3ac(code):
                         t0, offset, entry = get_register(
                             c[0].split("[")[0], current_symbol_table, offset, True, no_flush=True
                         )  # reg of arr
+
                         index = c[0].split("[")[1].split("]")[0]
                         is_num, instr = is_number(index, True)
                         t1, offset = get_register(index, current_symbol_table, offset)  # reg of x
@@ -713,19 +714,29 @@ def generate_mips_from_3ac(code):
                         t2, offset = get_register(c[2], current_symbol_table, offset)  # reg of y
                         print_text(instr(t2))
 
+                        req_fp, _type = requires_fp_register(c[2], entry)
+                        load_instr = LOAD_INSTRUCTIONS[_type]
+                        save_instr = SAVE_INSTRUCTIONS[_type]
+
                         print_text(f"\tsll\t{t1},\t{t1},\t2")
                         print_text(f"\tadd\t{t0},\t{t0},\t{t1}")
-                        print_text(f"\tsw\t{t2},\t0({t0})")
+                        print_text(f"\t{save_instr}\t{t2},\t0({t0})")
                         continue
 
                     if c[0].startswith("*"):  # *ptr = x
                         t0, offset, entry = get_register(
                             c[0].split("*")[1], current_symbol_table, offset, True, no_flush=True
                         )  # reg of ptr
+                        
                         is_num, instr = is_number(c[2], True)
                         t2, offset = get_register(c[2], current_symbol_table, offset)  # reg of x
                         print_text(instr(t2))
-                        print_text(f"\tsw\t{t2},\t0({t0})")
+
+                        req_fp, _type = requires_fp_register(c[2], entry)
+                        load_instr = LOAD_INSTRUCTIONS[_type]
+                        save_instr = SAVE_INSTRUCTIONS[_type]
+                        
+                        print_text(f"\t{save_instr}\t{t2},\t0({t0})")
                         continue
 
                     _, entry = convert_varname(c[0], current_symbol_table)
@@ -794,25 +805,52 @@ def generate_mips_from_3ac(code):
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
 
                     elif c[2].startswith("&"):  # ref
-                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
-                        # t2, offset = get_register(c[3], current_symbol_table, offset)
-                        print_text(f"\tla\t{t1},\t{c[3]}")
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        req_fp, _type = requires_fp_register(c[0], entry)
+                        load_instr = LOAD_INSTRUCTIONS[_type]
+                        save_instr = SAVE_INSTRUCTIONS[_type]
+                        
+                        if c[3].endswith("]"): # & arr [x]
+                            arr_name = c[3].split()[0]
+                            t2, offset = get_register(arr_name, current_symbol_table, offset)
+
+                            index = c[3].split()[1].replace("[", "").replace("]", "")
+                            is_num, instr = is_number(index, True)
+                            t3, offset = get_register(index, current_symbol_table, offset)
+                            print_text(instr(t3))
+                            print_text(f"\tsll\t{t3},\t{t3},\t2")
+                            print_text(f"\tadd\t{t2},\t{t2},\t{t3}")
+                            print_text(f"\t{load_instr}\t{t1},\t{t2}")
+                        else:
+                            # doesn't work yet
+                            t3, offset = get_register(c[3], current_symbol_table, offset)
+                            print_text(f"\t{load_instr}\t{t1},\t{t3}")
 
                     elif c[2].startswith("*"):  # deref
-                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        req_fp, _type = requires_fp_register(c[0], entry)
+                        load_instr = LOAD_INSTRUCTIONS[_type]
+                        save_instr = SAVE_INSTRUCTIONS[_type]
+
                         t2, offset = get_register(c[3], current_symbol_table, offset)
-                        print_text(f"\tlw\t{t1},\t({t2})")
+                        print_text(f"\t{load_instr}\t{t1},\t({t2})")
 
                     elif c[3].startswith("["):  # array indexing
                         t0, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        req_fp, _type = requires_fp_register(c[0], entry)
+                        load_instr = LOAD_INSTRUCTIONS[_type]
+                        save_instr = SAVE_INSTRUCTIONS[_type]
+
                         t1, offset, entry_arr = get_register(c[2], current_symbol_table, offset, True)
+
                         ind = c[3].replace("[", "").replace("]", "")
                         is_num, instr = is_number(ind, True)
                         t2, offset = get_register(ind, current_symbol_table, offset)
+
                         print_text(instr(t2))
                         print_text(f"\tsll\t{t2},\t{t2},\t2")
                         print_text(f"\tadd\t{t1},\t{t1},\t{t2}")
-                        print_text(f"\tlw\t{t0},\t({t1})")
+                        print_text(f"\t{load_instr}\t{t0},\t({t1})")
 
                     elif c[2] == "-":
                         t0, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
