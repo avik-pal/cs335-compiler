@@ -18,6 +18,21 @@ declared_variables = []
 
 BINARY_REL_OPS = ["==", ">", "<", ">=", "<=", "!="]
 
+UNARY_OPS_TO_INSTR = {
+    "int": {
+        "-": "neg"
+    },
+    "char": {
+        "-": "neg"
+    },
+    "float": {
+        "-": "neg.s"
+    },
+    "double": {
+        "-": "neg.d"
+    }
+}
+
 BINARY_OPS_TO_INSTR = {
     "char": {
         "+": "add",
@@ -185,7 +200,7 @@ def is_number(s: str, return_instr=False):
                 return True
         else:
             if s == "0":
-                return True if not return_instr else (True, lambda reg: "\tmove\t" + reg + ",\t$0")
+                return True if not return_instr else (True, lambda reg: "" if reg == "$0" else "\tmove\t" + reg + ",\t$0")
             return True if not return_instr else (True, lambda reg: "\tli\t" + reg + ",\t" + s)
     except ValueError:
         return False if not return_instr else (False, lambda reg: "")
@@ -201,8 +216,9 @@ def reset_registers():
     global address_descriptor, activation_record, register_descriptor, free_registers, remember_to_restore
     global parameter_descriptor, busy_registers, lru_list_fp, lru_list_int, registers_in_block, removed_registers
     global integer_registers, fp_registers, free_registers_int
-    global register_loader, register_saver, global_vars
+    global register_loader, register_saver, global_vars, count_which_reg_used
     address_descriptor = dict()
+    count_which_reg_used = dict()
     register_loader = dict()
     register_saver = dict()
     activation_record = []
@@ -307,18 +323,18 @@ def requires_fp_register(val, entry):
             return False, "int"
 
 
-def get_register(var, current_symbol_table, offset, return_entry=False):
+def get_register(var, current_symbol_table, offset, return_entry=False, no_flush=False):
     entry = None
     if not is_number(var) and not is_char(var)[0]:
         var, entry = convert_varname(var, current_symbol_table)
-    reg, offset = simple_register_allocator(var, current_symbol_table, offset, entry)
+    reg, offset = simple_register_allocator(var, current_symbol_table, offset, entry, no_flush)
     return (reg, offset) if not return_entry else (reg, offset, entry)
 
 
-def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry):
+def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry, no_flush):
     global register_descriptor, address_descriptor, registers_in_block, removed_registers
     global lru_list_int, lru_list_fp, remember_to_restore, register_saver, register_loader
-    global global_vars
+    global global_vars, count_which_reg_used
 
     # FIXME: Global mutation and stuff....
 
@@ -351,18 +367,23 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             load_instr = LOAD_INSTRUCTIONS[_type]
             save_instr = SAVE_INSTRUCTIONS[_type]
 
+        no_flush = var in removed_registers or no_flush
+
         if register.startswith("$s") or register.startswith("$f"):
             remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{offset}($fp)")
             removed_registers[register_descriptor[register]] = (load_instr, f"{offset}($fp)")
             print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
             offset -= _s
             print_text(f"\tla\t$sp,\t-{_s}($sp)")
-            if req_fp:
-                print_text(f"\t{load_instr}\t{register},\t__zero_data")
-            else:
-                print_text(f"\tli\t{register},\t0")
-            if is_global:
-                print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
+            if not no_flush:
+                if req_fp:
+                    print_text(f"\t{load_instr}\t{register},\t__zero_data")
+                else:
+                    print_text(f"\tli\t{register},\t0")
+
+        if is_global:
+            print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
+
         if var in removed_registers:
             instr, loc = removed_registers[var]
             print_text("\t" + instr + "\t" + register + ",\t" + loc)
@@ -377,10 +398,15 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         register_saver[register] = SAVE_INSTRUCTIONS[_type]
 
     try:
-        while True:
-            lru_list.remove(register)
-    except ValueError:
-        lru_list.append(register)
+        lru_list.remove(register)
+    except:
+        pass
+    lru_list.append(register)
+
+    if register in count_which_reg_used:
+        count_which_reg_used[register] += 1
+    else:
+        count_which_reg_used[register] = 1)
 
     return register, offset
 
@@ -421,8 +447,7 @@ def free_registers_in_block():
             integer_registers.append(reg)
 
         try:
-            while True:
-                lru_list.remove(reg)
+            lru_list.remove(reg)
         except ValueError:
             continue
 
@@ -431,9 +456,10 @@ def free_registers_in_block():
 
 
 def create_new_register_block():
-    global registers_in_block, remember_to_restore
+    global registers_in_block, remember_to_restore, count_which_reg_used
     registers_in_block += [[]]
     remember_to_restore += [[]]
+    count_which_reg_used = dict()
 
 
 def store_registers_on_function_call() -> int:
@@ -551,6 +577,7 @@ def generate_mips_from_3ac(code):
     all_pushparams = []
     offset = 0
     global_scope = True
+    backpatching_offset = -1
 
     for part in code:
         for i, c in enumerate(part):
@@ -592,7 +619,10 @@ def generate_mips_from_3ac(code):
                     print_text("\tsw\t$fp,\t-4($sp)")  # dynamic link (old fp)
                     print_text("\tsw\t$ra,\t-8($sp)")
                     print_text("\tla\t$fp,\t0($sp)")
-                    offset = store_registers_on_function_call() - int(c[1].split(",")[1])
+                    sp = c[1].split(",")
+                    offset = store_registers_on_function_call() - int(sp[1])
+                    backpatching_offset = offset
+                    offset -= int(sp[0])
                     print_text(f"\tla\t$sp,\t{offset}($sp)")
                     create_new_register_block()
 
@@ -641,7 +671,7 @@ def generate_mips_from_3ac(code):
                     # push everything into the stack
                     is_num, instr1 = is_number(c[1], True)
                     is_ch, instr2 = is_char(c[1])
-                    t, offset, entry = get_register(c[1], current_symbol_table, offset, True)
+                    t, offset, entry = get_register(c[1], current_symbol_table, offset, True, no_flush=(is_num or is_ch))
                     if is_num:
                         _type = type_of_number(c[1])
                         print_text(instr1(t))
@@ -652,7 +682,6 @@ def generate_mips_from_3ac(code):
                         _type = entry["type"]
                     instr = SAVE_INSTRUCTIONS[_type]
                     s = 4  # wont work for double
-                    # instr, s = ("s.s", 4) if _type == "float" else (("s.d", 8) if _type == "double" else ("sw", 4))
                     all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
 
                 elif c[0] == "POPPARAMS":
@@ -673,7 +702,7 @@ def generate_mips_from_3ac(code):
                     # Assignment
                     if c[0].endswith("]"):  # arr[x] := y
                         t0, offset, entry = get_register(
-                            c[0].split("[")[0], current_symbol_table, offset, True
+                            c[0].split("[")[0], current_symbol_table, offset, True, no_flush=True
                         )  # reg of arr
                         index = c[0].split("[")[1].split("]")[0]
                         is_num, instr = is_number(index, True)
@@ -691,7 +720,7 @@ def generate_mips_from_3ac(code):
 
                     if c[0].startswith("*"):  # *ptr = x
                         t0, offset, entry = get_register(
-                            c[0].split("*")[1], current_symbol_table, offset, True
+                            c[0].split("*")[1], current_symbol_table, offset, True, no_flush=True
                         )  # reg of ptr
                         is_num, instr = is_number(c[2], True)
                         t2, offset = get_register(c[2], current_symbol_table, offset)  # reg of x
@@ -709,14 +738,11 @@ def generate_mips_from_3ac(code):
                         all_fields_rhs = _return_stack_custom_types(c[2], entry["type"], current_symbol_table)
                         for ((l, _, t1), (r, _, t2)) in zip(all_fields_lhs, all_fields_rhs):
                             assert t1 == t2, AssertionError(f"Something went wrong {t1} != {t2}")
-                            reg1, offset = get_register(l, current_symbol_table, offset)
+                            reg1, offset = get_register(l, current_symbol_table, offset, no_flush=True)
                             reg2, offset = get_register(r, current_symbol_table, offset)
                             instr = MOVE_INSTRUCTIONS[t1]
                             # print_text(f"# {reg1} -> {l}, {reg2} -> {r}")
                             print_text(f"\t{instr}\t{reg1},\t{reg2}")
-                    elif _type.startswith("enum"):
-                        if global_scope:
-                            raise Exception("Only native datatypes can be directly assigned in global scope")
                     else:
                         is_num, instr = is_number(c[2], True)
                         is_ch, instr2 = is_char(c[2])
@@ -729,10 +755,10 @@ def generate_mips_from_3ac(code):
                                 fp = requires_fp_register(entry["value"], entry)[0]
                                 print_data(f"{c[0]}: .{size_to_mips_standard(entry['size'], fp)} {entry['value']}")
                             else:
-                                t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                                t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                                 print_text(instr(t1))
                         else:
-                            t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                            t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                             if entry["is_array"] == True:
                                 print_text(f"\tla\t{t1},\t0($sp)")
                                 print_text(f"\tla\t$sp,\t-{entry['size']}($sp)")
@@ -753,8 +779,8 @@ def generate_mips_from_3ac(code):
                     off = 0
                     for p in params:
                         entry = current_symbol_table.lookup(p)
-                        t, offset, entry = get_register(entry["name"], current_symbol_table, offset, True)
-                        instr = "l.s" if entry["type"] == "float" else ("l.d" if entry["type"] == "double" else "lw")
+                        t, offset, entry = get_register(entry["name"], current_symbol_table, offset, True, no_flush=True)
+                        instr = LOAD_INSTRUCTIONS[entry["type"]]
                         print_text(f"\t{instr}\t{t},\t{off}($fp)")
                         off += entry["size"]
                 else:
@@ -768,12 +794,12 @@ def generate_mips_from_3ac(code):
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
 
                     elif c[2].startswith("&"):  # ref
-                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                         # t2, offset = get_register(c[3], current_symbol_table, offset)
                         print_text(f"\tla\t{t1},\t{c[3]}")
 
                     elif c[2].startswith("*"):  # deref
-                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                         t2, offset = get_register(c[3], current_symbol_table, offset)
                         print_text(f"\tlw\t{t1},\t({t2})")
 
@@ -787,6 +813,28 @@ def generate_mips_from_3ac(code):
                         print_text(f"\tsll\t{t2},\t{t2},\t2")
                         print_text(f"\tadd\t{t1},\t{t1},\t{t2}")
                         print_text(f"\tlw\t{t0},\t({t1})")
+
+                    elif c[2] == "-":
+                        t0, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
+                        neg_instr = UNARY_OPS_TO_INSTR[entry["type"]][c[2]]
+                        is_const, instr = is_number(c[3], True)
+                        if not is_const:
+                            is_const, instr = is_char(c[3])
+                        t1, offset = get_register(c[3], current_symbol_table, offset)
+                        if is_const:
+                            print_text(instr(t1))
+                        print_text(f"\t{neg_instr}\t{t0},\t{t1}")
+
+                    elif c[2] == "+":
+                        t0, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
+                        pos_instr = MOVE_INSTRUCTIONS[entry["type"]]
+                        is_const, instr = is_number(c[3], True)
+                        if not is_const:
+                            is_const, instr = is_char(c[3])
+                        t1, offset = get_register(c[3], current_symbol_table, offset, no_flush=is_const)
+                        if is_const:
+                            print_text(instr(t1))
+                        print_text(f"\t{pos_instr}\t{t0},\t{t1}")
 
                 else:
                     print_text(c)
@@ -811,12 +859,12 @@ def generate_mips_from_3ac(code):
                             stack_pushables = _return_stack_custom_types(c[0], _type, current_symbol_table)
                             _o = -12
                             for (var, s, _t) in stack_pushables:
-                                reg, offset = get_register(var, current_symbol_table, offset)
+                                reg, offset = get_register(var, current_symbol_table, offset, no_flush=True)
                                 load_instr = LOAD_INSTRUCTIONS[_t]
                                 print_text(f"\t{load_instr}\t{reg},\t{_o}($sp)")
                                 _o -= int(s)
                         elif _type != "void":
-                            t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                            t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                             instr = MOVE_INSTRUCTIONS[_type]
                             print_text(f"\t{instr}\t{t1},\t{reg}")
                         print_text(f"\tla\t$sp,\t{c[4]}($sp)")
@@ -825,19 +873,19 @@ def generate_mips_from_3ac(code):
                     else:
                         # Assignment + An op
                         op = c[3]
-                        t1, offset, entry3 = get_register(c[0], current_symbol_table, offset, True)
+                        t1, offset, entry3 = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
 
                         is_const, instr = is_number(c[2], True)
                         if not is_const:
                             is_const, instr = is_char(c[2])
-                        t2, offset, entry1 = get_register(c[2], current_symbol_table, offset, True)
+                        t2, offset, entry1 = get_register(c[2], current_symbol_table, offset, True, no_flush=is_const)
                         if is_const:
                             print_text(instr(t2))
 
                         is_const, instr = is_number(c[4], True)
                         if not is_const:
                             is_const, instr = is_char(c[4])
-                        t3, offset, entry2 = get_register(c[4], current_symbol_table, offset, True)
+                        t3, offset, entry2 = get_register(c[4], current_symbol_table, offset, True, no_flush=is_const)
                         if is_const:
                             print_text(instr(t3))
 
