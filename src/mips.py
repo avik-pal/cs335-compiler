@@ -745,9 +745,11 @@ def generate_mips_from_3ac(code):
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
+                        tmp_reg, offset = get_register("1", current_symbol_table, offset)
+
                         print_text(f"\tsll\t{t1},\t{t1},\t2")
-                        print_text(f"\tadd\t{t0},\t{t0},\t{t1}")
-                        print_text(f"\t{save_instr}\t{t2},\t0({t0})")
+                        print_text(f"\tadd\t{tmp_reg},\t{t0},\t{t1}")
+                        print_text(f"\t{save_instr}\t{t2},\t0({tmp_reg})")
                         continue
 
                     if c[0].startswith("*"):  # *ptr = x
@@ -849,9 +851,11 @@ def generate_mips_from_3ac(code):
                             is_num, instr = is_number(index, True)
                             t3, offset = get_register(index, current_symbol_table, offset)
                             print_text(instr(t3))
+                            tmp_reg, offset = get_register("1", current_symbol_table, offset)
+
                             print_text(f"\tsll\t{t3},\t{t3},\t2")
-                            print_text(f"\tadd\t{t2},\t{t2},\t{t3}")
-                            print_text(f"\t{load_instr}\t{t1},\t0({t2})")
+                            print_text(f"\tadd\t{tmp_reg},\t{t2},\t{t3}")
+                            print_text(f"\t{load_instr}\t{t1},\t0({tmp_reg})")
                         else:
                             # doesn't work yet
                             t3, offset = get_register(c[3], current_symbol_table, offset)
@@ -877,11 +881,12 @@ def generate_mips_from_3ac(code):
                         ind = c[3].replace("[", "").replace("]", "")
                         is_num, instr = is_number(ind, True)
                         t2, offset = get_register(ind, current_symbol_table, offset)
-
                         print_text(instr(t2))
+                        tmp_reg, offset = get_register("1", current_symbol_table, offset)
+
                         print_text(f"\tsll\t{t2},\t{t2},\t2")
-                        print_text(f"\tadd\t{t1},\t{t1},\t{t2}")
-                        print_text(f"\t{load_instr}\t{t0},\t({t1})")
+                        print_text(f"\tadd\t{tmp_reg},\t{t1},\t{t2}")
+                        print_text(f"\t{load_instr}\t{t0},\t({tmp_reg})")
 
                     elif c[2] == "-":
                         t0, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
