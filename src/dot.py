@@ -151,17 +151,18 @@ def _rewrite_code(code, sizes, ret_sizes):
             new_code.append(["RETURN"] + ([] if len(c) == 1 else [c[1]["value"]]))
         elif c[0] == "SYMTAB" and c[1] == "PUSH":
             new_code.append(c)
-            for v, entry in tabname_mapping[c[2]]._symtab_variables.items():
-                if not entry.get("is_parameter", False):
-                    if entry["value"] is None:
-                        codes = _resolve_initialization(v, entry["type"], tabname_mapping[c[2]])
-                        new_code += codes
-                        indent_arr.extend([cur_indent] * len(codes))
-                    else:
-                        if entry["type"] == "void":
-                            continue
-                        new_code.append([v, ":=", str(entry["value"])])
-                        indent_arr.append(cur_indent)
+            # Dont store defaults
+            # for v, entry in tabname_mapping[c[2]]._symtab_variables.items():
+            #     if not entry.get("is_parameter", False):
+            #         if entry["value"] is None:
+            #             codes = _resolve_initialization(v, entry["type"], tabname_mapping[c[2]])
+            #             new_code += codes
+            #             indent_arr.extend([cur_indent] * len(codes))
+            #         else:
+            #             if entry["type"] == "void":
+            #                 continue
+            #             new_code.append([v, ":=", str(entry["value"])])
+            #             indent_arr.append(cur_indent)
         else:
             new_code.append(c)
         if not already_app:

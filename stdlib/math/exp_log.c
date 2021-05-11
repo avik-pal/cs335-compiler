@@ -1,5 +1,3 @@
-@include "stdlib/math/pow.c"
-
 float exp(float x){
 	float sum = 1.0; // initialize sum of series
     int i = 30;

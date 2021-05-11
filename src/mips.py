@@ -116,9 +116,17 @@ def get_tmp_data():
     return f"__tmp_data_{data_number_counter}"
 
 
+DATA_TO_LABEL = {}
+
+
 def print_data(*s):
     s = " ".join(s)
-    global DATA_SECTION
+    global DATA_SECTION, DATA_TO_LABEL
+    try:
+        seq = s.split(" ")
+        DATA_TO_LABEL[seq[2]] = seq[0][:-1]
+    except:
+        pass
     DATA_SECTION.append(s)
 
 
@@ -167,8 +175,11 @@ def is_number(s: str, return_instr=False):
         if not s.isnumeric():
             float(s)
             if return_instr:
-                var = get_tmp_data()
-                print_data(f"{var}: .float {s}")
+                if str(s) in DATA_TO_LABEL:
+                    var = DATA_TO_LABEL[str(s)]
+                else:
+                    var = get_tmp_data()
+                    print_data(f"{var}: .float {s}")
                 return True, lambda reg: "\tl.s\t" + reg + ",\t" + var
             else:
                 return True
@@ -346,6 +357,10 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             print_text(f"\t{save_instr}\t" + register + ",\t" + f"{offset}($fp)")
             offset -= _s
             print_text(f"\tla\t$sp,\t-{_s}($sp)")
+            if req_fp:
+                print_text(f"\t{load_instr}\t{register},\t__zero_data")
+            else:
+                print_text(f"\tli\t{register},\t0")
             if is_global:
                 print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
         if var in removed_registers:
@@ -510,6 +525,8 @@ def generate_mips_from_3ac(code):
     tabname_mapping = get_tabname_mapping()
     gtab = get_global_symtab()
 
+
+    print_data("__zero_data: .float 0.0")
     # Generate the data part for the global variables
     # print_text(".data")
     for var, entry in gtab._symtab_variables.items():
