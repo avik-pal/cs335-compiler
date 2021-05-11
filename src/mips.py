@@ -537,7 +537,7 @@ def generate_mips_from_3ac(code):
 
     for part in code:
         for i, c in enumerate(part):
-            # print("\n# " + " ".join(c))
+            print("\n# " + " ".join(c))
             print_text("\n# " + " ".join(c))
             if len(c) == 1:
                 if c[0].endswith(":"):
@@ -749,8 +749,22 @@ def generate_mips_from_3ac(code):
 
                     elif c[2].startswith("&"):  # ref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
-                        # t2, offset = get_register(c[3], current_symbol_table, offset)
-                        print_text(f"\tla\t{t1},\t{c[3]}")
+                        
+                        if c[3].endswith("]"): # & arr [x]
+                            arr_name = c[3].split()[0]
+                            t2, offset = get_register(arr_name, current_symbol_table, offset)
+
+                            index = c[3].split()[1].replace("[", "").replace("]", "")
+                            is_num, instr = is_number(index, True)
+                            t3, offset = get_register(index, current_symbol_table, offset)
+                            print_text(instr(t3))
+                            print_text(f"\tsll\t{t3},\t{t3},\t2")
+                            print_text(f"\tadd\t{t2},\t{t2},\t{t3}")
+                            print_text(f"\tlw\t{t1},\t{t2}")
+                        else:
+                            # doesn't work yet
+                            t3, offset = get_register(c[3], current_symbol_table, offset)
+                            print_text(f"\tlw\t{t1},\t{t3}")
 
                     elif c[2].startswith("*"):  # deref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
