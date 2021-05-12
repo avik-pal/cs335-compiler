@@ -728,10 +728,10 @@ def generate_mips_from_3ac(code):
                         entry = current_symbol_table.lookup(c[1])
                         if entry is None:
                             raise NotImplementedError
-                        elif _type.startswith("struct"):
+                        elif entry["type"].startswith("struct"):
                             # custom type
                             # type_details = current_symbol_table.lookup_type(_type)
-                            stack_pushables = _return_stack_custom_types(c[1], _type, current_symbol_table)
+                            stack_pushables = _return_stack_custom_types(c[1], entry["type"], current_symbol_table)
                             _o = -12
                             for (var, s, _t) in stack_pushables:
                                 reg, offset = get_register(var, current_symbol_table, offset)
