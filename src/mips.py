@@ -300,7 +300,7 @@ def get_type_cast_instr(t1, t2):  # t1 -> t2
 
 def type_cast_mips(c, dtype, current_symbol_table, offset):  # reg1 := (dtype) reg2
 
-    t1, offset = get_register(c[0], current_symbol_table, offset)
+    t1, offset = get_register(c[0], current_symbol_table, offset, no_flush=True)
     is_num, instr = is_number(c[3], True)
     t2, offset, entry = get_register(c[3], current_symbol_table, offset, True)
 
@@ -338,11 +338,11 @@ def requires_fp_register(val, entry):
             return False, "int"
 
 
-def get_register(var, current_symbol_table, offset, return_entry=False, no_flush=False):
+def get_register(var, current_symbol_table, offset, return_entry=False, no_flush=False, no_load=False):
     entry = None
     if not is_number(var) and not is_char(var)[0]:
         var, entry = convert_varname(var, current_symbol_table)
-    reg, offset = simple_register_allocator(var, current_symbol_table, offset, entry, no_flush)
+    reg, offset = simple_register_allocator(var, current_symbol_table, offset, entry, no_flush, no_load)
     return (reg, offset) if not return_entry else (reg, offset, entry)
 
 
@@ -352,7 +352,7 @@ def is_tmp_var(v: str):
     return v.startswith("__tmp_var_") or is_number(v) or is_char(v)[0]
 
 
-def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry, no_flush):
+def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry, no_flush, no_load):
     global register_descriptor, address_descriptor, registers_in_block, removed_registers
     global lru_list_int, lru_list_fp, remember_to_restore, register_saver, register_loader
     global global_vars, local_var_mapping, BACKPATCH_OFFSET, LOCAL_VAR_OFFSET
@@ -360,8 +360,11 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
 
     # FIXME: Global mutation and stuff....
 
+    # TODO: Test this a bit
+    # no_load = no_flush
+
     req_fp, _type = requires_fp_register(var, entry)
-    _s = DATATYPE2SIZE[_type.upper()]
+    _s = DATATYPE2SIZE[_type.upper()] if entry is None else entry["size"]
     if req_fp:
         lru_list = lru_list_fp
         free_registers = fp_registers
@@ -380,18 +383,19 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         # Everything gets stored in the stack but we dont flush temps into
         # memory so we need to make sure that we dont access those memory locations
         off = LOCAL_VAR_OFFSET
-        # FIXME: For arrays load instruction  would be la
+        load_instr = LOAD_INSTRUCTIONS[_type] if not entry["is_array"] else "la"
+        save_instr = SAVE_INSTRUCTIONS[_type]
         var_to_mem[store_name] = {
             "wrt_register": "$fp",
             "offset": str(LOCAL_VAR_OFFSET),
             "size": _s,
             "floating point register": req_fp,
             "type": _type,
-            "load instruction": LOAD_INSTRUCTIONS[_type],
-            "store instruction": SAVE_INSTRUCTIONS[_type],
-            "memory address": f"{LOCAL_VAR_OFFSET}($fp)",
-            "store function": lambda reg: f"\t{SAVE_INSTRUCTIONS[_type]}\t{reg},\t{off}($fp)",
-            "load function": lambda reg: f"\t{LOAD_INSTRUCTIONS[_type]}\t{reg},\t{off}($fp)",
+            "load instruction": load_instr,
+            "store instruction": save_instr,
+            "memory address": f"{off}($fp)",
+            "store function": lambda reg: f"\t{save_instr}\t{reg},\t{off}($fp)",
+            "load function": lambda reg: f"\t{load_instr}\t{reg},\t{off}($fp)",
         }
         LOCAL_VAR_OFFSET -= _s
 
@@ -402,22 +406,23 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         if len(free_registers) == 0:
             # No free register available
             register = lru_list.pop(0)
-            load_instr = register_loader[register]
+            load_instr = register_loader[register] if entry is not None and not entry["is_array"] else "la"
             save_instr = register_saver[register]
         else:
             # Free registers available
             register = free_registers.pop()
-            load_instr = LOAD_INSTRUCTIONS[_type]
+            load_instr = LOAD_INSTRUCTIONS[_type] if entry is not None and not entry["is_array"] else "la"
             save_instr = SAVE_INSTRUCTIONS[_type]
 
         no_flush = var in removed_registers or no_flush
 
         if register in local_var_mapping:
             # Register in use in the current block
-            if not (is_number(store_name) or is_char(store_name)[0]):
+            sname = register_descriptor[register].split("-")[-1]
+            if not (is_number(sname) or is_char(sname)[0]):
                 removed_registers[register_descriptor[register]] = (
                     load_instr,
-                    var_to_mem[store_name]["memory address"],
+                    var_to_mem[sname]["memory address"],
                 )
             if not no_flush:
                 if req_fp:
@@ -444,7 +449,8 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
 
         if var in removed_registers:
             instr, loc = removed_registers[var]
-            print_text("\t" + instr + "\t" + register + ",\t" + loc)
+            if not no_load:
+                print_text("\t" + instr + "\t" + register + ",\t" + loc)
             if removed_registers.get(var, None):
                 del removed_registers[var]
 
@@ -469,17 +475,19 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
 
 def dump_value_to_mem(reg: str, force: bool = False):
     # tmp vars will be dumped only if force is set to True
-    global removed_registers
+    global removed_registers, local_var_mapping, busy_registers
     varname = register_descriptor[reg]
-    if varname == None:
+    if varname is None:
         return
     var = varname.split("-")[-1]
-    if is_tmp_var(var) and not force:
+    if (is_number(varname) or is_char(varname)[0]) or (is_tmp_var(var) and not force):
         return
     desc = var_to_mem[var]
     print_text(desc["store function"](reg))
     removed_registers[varname] = (desc["load instruction"], desc["memory address"])
+    del local_var_mapping[reg]
     register_descriptor[reg] = None
+    busy_registers.remove(reg)
 
 
 def store_temp_regs_in_use(offset: int) -> int:
@@ -487,6 +495,8 @@ def store_temp_regs_in_use(offset: int) -> int:
     for reg in busy_registers:
         if reg[1] == "t":
             name = register_descriptor[reg]
+            if name is None:
+                continue
             store_name = name.split("-")[-1]
             if is_number(store_name) or is_char(store_name)[0]:
                 continue
@@ -497,6 +507,7 @@ def store_temp_regs_in_use(offset: int) -> int:
             ## Store the current value
             print_text("\tsw\t" + reg + ",\t" + var_to_mem[store_name]["memory address"])
             register_descriptor[reg] = None
+            busy_registers.remove(reg)
     return offset
 
 
@@ -510,7 +521,9 @@ def free_registers_in_block():
             del register_saver[reg]
         if register_loader.get(reg, None):
             del register_loader[reg]
-        busy_registers.remove(reg)
+        
+        if reg in busy_registers:
+            busy_registers.remove(reg)
 
         if reg.startswith("$f"):
             lru_list = lru_list_fp
@@ -659,7 +672,7 @@ def generate_mips_from_3ac(code):
                 if c[0].endswith(":"):
                     global_scope = False
                     # Label
-                    print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_").replace('*', 'ptr'))
+                    print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_").replace("*", "ptr"))
                 elif c[0] == "ENDFUNC":
                     dump_backpatch()
                     load_registers_on_function_return("sp")
@@ -907,7 +920,7 @@ def generate_mips_from_3ac(code):
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
 
                     elif c[2].startswith("&"):  # ref
-                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                         req_fp, _type = requires_fp_register(c[0], entry)
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
