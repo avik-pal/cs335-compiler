@@ -47,6 +47,8 @@ BINARY_OPS_TO_INSTR = {
         "==": "seq",
         ">": "sgt",
         ">=": "sge",
+        "&": "and",
+        "|": "or",
     },
     "float": {
         "+": "add.s",
@@ -164,7 +166,7 @@ def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: s
     if op == "%":
         div_op = BINARY_OPS_TO_INSTR[t]["/"]
         return [f"\t{div_op}\t{reg1},\t{reg2}", f"\tmfhi\t{reg3}"]
-    op_mips = BINARY_OPS_TO_INSTR[t][op]
+    op_mips = BINARY_OPS_TO_INSTR[t][op]  
     if op in BINARY_REL_OPS and t in ("float", "double"):
         label1 = get_tmp_label()
         label2 = get_tmp_label()
@@ -1069,7 +1071,44 @@ def generate_mips_from_3ac(code):
                             else (entry2["type"] if entry2 is not None else entry3["type"])
                         )
 
-                        instrs = get_mips_instr_from_binary_op(op, _type, t2, t3, t1)
+                        if op=="&&":
+                            instrs = []
+                            t4, offset, entry4 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
+                            t5, offset, entry5 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
+                            _type4 = (
+                                entry4["type"]
+                                if entry4 is not None
+                                else (entry2["type"])
+                            )
+                            _type5 = (
+                                entry5["type"]
+                                if entry4 is not None
+                                else (entry3["type"])
+                            )
+                            instrs.append(get_mips_instr_from_binary_op("!=",_type4,t2,"$0",t4)[0])
+                            instrs.append(get_mips_instr_from_binary_op("!=",_type5,t3,"$0",t5)[0])
+                            instrs.append(get_mips_instr_from_binary_op("&", _type, t4, t5, t1)[0])
+
+                        if op=="||":
+                            instrs = []
+                            t4, offset, entry4 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
+                            t5, offset, entry5 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
+                            _type4 = (
+                                entry4["type"]
+                                if entry4 is not None
+                                else (entry2["type"])
+                            )
+                            _type5 = (
+                                entry5["type"]
+                                if entry4 is not None
+                                else (entry3["type"])
+                            )
+                            instrs.append(get_mips_instr_from_binary_op("!=",_type4,t2,"$0",t4)[0])
+                            instrs.append(get_mips_instr_from_binary_op("!=",_type5,t3,"$0",t5)[0])
+                            instrs.append(get_mips_instr_from_binary_op("|", _type, t4, t5, t1)[0])
+
+                        else:
+                            instrs = get_mips_instr_from_binary_op(op, _type, t2, t3, t1)
                         for instr in instrs:
                             print_text(instr)
                         dump_value_to_mem(t1)
