@@ -1,4 +1,5 @@
 from copy import deepcopy
+import numpy as np
 
 from symtab import (
     SymbolTable,
@@ -772,7 +773,17 @@ def generate_mips_from_3ac(code):
                         _type = entry["type"]
                     instr = SAVE_INSTRUCTIONS[_type]
                     s = 4  # wont work for double
-                    all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
+                    # arrays as params
+                    if entry["is_array"] == True:
+                        dim = int(entry["dimensions"][0])
+                        ind_off = 0
+                        tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
+                        for i in range(0, dim):
+                            all_pushparams.extend([f"\t{load_instr}\t{tmp_reg},\t{ind_off}({t})"])
+                            all_pushparams.extend([f"\t{instr}\t{tmp_reg},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
+                            ind_off += DATATYPE2SIZE[entry["type"].upper()]
+                    else:
+                        all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
 
                 elif c[0] == "POPPARAMS":
                     first_pushparam = True
@@ -794,6 +805,8 @@ def generate_mips_from_3ac(code):
                         t0, offset, entry = get_register(
                             c[0].split("[")[0], current_symbol_table, offset, True, no_flush=True
                         )  # reg of arr
+                        d_size = DATATYPE2SIZE[entry["type"].upper()]
+                        bits = int(np.log2(d_size))
 
                         index = c[0].split("[")[1].split("]")[0]
                         is_num, instr = is_number(index, True)
@@ -810,9 +823,9 @@ def generate_mips_from_3ac(code):
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
-                        tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
-
-                        print_text(f"\tsll\t{tmp_reg},\t{t1},\t2")
+                        tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush = True)
+                        
+                        print_text(f"\tsll\t{tmp_reg},\t{t1},\t{bits}")
                         print_text(f"\tadd\t{tmp_reg},\t{t0},\t{tmp_reg}")
                         print_text(f"\t{save_instr}\t{t2},\t0({tmp_reg})")
                         continue
@@ -915,6 +928,8 @@ def generate_mips_from_3ac(code):
                         req_fp, _type = requires_fp_register(c[0], entry)
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
+                        d_size = DATATYPE2SIZE[entry["type"].upper()]
+                        bits = int(np.log2(d_size))
 
                         if c[3].endswith("]"):  # y = & arr [x]
                             arr_name = c[3].split()[0]
@@ -927,7 +942,7 @@ def generate_mips_from_3ac(code):
                                 print_text(instr(t3))
                             tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
 
-                            print_text(f"\tsll\t{tmp_reg},\t{t3},\t2")
+                            print_text(f"\tsll\t{tmp_reg},\t{t3},\t{bits}")
                             print_text(f"\tadd\t{tmp_reg},\t{t2},\t{tmp_reg}")
                             print_text(f"\tla\t{t1},\t0({tmp_reg})")
                         else:  # y = & var
@@ -951,6 +966,8 @@ def generate_mips_from_3ac(code):
                         req_fp, _type = requires_fp_register(c[0], entry)
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
+                        d_size = DATATYPE2SIZE[entry["type"].upper()]
+                        bits = int(np.log2(d_size))
 
                         t1, offset, entry_arr = get_register(c[2], current_symbol_table, offset, True)
 
@@ -961,7 +978,7 @@ def generate_mips_from_3ac(code):
                             print_text(instr(t2))
                         tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
 
-                        print_text(f"\tsll\t{tmp_reg},\t{t2},\t2")
+                        print_text(f"\tsll\t{tmp_reg},\t{t2},\t{bits}")
                         print_text(f"\tadd\t{tmp_reg},\t{t1},\t{tmp_reg}")
                         print_text(f"\t{load_instr}\t{t0},\t({tmp_reg})")
 

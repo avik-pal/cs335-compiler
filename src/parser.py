@@ -768,14 +768,21 @@ def p_unary_expression(p):
         elif p[1].startswith("&"):
 
             # TODO: handle cases when len(p[1]["code"] > 1
-            assert len(p[2]["code"]) <= 1, AssertionError(f"Fix this case-> {p[2]['code']}, len: {len(p[2]['code'])}")
+            # assert len(p[2]["code"]) <= 1, AssertionError(f"Fix this case-> {p[2]['code']}, len: {len(p[2]['code'])}")
 
-            if (not p[2]["code"] == []) and (p[2]["code"][0][2].startswith("__get_array_element")):  # &a[i]
-                rep = p[2]["code"][0][3][0]["value"] + " [" + p[2]["code"][0][3][1]["value"] + "]"
+            if len(p[2]["code"]) > 1:
+                tmp_code = p[2]["code"][:-1]
+                f_call_ind = len(p[2]["code"])-1
+            else:
+                tmp_code = []
+                f_call_ind = 0
+
+            if (not p[2]["code"] == []) and (p[2]["code"][f_call_ind][2].startswith("__get_array_element")):  # &a[i]
+                rep = p[2]["code"][f_call_ind][3][0]["value"] + " [" + p[2]["code"][f_call_ind][3][1]["value"] + "]"
                 p[2]["value"] = rep
 
             p[0] = copy.deepcopy(p[2])
-            p[0]["code"] = []
+            p[0]["code"] = tmp_code
             nvar = get_tmp_var(get_flookup_type(p[2]))
             p[0]["code"] += [
                 [
@@ -1297,17 +1304,23 @@ def p_assignment_expression(p):
                 "kind": "FUNCTION CALL",
             }
             # TODO: handle cases when len(p[1]["code"] > 1
-            assert len(p[1]["code"]) <= 1, AssertionError(f"Fix this case-> {p[1]['code']}, len: {len(p[1]['code'])}")
+            # assert len(p[1]["code"]) <= 1, AssertionError(f"Fix this case-> {p[1]['code']}, len: {len(p[1]['code'])}")
+            if len(p[1]["code"]) > 1:
+                tmp_code = p[1]["code"][:-1]
+                f_call_ind = len(p[1]["code"])-1
+            else:
+                tmp_code = []
+                f_call_ind = 0
 
-            if (not p[1]["code"] == []) and (p[1]["code"][0][2].startswith("__get_array_element")):
-                rep = p[1]["code"][0][3][0]["value"] + "[" + p[1]["code"][0][3][1]["value"] + "]"
+            if (not p[1]["code"] == []) and (p[1]["code"][f_call_ind][2].startswith("__get_array_element")):
+                rep = p[1]["code"][f_call_ind][3][0]["value"] + "[" + p[1]["code"][f_call_ind][3][1]["value"] + "]"
                 p[0]["arguments"][0]["value"] = rep
-                p[1]["code"] = []
+                p[1]["code"] = tmp_code
 
-            elif (not p[1]["code"] == []) and (p[1]["code"][0][2].startswith("__deref")):
-                rep = "*" + p[1]["code"][0][3][0]["value"]
+            elif (not p[1]["code"] == []) and (p[1]["code"][f_call_ind][2].startswith("__deref")):
+                rep = "*" + p[1]["code"][f_call_ind][3][0]["value"]
                 p[0]["arguments"][0]["value"] = rep
-                p[1]["code"] = []
+                p[1]["code"] = tmp_code
 
             nvar = get_tmp_var(p[0]["type"])
             p[0]["code"] = (
