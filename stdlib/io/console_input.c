@@ -39,3 +39,20 @@ char read_char() {
     
     return '';
 }
+
+
+char* read_string(char* inp_buffer, int max_len) {
+    __asm_direc "la $a0, 0($fp)";
+    __asm_direc "lw $a1, 4($fp)";
+    __asm_direc "li $v0, 8";
+    __asm_direc "syscall";
+
+    if (1) {
+        __asm_direc "la $sp, 0($fp)";
+        __asm_direc "lw $ra, -8($sp)";
+        __asm_direc "lw $fp, -4($sp)";
+        __asm_direc "jr $ra";
+    }
+    
+    return inp_buffer;
+}
