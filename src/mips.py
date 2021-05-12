@@ -804,9 +804,8 @@ def generate_mips_from_3ac(code):
 
                         tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
 
-                        if not t1 == "$0":
-                            print_text(f"\tsll\t{t1},\t{t1},\t2")
-                        print_text(f"\tadd\t{tmp_reg},\t{t0},\t{t1}")
+                        print_text(f"\tsll\t{tmp_reg},\t{t1},\t2")
+                        print_text(f"\tadd\t{tmp_reg},\t{t0},\t{tmp_reg}")
                         print_text(f"\t{save_instr}\t{t2},\t0({tmp_reg})")
                         continue
 
@@ -900,7 +899,7 @@ def generate_mips_from_3ac(code):
                         offset = type_cast_mips(c, datatype, current_symbol_table, offset)
 
                     elif c[2].startswith("&"):  # ref
-                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
+                        t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                         req_fp, _type = requires_fp_register(c[0], entry)
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
