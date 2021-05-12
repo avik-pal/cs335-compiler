@@ -773,17 +773,18 @@ def generate_mips_from_3ac(code):
                         _type = entry["type"]
                     instr = SAVE_INSTRUCTIONS[_type]
                     s = 4  # wont work for double
-                    # arrays as params
-                    if entry is not None and entry["is_array"] == True:
-                        dim = int(entry["dimensions"][0])
-                        ind_off = 0
-                        tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
-                        for i in range(0, dim):
-                            all_pushparams.extend([f"\t{load_instr}\t{tmp_reg},\t{ind_off}({t})"])
-                            all_pushparams.extend([f"\t{instr}\t{tmp_reg},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
-                            ind_off += DATATYPE2SIZE[entry["type"].upper()]
-                    else:
-                        all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
+                    # arrays as params (Don't push all array elements into stack; for now assume all calls are by reference)
+                    # if entry is not None and entry["is_array"] == True:
+                    #     dim = int(entry["dimensions"][0])
+                    #     ind_off = 0
+                    #     tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
+                    #     for i in range(0, dim):
+                    #         all_pushparams.extend([f"\t{load_instr}\t{tmp_reg},\t{ind_off}({t})"])
+                    #         all_pushparams.extend([f"\t{instr}\t{tmp_reg},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
+                    #         ind_off += DATATYPE2SIZE[entry["type"].upper()]
+                    # else:
+                    #     all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
+                    all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
 
                 elif c[0] == "POPPARAMS":
                     first_pushparam = True
