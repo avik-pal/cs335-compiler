@@ -474,7 +474,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
 
 def dump_value_to_mem(reg: str, force: bool = False):
     # tmp vars will be dumped only if force is set to True
-    global removed_registers, local_var_mapping
+    global removed_registers, local_var_mapping, busy_registers
     varname = register_descriptor[reg]
     var = varname.split("-")[-1]
     if (is_number(varname) or is_char(varname)[0]) or (is_tmp_var(var) and not force):
@@ -484,6 +484,7 @@ def dump_value_to_mem(reg: str, force: bool = False):
     removed_registers[varname] = (desc["load instruction"], desc["memory address"])
     del local_var_mapping[reg]
     register_descriptor[reg] = None
+    busy_registers.remove(reg)
 
 
 def store_temp_regs_in_use(offset: int) -> int:
@@ -491,6 +492,8 @@ def store_temp_regs_in_use(offset: int) -> int:
     for reg in busy_registers:
         if reg[1] == "t":
             name = register_descriptor[reg]
+            if name is None:
+                continue
             store_name = name.split("-")[-1]
             if is_number(store_name) or is_char(store_name)[0]:
                 continue
@@ -501,6 +504,7 @@ def store_temp_regs_in_use(offset: int) -> int:
             ## Store the current value
             print_text("\tsw\t" + reg + ",\t" + var_to_mem[store_name]["memory address"])
             register_descriptor[reg] = None
+            busy_registers.remove(reg)
     return offset
 
 
@@ -514,7 +518,9 @@ def free_registers_in_block():
             del register_saver[reg]
         if register_loader.get(reg, None):
             del register_loader[reg]
-        busy_registers.remove(reg)
+        
+        if reg in busy_registers:
+            busy_registers.remove(reg)
 
         if reg.startswith("$f"):
             lru_list = lru_list_fp
@@ -663,7 +669,7 @@ def generate_mips_from_3ac(code):
                 if c[0].endswith(":"):
                     global_scope = False
                     # Label
-                    print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_"))
+                    print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_").replace("*", "ptr"))
                 elif c[0] == "ENDFUNC":
                     dump_backpatch()
                     load_registers_on_function_return("sp")
@@ -990,7 +996,7 @@ def generate_mips_from_3ac(code):
                         for params in all_pushparams:
                             print_text(params)
                         all_pushparams = []
-                        print_text(f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_')}")
+                        print_text(f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_').replace('*', 'ptr')}")
                         # caller pops the arguments
                         entry = current_symbol_table.lookup(c[0])
                         _type = entry["type"]
