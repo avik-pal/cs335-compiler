@@ -1,5 +1,5 @@
 /* Function to sort an array using insertion sort*/
-void insertionSort(int arr[], int n)
+int insertionSort(int n, int arr[])
 {
    int i, key, j;
    for (i = 1; i < n; i++)
@@ -17,14 +17,15 @@ void insertionSort(int arr[], int n)
        }
        arr[j+1] = key;
    }
+    return arr[0];
 }
 
 // A utility function ot print an array of size n
-void printArray(int arr[], int n)
-{
-   int i;
-   for (i=0; i < n; i++);
-}
+// void printArray(int arr[], int n)
+// {
+//    int i;
+//    for (i=0; i < n; i++);
+// }
 
 /* Driver program to test insertion sort */
 int main()
@@ -32,8 +33,8 @@ int main()
     int arr[5] = {12 + 4, 11, 13, 5, 6};
     int n = arr[1];
  
-    insertionSort(arr, n);
-    printArray(arr, n);
+    n = insertionSort(n, arr);
+    // printArray(arr, n);
  
-    return 0;
+    return n;
 }

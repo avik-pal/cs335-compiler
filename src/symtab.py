@@ -156,7 +156,7 @@ class SymbolTable:
                 if entry["type"].startswith("enum"):
                     entry["type"] = "int"
                 t = self.lookup_type(entry["type"])
-                entry["size"] = compute_storage_size(entry, t)
+                entry["size"] = compute_storage_size(entry, t, self)
 
                 _type = _get_correct_type(entry)
 
@@ -554,11 +554,12 @@ def _get_correct_type(entry: dict):
     return entry["type"]
 
 
-def compute_storage_size(entry, typeentry) -> int:
+def compute_storage_size(entry, typeentry, symTab=None) -> int:
     _c = entry["type"].count("*")
+    symTab = get_current_symtab() if symTab is None else symTab
     if _c > 0:
         t = "".join(filter(lambda x: x != "*", entry["type"])).strip()
-        return compute_storage_size({"type": t, "pointer_lvl": _c}, get_current_symtab().lookup_type(t))
+        return compute_storage_size({"type": t, "pointer_lvl": _c}, symTab.lookup_type(t), symTab)
     # if "[" in entry["type"]:
     #     # FIXME
     #     t = entry["type"][:entry["type"].index("[")]
@@ -583,19 +584,17 @@ def compute_storage_size(entry, typeentry) -> int:
         return 4
     if entry["type"].startswith("struct "):
         size = 0
-        symTab = get_current_symtab()
         temp = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
-            size += compute_storage_size({"type": t}, symTab.lookup_type(t))
+            size += compute_storage_size({"type": t}, symTab.lookup_type(t), symTab)
         return size
     if entry["type"].startswith("union "):
         size = 0
-        symTab = get_current_symtab()
         temp = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
-            size = max(size, compute_storage_size({"type": t}, symTab.lookup_type(t)))
+            size = max(size, compute_storage_size({"type": t}, symTab.lookup_type(t), symTab))
         return size
     if typeentry is None:
         s = DATATYPE2SIZE[entry["type"].upper()]
@@ -610,12 +609,12 @@ TMP_LABEL_COUNTER = 0
 TMP_CLOSURE_COUNTER = 0
 
 
-def get_tmp_var(vartype=None) -> str:
+def get_tmp_var(vartype=None, symTab=None) -> str:
     global TMP_VAR_COUNTER
     TMP_VAR_COUNTER += 1
     vname = f"__tmp_var_{TMP_VAR_COUNTER}"
     if vartype is not None:
-        symTab = get_current_symtab()
+        symTab = get_current_symtab() if symTab is None else symTab
 
         ptr_level = vartype.count("*")
         if ptr_level > 0:

@@ -157,21 +157,46 @@ def _rewrite_code(code, sizes, ret_sizes):
             #         if entry["value"] == "NULL":
             #             new_code.append([v, ":=", str(entry["value"])])
             #             indent_arr.append(cur_indent)
-                    # if entry["value"] is None:
-                    #     codes = _resolve_initialization(v, entry["type"], tabname_mapping[c[2]])
-                    #     new_code += codes
-                    #     indent_arr.extend([cur_indent] * len(codes))
-                    # else:
-                    #     if entry["type"] == "void":
-                    #         continue
-                    #     new_code.append([v, ":=", str(entry["value"])])
-                    #     indent_arr.append(cur_indent)
+            #         if entry["value"] is None:
+            #             codes = _resolve_initialization(v, entry["type"], tabname_mapping[c[2]])
+            #             new_code += codes
+            #             indent_arr.extend([cur_indent] * len(codes))
+            #         else:
+            #             if entry["type"] == "void":
+            #                 continue
+            #             new_code.append([v, ":=", str(entry["value"])])
+            #             indent_arr.append(cur_indent)
         else:
             new_code.append(c)
         if not already_app:
             indent_arr.append(cur_indent)
         already_app = False
     return new_code, indent_arr
+
+
+def _rewrite_code_2nd_pass(code, indent):
+    new_codes, new_indents = [], []
+    cur_symtab = get_global_symtab()
+    tmap = get_tabname_mapping()
+    for (c, i) in zip(code, indent):
+        ts = list(map(lambda x: "->" in x, c))
+        if c[0] == "SYMTAB" and c[1] == "PUSH":
+            cur_symtab = tmap[c[2]]
+        if any(ts):
+            if len(ts) == 2:
+                # RETURN
+                var = c[1].split(" -> ")[0]
+                _type = cur_symtab.lookup(var)["type"]
+                tvar = get_tmp_var(_type, cur_symtab)
+                new_codes.append([tvar, ":=", c[1]])
+                new_codes.append(["RETURN", tvar])
+            else:
+                new_codes.append(c)
+                new_indents.append(i)
+        else:
+            new_codes.append(c)
+            new_indents.append(i)
+    return new_codes, new_indents
 
 
 def _resolve_initialization(v, vtype, symtab):
@@ -401,6 +426,7 @@ def parse_code(tree, output_file, optimize, print_code):
 
         code = t["code"]
         code, indents = _rewrite_code(code, sizes, ret_sizes)
+        code, indents = _rewrite_code_2nd_pass(code, indents)
         if print_code:
             print("Before Compiler Optimizations")
             print()

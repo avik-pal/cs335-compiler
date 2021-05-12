@@ -166,7 +166,7 @@ def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: s
     if op == "%":
         div_op = BINARY_OPS_TO_INSTR[t]["/"]
         return [f"\t{div_op}\t{reg1},\t{reg2}", f"\tmfhi\t{reg3}"]
-    op_mips = BINARY_OPS_TO_INSTR[t][op]  
+    op_mips = BINARY_OPS_TO_INSTR[t][op]
     if op in BINARY_REL_OPS and t in ("float", "double"):
         label1 = get_tmp_label()
         label2 = get_tmp_label()
@@ -387,19 +387,29 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         # Everything gets stored in the stack but we dont flush temps into
         # memory so we need to make sure that we dont access those memory locations
         off = LOCAL_VAR_OFFSET
-        load_instr = LOAD_INSTRUCTIONS[_type] if not entry["is_array"] else "la"
-        save_instr = SAVE_INSTRUCTIONS[_type]
+        print(var, entry)
+        if entry["pointer_lvl"] >= 1:
+            # def load_func(reg):
+            #     treg, _ = get_register("1", current_symbol_table, -1, no_flush=True)
+            #     asm1 = f"\tlw\t{treg},\t{off}($fp)"
+            #     return
+            # load_func = lambda reg: f"\taddi\t{reg},\t$fp,\t{off}"
+            load_func = lambda reg: f"\tlw\t{reg},\t{off}($fp)"
+            store_func = lambda reg: f"\tsw\t{reg},\t{off}($fp)"
+        else:
+            load_instr = LOAD_INSTRUCTIONS[_type] if not entry["is_array"] else "la"
+            save_instr = SAVE_INSTRUCTIONS[_type]
+            load_func = lambda reg: f"\t{load_instr}\t{reg},\t{off}($fp)"
+            store_func = lambda reg: f"\t{save_instr}\t{reg},\t{off}($fp)"
         var_to_mem[store_name] = {
             "wrt_register": "$fp",
             "offset": str(LOCAL_VAR_OFFSET),
             "size": _s,
             "floating point register": req_fp,
             "type": _type,
-            "load instruction": load_instr,
-            "store instruction": save_instr,
             "memory address": f"{off}($fp)",
-            "store function": lambda reg: f"\t{save_instr}\t{reg},\t{off}($fp)",
-            "load function": lambda reg: f"\t{load_instr}\t{reg},\t{off}($fp)",
+            "store function": store_func,
+            "load function": load_func,
         }
         LOCAL_VAR_OFFSET -= _s
 
@@ -410,13 +420,9 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         if len(free_registers) == 0:
             # No free register available
             register = lru_list.pop(0)
-            load_instr = register_loader[register] if entry is None or not entry["is_array"] else "la"
-            save_instr = register_saver[register]
         else:
             # Free registers available
             register = free_registers.pop()
-            load_instr = LOAD_INSTRUCTIONS[_type] if entry is None or not entry["is_array"] else "la"
-            save_instr = SAVE_INSTRUCTIONS[_type]
 
         no_flush = var in removed_registers or no_flush
 
@@ -424,13 +430,10 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             # Register in use in the current block
             sname = register_descriptor[register].split("-")[-1]
             if not (is_number(sname) or is_char(sname)[0]):
-                removed_registers[register_descriptor[register]] = (
-                    load_instr,
-                    var_to_mem[sname]["memory address"],
-                )
+                removed_registers[register_descriptor[register]] = var_to_mem[sname]["load function"]
             if not no_flush:
                 if req_fp:
-                    print_text(f"\t{load_instr}\t{register},\t__zero_data")
+                    print_text(f"\tl.s\t{register},\t__zero_data")
                 else:
                     print_text(f"\tli\t{register},\t0")
         else:
@@ -439,28 +442,32 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
 
             if register.startswith("$s") or register.startswith("$f"):
                 # Saved Registers. All fp registers are saved regs
+                load_instr = LOAD_INSTRUCTIONS["int" if register.startswith("$s") else "float"]
+                save_instr = SAVE_INSTRUCTIONS["int" if register.startswith("$s") else "float"]
                 remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{BACKPATCH_OFFSET}($fp)")
                 print_backpatch(f"\t{save_instr}\t" + register + ",\t" + f"{BACKPATCH_OFFSET}($fp)")
                 # print_backpatch(f"\tla\t$sp,\t-{_s}($sp)")
                 BACKPATCH_OFFSET -= _s
                 if not no_flush:
                     if req_fp:
-                        print_text(f"\t{load_instr}\t{register},\t__zero_data")
+                        print_text(f"\tl.s\t{register},\t__zero_data")
                     else:
                         print_text(f"\tli\t{register},\t0")
-        
+
         if var not in prev_var_access and not (is_number(store_name) or is_char(store_name)[0]):
             vmem = var_to_mem[store_name]
-            if load_instr == "la":
+            if entry is not None and entry["is_array"]:
                 print_text(f"\tla,\t{register},\t{vmem['memory address']}")
 
         if is_global:
+            load_instr = LOAD_INSTRUCTIONS[
+                "int" if register.startswith("$s") or register.startswith("$t") else "float"
+            ]
             print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
 
         if var in removed_registers:
-            instr, loc = removed_registers[var]
             if not no_load:
-                print_text("\t" + instr + "\t" + register + ",\t" + loc)
+                print_text(removed_registers[var](register))
             if removed_registers.get(var, None):
                 del removed_registers[var]
 
@@ -495,7 +502,7 @@ def dump_value_to_mem(reg: str, force: bool = False):
         return
     desc = var_to_mem[var]
     print_text(desc["store function"](reg))
-    removed_registers[varname] = (desc["load instruction"], desc["memory address"])
+    removed_registers[varname] = desc["load function"]
     del local_var_mapping[reg]
     register_descriptor[reg] = None
     busy_registers.remove(reg)
@@ -511,12 +518,10 @@ def store_temp_regs_in_use(offset: int) -> int:
             store_name = name.split("-")[-1]
             if is_number(store_name) or is_char(store_name)[0]:
                 continue
-            removed_registers[name] = (
-                "lw",
-                var_to_mem[store_name]["memory address"],
-            )
+            vmem = var_to_mem[store_name]
+            removed_registers[name] = vmem["load function"]
             ## Store the current value
-            print_text("\tsw\t" + reg + ",\t" + var_to_mem[store_name]["memory address"])
+            print_text(vmem["save function"](reg))
             register_descriptor[reg] = None
             busy_registers.remove(reg)
     return offset
@@ -836,8 +841,8 @@ def generate_mips_from_3ac(code):
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
-                        tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush = True)
-                        
+                        tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
+
                         print_text(f"\tsll\t{tmp_reg},\t{t1},\t{bits}")
                         print_text(f"\tadd\t{tmp_reg},\t{t0},\t{tmp_reg}")
                         print_text(f"\t{save_instr}\t{t2},\t0({tmp_reg})")
@@ -858,6 +863,15 @@ def generate_mips_from_3ac(code):
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
                         print_text(f"\t{save_instr}\t{t2},\t0({t0})")
+                        continue
+
+                    if "->" in c[0]:  # var -> field := x
+                        var, field = c[0].split(" -> ")
+                        t0, offset, entry = get_register(var, current_symbol_table, offset, True, no_flush=True)
+                        print(var_to_mem[var])
+                        continue
+
+                    if "->" in c[2]:  # x := var -> field
                         continue
 
                     _, entry = convert_varname(c[0], current_symbol_table)
@@ -1059,6 +1073,9 @@ def generate_mips_from_3ac(code):
                         first_pushparam = True
                         dump_value_to_mem(t1)
 
+                    elif c[3] == "->":
+                        pass
+
                     else:
                         # Assignment + An op
                         op = c[3]
@@ -1084,40 +1101,32 @@ def generate_mips_from_3ac(code):
                             else (entry2["type"] if entry2 is not None else entry3["type"])
                         )
 
-                        if op=="&&":
+                        if op == "&&":
                             instrs = []
-                            t4, offset, entry4 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
-                            t5, offset, entry5 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
-                            _type4 = (
-                                entry4["type"]
-                                if entry4 is not None
-                                else (entry2["type"])
+                            t4, offset, entry4 = get_register(
+                                "1", current_symbol_table, offset, True, no_flush=is_const
                             )
-                            _type5 = (
-                                entry5["type"]
-                                if entry4 is not None
-                                else (entry3["type"])
+                            t5, offset, entry5 = get_register(
+                                "1", current_symbol_table, offset, True, no_flush=is_const
                             )
-                            instrs.append(get_mips_instr_from_binary_op("!=",_type4,t2,"$0",t4)[0])
-                            instrs.append(get_mips_instr_from_binary_op("!=",_type5,t3,"$0",t5)[0])
+                            _type4 = entry4["type"] if entry4 is not None else (entry2["type"])
+                            _type5 = entry5["type"] if entry4 is not None else (entry3["type"])
+                            instrs.append(get_mips_instr_from_binary_op("!=", _type4, t2, "$0", t4)[0])
+                            instrs.append(get_mips_instr_from_binary_op("!=", _type5, t3, "$0", t5)[0])
                             instrs.append(get_mips_instr_from_binary_op("&", _type, t4, t5, t1)[0])
 
-                        elif op=="||":
+                        if op == "||":
                             instrs = []
-                            t4, offset, entry4 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
-                            t5, offset, entry5 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
-                            _type4 = (
-                                entry4["type"]
-                                if entry4 is not None
-                                else (entry2["type"])
+                            t4, offset, entry4 = get_register(
+                                "1", current_symbol_table, offset, True, no_flush=is_const
                             )
-                            _type5 = (
-                                entry5["type"]
-                                if entry4 is not None
-                                else (entry3["type"])
+                            t5, offset, entry5 = get_register(
+                                "1", current_symbol_table, offset, True, no_flush=is_const
                             )
-                            instrs.append(get_mips_instr_from_binary_op("!=",_type4,t2,"$0",t4)[0])
-                            instrs.append(get_mips_instr_from_binary_op("!=",_type5,t3,"$0",t5)[0])
+                            _type4 = entry4["type"] if entry4 is not None else (entry2["type"])
+                            _type5 = entry5["type"] if entry4 is not None else (entry3["type"])
+                            instrs.append(get_mips_instr_from_binary_op("!=", _type4, t2, "$0", t4)[0])
+                            instrs.append(get_mips_instr_from_binary_op("!=", _type5, t3, "$0", t5)[0])
                             instrs.append(get_mips_instr_from_binary_op("|", _type, t4, t5, t1)[0])
 
                         else:

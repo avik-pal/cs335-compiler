@@ -538,11 +538,12 @@ def p_postfix_expression(p):
                         raise SyntaxError
                         # raise Exception  # wrong field name
                     else:
-                        tvar = get_tmp_var()
+                        _type = struct_entry["field types"][struct_entry["field names"].index(p[3])]
+                        # tvar = get_tmp_var(_type)
                         p[0] = {
-                            "type": struct_entry["field types"][struct_entry["field names"].index(p[3])],
-                            "value": tvar,
-                            "code": [[tvar, ":=", p[1]["value"], "->", p[3]]],
+                            "type": _type,
+                            "value": p[1]["value"] + " -> " + p[3],  # tvar,
+                            "code": [],  # [tvar, ":=", p[1]["value"], "->", p[3]]],
                         }
                         # print(p[0])
                 else:
@@ -773,7 +774,7 @@ def p_unary_expression(p):
 
             if len(p[2]["code"]) > 1:
                 tmp_code = p[2]["code"][:-1]
-                f_call_ind = len(p[2]["code"])-1
+                f_call_ind = len(p[2]["code"]) - 1
             else:
                 tmp_code = []
                 f_call_ind = 0
@@ -801,6 +802,7 @@ def p_unary_expression(p):
                 ]
             ]
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
+            print(p[0]["pointer_lvl"])
             p[0]["value"] = nvar
 
         elif p[1] == "+" or p[1] == "-" or p[1] == "!":
@@ -1308,7 +1310,7 @@ def p_assignment_expression(p):
             # assert len(p[1]["code"]) <= 1, AssertionError(f"Fix this case-> {p[1]['code']}, len: {len(p[1]['code'])}")
             if len(p[1]["code"]) > 1:
                 tmp_code = p[1]["code"][:-1]
-                f_call_ind = len(p[1]["code"])-1
+                f_call_ind = len(p[1]["code"]) - 1
             else:
                 tmp_code = []
                 f_call_ind = 0
