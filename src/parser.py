@@ -803,7 +803,7 @@ def p_unary_expression(p):
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
             p[0]["value"] = nvar
 
-        elif p[1] == "+" or p[1] == "-":
+        elif p[1] == "+" or p[1] == "-" or p[1] == "!":
 
             symTab = get_current_symtab()
             arg = p[2]["type"]
