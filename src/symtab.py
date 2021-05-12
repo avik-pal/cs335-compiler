@@ -578,7 +578,7 @@ def compute_storage_size(entry, typeentry) -> int:
         return prod
 
     if entry.get("pointer_lvl", 0) > 0:
-        return 8
+        return 4
     if entry["type"].startswith("enum "):
         return 4
     if entry["type"].startswith("struct "):

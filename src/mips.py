@@ -405,12 +405,12 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         if len(free_registers) == 0:
             # No free register available
             register = lru_list.pop(0)
-            load_instr = register_loader[register] if entry is not None and not entry["is_array"] else "la"
+            load_instr = register_loader[register] if entry is None or not entry["is_array"] else "la"
             save_instr = register_saver[register]
         else:
             # Free registers available
             register = free_registers.pop()
-            load_instr = LOAD_INSTRUCTIONS[_type] if entry is not None and not entry["is_array"] else "la"
+            load_instr = LOAD_INSTRUCTIONS[_type] if entry is None or not entry["is_array"] else "la"
             save_instr = SAVE_INSTRUCTIONS[_type]
 
         no_flush = var in removed_registers or no_flush
@@ -520,7 +520,7 @@ def free_registers_in_block():
             del register_saver[reg]
         if register_loader.get(reg, None):
             del register_loader[reg]
-        
+
         if reg in busy_registers:
             busy_registers.remove(reg)
 
@@ -893,8 +893,12 @@ def generate_mips_from_3ac(code):
                         t, offset, entry = get_register(
                             entry["name"], current_symbol_table, offset, True, no_flush=True
                         )
-                        instr = LOAD_INSTRUCTIONS[entry["type"]]
-                        print_text(f"\t{instr}\t{t},\t{off}($fp)")
+                        if not entry["pointer_lvl"] >= 1:
+                            instr = LOAD_INSTRUCTIONS[entry["type"]]
+                            print_text(f"\t{instr}\t{t},\t{off}($fp)")
+                        else:
+                            print_text(f"\taddi\t{t},\t$fp,\t{off}")
+                            print_text(f"\tlw\t{t},\t({t})")
                         off += entry["size"]
                 else:
                     print_text(c)
@@ -926,8 +930,8 @@ def generate_mips_from_3ac(code):
                             print_text(f"\tsll\t{tmp_reg},\t{t3},\t2")
                             print_text(f"\tadd\t{tmp_reg},\t{t2},\t{tmp_reg}")
                             print_text(f"\tla\t{t1},\t0({tmp_reg})")
-                        else: # y = & var
-                            #TODO: directly use name if global variable
+                        else:  # y = & var
+                            # TODO: directly use name if global variable
                             addr = var_to_mem[c[3]]["memory address"]
                             off = int(addr.split("(")[0])
                             bp = addr.split("(")[1].split(")")[0]
@@ -998,7 +1002,9 @@ def generate_mips_from_3ac(code):
                         for params in all_pushparams:
                             print_text(params)
                         all_pushparams = []
-                        print_text(f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_').replace('*', 'ptr')}")
+                        print_text(
+                            f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_').replace('*', 'ptr')}"
+                        )
                         # caller pops the arguments
                         entry = current_symbol_table.lookup(c[0])
                         _type = entry["type"]
