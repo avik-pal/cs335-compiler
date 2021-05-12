@@ -785,7 +785,8 @@ def p_unary_expression(p):
 
             p[0] = copy.deepcopy(p[2])
             p[0]["code"] = tmp_code
-            nvar = get_tmp_var(get_flookup_type(p[2]))
+            p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
+            nvar = get_tmp_var(get_flookup_type(p[0]))
             p[0]["code"] += [
                 [
                     "FUNCTION CALL",
@@ -801,7 +802,6 @@ def p_unary_expression(p):
                     nvar,
                 ]
             ]
-            p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
             # print(p[0]["pointer_lvl"])
             p[0]["value"] = nvar
 

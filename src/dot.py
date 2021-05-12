@@ -185,6 +185,7 @@ def _rewrite_code_2nd_pass(code, indent):
         if any(ts):
             if len(ts) == 2:
                 # RETURN
+                # FIXME: Incorrect
                 var = c[1].split(" -> ")[0]
                 _type = cur_symtab.lookup(var)["type"]
                 tvar = get_tmp_var(_type, cur_symtab)
