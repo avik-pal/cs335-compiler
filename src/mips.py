@@ -1089,7 +1089,7 @@ def generate_mips_from_3ac(code):
                             instrs.append(get_mips_instr_from_binary_op("!=",_type5,t3,"$0",t5)[0])
                             instrs.append(get_mips_instr_from_binary_op("&", _type, t4, t5, t1)[0])
 
-                        if op=="||":
+                        elif op=="||":
                             instrs = []
                             t4, offset, entry4 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
                             t5, offset, entry5 = get_register("1", current_symbol_table, offset, True, no_flush = is_const)
