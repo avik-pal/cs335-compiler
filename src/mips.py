@@ -226,6 +226,8 @@ def reset_registers():
     global parameter_descriptor, busy_registers, lru_list_fp, lru_list_int, registers_in_block, removed_registers
     global integer_registers, fp_registers, free_registers_int
     global register_loader, register_saver, global_vars, local_var_mapping, var_to_mem
+    global prev_var_access
+    prev_var_access = dict()
     address_descriptor = dict()
     local_var_mapping = dict()
     var_to_mem = dict()
@@ -356,7 +358,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
     global register_descriptor, address_descriptor, registers_in_block, removed_registers
     global lru_list_int, lru_list_fp, remember_to_restore, register_saver, register_loader
     global global_vars, local_var_mapping, BACKPATCH_OFFSET, LOCAL_VAR_OFFSET
-    global var_to_mem
+    global var_to_mem, prev_var_access
 
     # FIXME: Global mutation and stuff....
 
@@ -432,6 +434,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         else:
             # Register is not being used rn in the current block
             # If it is a saved register we need to backpatch it
+
             if register.startswith("$s") or register.startswith("$f"):
                 # Saved Registers. All fp registers are saved regs
                 remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{BACKPATCH_OFFSET}($fp)")
@@ -443,6 +446,11 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
                         print_text(f"\t{load_instr}\t{register},\t__zero_data")
                     else:
                         print_text(f"\tli\t{register},\t0")
+        
+        if var not in prev_var_access and not (is_number(store_name) or is_char(store_name)[0]):
+            vmem = var_to_mem[store_name]
+            if load_instr == "la":
+                print_text(f"\tla,\t{register},\t{vmem['memory address']}")
 
         if is_global:
             print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
@@ -454,6 +462,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             if removed_registers.get(var, None):
                 del removed_registers[var]
 
+        prev_var_access[var] = True
         address_descriptor[var] = register
         busy_registers.append(register)
         register_descriptor[register] = var
@@ -542,11 +551,12 @@ def free_registers_in_block():
 
 
 def create_new_register_block():
-    global registers_in_block, remember_to_restore, local_var_mapping, var_to_mem
+    global registers_in_block, remember_to_restore, local_var_mapping, var_to_mem, prev_var_access
     registers_in_block += [[]]
     remember_to_restore += [[]]
     local_var_mapping = dict()
     var_to_mem = dict()
+    prev_var_access = dict()
 
 
 def store_registers_on_function_call() -> int:
@@ -854,16 +864,19 @@ def generate_mips_from_3ac(code):
                         if global_scope:
                             raise Exception("Only native datatypes can be directly assigned in global scope")
                         # Struct
-                        all_fields_lhs = _return_stack_custom_types(c[0], entry["type"], current_symbol_table)
-                        all_fields_rhs = _return_stack_custom_types(c[2], entry["type"], current_symbol_table)
-                        for ((l, _, t1), (r, _, t2)) in zip(all_fields_lhs, all_fields_rhs):
-                            assert t1 == t2, AssertionError(f"Something went wrong {t1} != {t2}")
-                            reg1, offset = get_register(l, current_symbol_table, offset, no_flush=True)
-                            reg2, offset = get_register(r, current_symbol_table, offset)
-                            instr = MOVE_INSTRUCTIONS[t1]
-                            # print_text(f"# {reg1} -> {l}, {reg2} -> {r}")
-                            print_text(f"\t{instr}\t{reg1},\t{reg2}")
-                            dump_value_to_mem(reg1)
+                        if entry["pointer_lvl"] == 0:
+                            all_fields_lhs = _return_stack_custom_types(c[0], entry["type"], current_symbol_table)
+                            all_fields_rhs = _return_stack_custom_types(c[2], entry["type"], current_symbol_table)
+                            for ((l, _, t1), (r, _, t2)) in zip(all_fields_lhs, all_fields_rhs):
+                                assert t1 == t2, AssertionError(f"Something went wrong {t1} != {t2}")
+                                reg1, offset = get_register(l, current_symbol_table, offset, no_flush=True)
+                                reg2, offset = get_register(r, current_symbol_table, offset)
+                                instr = MOVE_INSTRUCTIONS[t1]
+                                # print_text(f"# {reg1} -> {l}, {reg2} -> {r}")
+                                print_text(f"\t{instr}\t{reg1},\t{reg2}")
+                                dump_value_to_mem(reg1)
+                        else:
+                            t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
                     else:
                         is_num, instr = is_number(c[2], True)
                         is_ch, instr2 = is_char(c[2])

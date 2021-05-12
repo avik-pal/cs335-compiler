@@ -538,10 +538,11 @@ def p_postfix_expression(p):
                         raise SyntaxError
                         # raise Exception  # wrong field name
                     else:
+                        tvar = get_tmp_var()
                         p[0] = {
                             "type": struct_entry["field types"][struct_entry["field names"].index(p[3])],
-                            "value": p[1]["value"] + "->" + p[3],
-                            "code": [],
+                            "value": tvar,
+                            "code": [[tvar, ":=", p[1]["value"], "->", p[3]]],
                         }
                         # print(p[0])
                 else:
