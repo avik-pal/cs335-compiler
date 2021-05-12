@@ -774,7 +774,7 @@ def generate_mips_from_3ac(code):
                     instr = SAVE_INSTRUCTIONS[_type]
                     s = 4  # wont work for double
                     # arrays as params
-                    if entry["is_array"] == True:
+                    if entry is not None and entry["is_array"] == True:
                         dim = int(entry["dimensions"][0])
                         ind_off = 0
                         tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
