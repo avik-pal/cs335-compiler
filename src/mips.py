@@ -804,14 +804,9 @@ def generate_mips_from_3ac(code):
 
                         tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
 
-<<<<<<< HEAD
                         if not t1 == "$0":
                             print_text(f"\tsll\t{t1},\t{t1},\t2")
                         print_text(f"\tadd\t{tmp_reg},\t{t0},\t{t1}")
-=======
-                        print_text(f"\tsll\t{tmp_reg},\t{t1},\t2")
-                        print_text(f"\tadd\t{tmp_reg},\t{t0},\t{tmp_reg}")
->>>>>>> 976ccb965bd1d78cf95f98bf33064d0b83dce197
                         print_text(f"\t{save_instr}\t{t2},\t0({tmp_reg})")
                         continue
 
