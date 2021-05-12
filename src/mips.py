@@ -476,6 +476,8 @@ def dump_value_to_mem(reg: str, force: bool = False):
     # tmp vars will be dumped only if force is set to True
     global removed_registers, local_var_mapping, busy_registers
     varname = register_descriptor[reg]
+    if varname is None:
+        return
     var = varname.split("-")[-1]
     if (is_number(varname) or is_char(varname)[0]) or (is_tmp_var(var) and not force):
         return
