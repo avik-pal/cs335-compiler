@@ -31,10 +31,9 @@ int insertionSort(int n, int arr[])
 int main()
 {
     int arr[5] = {12 + 4, 11, 13, 5, 6};
-    int n = arr[1];
  
-    n = insertionSort(n, arr);
+    int t = insertionSort(5, arr);
     // printArray(arr, n);
  
-    return n;
+    return t;
 }

@@ -115,6 +115,7 @@ MOVE_INSTRUCTIONS = {
 DATA_SECTION = []
 TEXT_SECTION = []
 BACKPATCH_SECTION = []
+BACKPATCHES = []
 BACKPATCH_OFFSET = None
 BACKPATCH_INDEX = None
 data_number_counter = -1
@@ -154,10 +155,11 @@ def print_backpatch(*s):
 
 
 def dump_backpatch():
-    global BACKPATCH_SECTION, TEXT_SECTION
+    global BACKPATCH_SECTION, TEXT_SECTION, BACKPATCHES
     idx = BACKPATCH_INDEX
     TEXT_SECTION = TEXT_SECTION[:idx] + BACKPATCH_SECTION + TEXT_SECTION[idx:]
     BACKPATCH_SECTION = []
+    BACKPATCHES = []
 
 
 def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: str) -> str:
@@ -359,7 +361,7 @@ def is_tmp_var(v: str):
 def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offset: int, entry, no_flush, no_load):
     global register_descriptor, address_descriptor, registers_in_block, removed_registers
     global lru_list_int, lru_list_fp, remember_to_restore, register_saver, register_loader
-    global global_vars, local_var_mapping, BACKPATCH_OFFSET, LOCAL_VAR_OFFSET
+    global global_vars, local_var_mapping, BACKPATCH_OFFSET, LOCAL_VAR_OFFSET, BACKPATCHES
     global var_to_mem, prev_var_access
 
     # FIXME: Global mutation and stuff....
@@ -382,7 +384,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
     is_global = sp[1] == "GLOBAL" if len(sp) == 3 else False
 
     store_name = var.split("-")[-1]
-
+    # print_text("# " + str(removed_registers))
     if var in register_descriptor.values() and not is_number(var) and not is_char(var)[0]:
         # Already has a register allocated
         register = address_descriptor[var]
@@ -399,8 +401,9 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         if register in local_var_mapping:
             # Register in use in the current block
             sname = register_descriptor[register].split("-")[-1]
-            if not (is_number(sname) or is_char(sname)[0]):
-                removed_registers[register_descriptor[register]] = var_to_mem[sname]["load function"]
+            # dump_value_to_mem(register)
+            # if not (is_number(sname) or is_char(sname)[0]):
+            #     removed_registers[register_descriptor[register]] = var_to_mem[sname]["load function"]
             if not no_flush:
                 if req_fp:
                     print_text(f"\tl.s\t{register},\t__zero_data")
@@ -412,25 +415,29 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
 
             if register.startswith("$s") or register.startswith("$f"):
                 # Saved Registers. All fp registers are saved regs
-                load_instr = LOAD_INSTRUCTIONS["int" if register.startswith("$s") else "float"]
-                save_instr = SAVE_INSTRUCTIONS["int" if register.startswith("$s") else "float"]
-                remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{BACKPATCH_OFFSET}($fp)")
-                print_backpatch(f"\t{save_instr}\t" + register + ",\t" + f"{BACKPATCH_OFFSET}($fp)")
-                # print_backpatch(f"\tla\t$sp,\t-{_s}($sp)")
-                BACKPATCH_OFFSET -= _s
+                if register not in BACKPATCHES:
+                    load_instr = LOAD_INSTRUCTIONS["int" if register.startswith("$s") else "float"]
+                    save_instr = SAVE_INSTRUCTIONS["int" if register.startswith("$s") else "float"]
+                    remember_to_restore[-1].append(f"\t{load_instr}\t{register},\t{BACKPATCH_OFFSET}($fp)")
+                    print_backpatch(f"\t{save_instr}\t" + register + ",\t" + f"{BACKPATCH_OFFSET}($fp)")
+                    BACKPATCH_OFFSET -= _s
+                    BACKPATCHES.append(register)
                 if not no_flush:
                     if req_fp:
                         print_text(f"\tl.s\t{register},\t__zero_data")
                     else:
                         print_text(f"\tli\t{register},\t0")
 
-        if var not in prev_var_access and not (is_number(store_name) or is_char(store_name)[0]):
+        # if var not in prev_var_access and not (is_number(store_name) or is_char(store_name)[0]):
+        if not (is_number(store_name) or is_char(store_name)[0]):
             vmem = var_to_mem[store_name]
-            print_text(vmem["load function"](register, vmem["memory address"]))
+            # print_text("#" + str(entry))
             # if entry is not None and entry["is_array"]:
             #     print_text(f"\tla\t{register},\t{vmem['memory address']}")
-            # elif "." in store_name:
-            #     print_text(vmem[""])
+            # else:
+            #     print_text(vmem["load function"](register, vmem["memory address"]))
+            if not no_load:
+                print_text(vmem["load function"](register, vmem["memory address"], vmem["li"]))
 
         if is_global:
             load_instr = LOAD_INSTRUCTIONS[
@@ -438,12 +445,12 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             ]
             print_text(f"\t{load_instr}\t{register},\t{var.split('-')[2]}")
 
-        if var in removed_registers:
-            if not no_load:
-                vmem = var_to_mem[var.split("-")[-1]]
-                print_text(removed_registers[var](register, vmem["memory address"]))
-            if removed_registers.get(var, None):
-                del removed_registers[var]
+        # if var in removed_registers:
+        #     if not no_load:
+        #         vmem = var_to_mem[var.split("-")[-1]]
+        #         print_text(removed_registers[var](register, vmem["memory address"], vmem["li"]))
+        #     if removed_registers.get(var, None):
+        #         del removed_registers[var]
         
         # if not is_tmp_var(var):
         #     if not no_load:
@@ -476,10 +483,10 @@ def dump_value_to_mem(reg: str, force: bool = False):
     if varname is None:
         return
     var = varname.split("-")[-1]
-    if (is_number(varname) or is_char(varname)[0]) or (is_tmp_var(var) and not force):
+    if (is_number(varname) or is_char(varname)[0]): # or (is_tmp_var(var) and not force):
         return
     desc = var_to_mem[var]
-    print_text(desc["store function"](reg, desc["memory address"]))
+    print_text(desc["store function"](reg, desc["memory address"], desc["si"]))
     removed_registers[varname] = desc["load function"]
     del local_var_mapping[reg]
     register_descriptor[reg] = None
@@ -499,7 +506,7 @@ def store_temp_regs_in_use(offset: int) -> int:
             vmem = var_to_mem[store_name]
             removed_registers[name] = vmem["load function"]
             ## Store the current value
-            print_text(vmem["store function"](reg, vmem["memory address"]))
+            print_text(vmem["store function"](reg, vmem["memory address"], vmem["si"]))
             register_descriptor[reg] = None
             busy_registers.remove(reg)
     return offset
@@ -518,19 +525,13 @@ def free_registers_in_block():
 
         if reg in busy_registers:
             busy_registers.remove(reg)
+    
 
-        if reg.startswith("$f"):
-            lru_list = lru_list_fp
-            fp_registers.append(reg)
-        else:
-            lru_list = lru_list_int
-            integer_registers.append(reg)
-
-        try:
-            lru_list.remove(reg)
-        except ValueError:
-            continue
-
+    integer_registers = [f"$t{i}" for i in range(10)] + [f"$s{i}" for i in range(8)]
+    fp_registers = [f"$f{i}" for i in list(range(30, 2, -2))]
+    free_registers = integer_registers + fp_registers
+    lru_list_fp = []
+    lru_list_int = []
     registers_in_block = registers_in_block[:-1]
     remember_to_restore = remember_to_restore[:-1]
 
@@ -669,6 +670,8 @@ def generate_mips_from_3ac(code):
                     # Label
                     print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_").replace("*", "ptr"))
                 elif c[0] == "ENDFUNC":
+                    # for v,e in var_to_mem.items():
+                    #     print(v, e, current_symbol_table.func_scope)
                     dump_backpatch()
                     load_registers_on_function_return("sp")
                     print_text("\tla\t$sp,\t0($fp)")
@@ -769,17 +772,6 @@ def generate_mips_from_3ac(code):
                         _type = entry["type"]
                     instr = SAVE_INSTRUCTIONS[_type]
                     s = 4  # wont work for double
-                    # arrays as params (Don't push all array elements into stack; for now assume all calls are by reference)
-                    # if entry is not None and entry["is_array"] == True:
-                    #     dim = int(entry["dimensions"][0])
-                    #     ind_off = 0
-                    #     tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
-                    #     for i in range(0, dim):
-                    #         all_pushparams.extend([f"\t{load_instr}\t{tmp_reg},\t{ind_off}({t})"])
-                    #         all_pushparams.extend([f"\t{instr}\t{tmp_reg},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
-                    #         ind_off += DATATYPE2SIZE[entry["type"].upper()]
-                    # else:
-                    #     all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
                     all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
 
                 elif c[0] == "POPPARAMS":
@@ -929,28 +921,16 @@ def generate_mips_from_3ac(code):
                 elif c[0] == "SYMTAB":
                     # Symbol Table
                     current_symbol_table = tabname_mapping[c[2]]
-                    params = current_symbol_table._paramtab
-                    off = 0
-                    for p in params:
-                        entry = current_symbol_table.lookup(p)
-                        t, offset, entry = get_register(
-                            entry["name"], current_symbol_table, offset, True, no_flush=True
-                        )
-                        if not entry["pointer_lvl"] >= 1:
-                            instr = LOAD_INSTRUCTIONS[entry["type"]]
-                            print_text(f"\t{instr}\t{t},\t{off}($fp)")
-                        else:
-                            print_text(f"\taddi\t{t},\t$fp,\t{off}")
-                            print_text(f"\tlw\t{t},\t({t})")
-                        off += entry["size"]
-
+                    # var_to_mem = dict()
                     for store_name, entry in current_symbol_table._symtab_variables.items():
                         off = LOCAL_VAR_OFFSET
                         _type = entry["type"]
                         _s = entry["size"]
                         if entry["pointer_lvl"] >= 1:
-                            load_func = lambda reg, loc: f"\tlw\t{reg},\t{loc}"
-                            store_func = lambda reg, loc: f"\tsw\t{reg},\t{loc}"
+                            _load_instr = "lw"
+                            _save_instr = "sw"
+                            load_func = lambda reg, loc, li: f"\tlw\t{reg},\t{loc}"
+                            store_func = lambda reg, loc, si: f"\tsw\t{reg},\t{loc}"
                         else:
                             if entry["is_array"]:
                                 _load_instr = "la"
@@ -958,8 +938,8 @@ def generate_mips_from_3ac(code):
                                 # Terrible hack
                                 _load_instr = LOAD_INSTRUCTIONS[_type] if _type in LOAD_INSTRUCTIONS else "lw"
                             _save_instr = SAVE_INSTRUCTIONS[_type] if _type in SAVE_INSTRUCTIONS else "sw"
-                            load_func = lambda reg, loc: f"\t{_load_instr}\t{reg},\t{loc}"
-                            store_func = lambda reg, loc: f"\t{_save_instr}\t{reg},\t{loc}"
+                            load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
+                            store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                         var_to_mem[store_name] = {
                             "wrt_register": "$fp",
                             "offset": str(LOCAL_VAR_OFFSET),
@@ -968,6 +948,8 @@ def generate_mips_from_3ac(code):
                             "memory address": f"{off}($fp)",
                             "store function": store_func,
                             "load function": load_func,
+                            "li": _load_instr,
+                            "si": _save_instr
                         }
                         if _type.startswith("struct") and entry["pointer_lvl"] == 0:
                             stack_pushables = _return_stack_custom_types(store_name, _type, current_symbol_table)
@@ -975,8 +957,10 @@ def generate_mips_from_3ac(code):
                                 _off = LOCAL_VAR_OFFSET
                                 offstring = f"{_off}($fp)"
                                 if entry["pointer_lvl"] >= 1:
-                                    load_func = lambda reg, loc: f"\tlw\t{reg},\t{loc}"
-                                    store_func = lambda reg, loc: f"\tsw\t{reg},\t{loc}"
+                                    _load_instr = "lw"
+                                    _save_instr = "sw"
+                                    load_func = lambda reg, loc, li: f"\tlw\t{reg},\t{loc}"
+                                    store_func = lambda reg, loc, si: f"\tsw\t{reg},\t{loc}"
                                 else:
                                     if entry["is_array"]:
                                         _load_instr = "la"
@@ -984,8 +968,8 @@ def generate_mips_from_3ac(code):
                                         # Terrible hack
                                         _load_instr = LOAD_INSTRUCTIONS[_t] if _t in LOAD_INSTRUCTIONS else "lw"
                                     _save_instr = SAVE_INSTRUCTIONS[_t] if _t in SAVE_INSTRUCTIONS else "sw"
-                                    load_func = lambda reg, loc: f"\t{_load_instr}\t{reg},\t{loc}"
-                                    store_func = lambda reg, loc: f"\t{_save_instr}\t{reg},\t{loc}"
+                                    load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
+                                    store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                                 var_to_mem[var] = {
                                     "wrt_register": "$fp",
                                     "offset": str(LOCAL_VAR_OFFSET),
@@ -994,10 +978,29 @@ def generate_mips_from_3ac(code):
                                     "memory address": offstring,
                                     "store function": store_func,
                                     "load function": load_func,
+                                    "li": _load_instr,
+                                    "si": _save_instr
                                 }
                                 LOCAL_VAR_OFFSET -= int(s)
                         else:
                             LOCAL_VAR_OFFSET -= _s
+
+                    params = current_symbol_table._paramtab
+                    off = 0
+                    for p in params:
+                        entry = current_symbol_table.lookup(p)
+                        t, offset, entry = get_register(
+                            entry["name"], current_symbol_table, offset, True, no_flush=True, no_load=True
+                        )
+                        # if not entry["pointer_lvl"] >= 1:
+                        #     instr = LOAD_INSTRUCTIONS[entry["type"]]
+                        instr = var_to_mem[p]["li"]
+                        print_text(f"\t{instr}\t{t},\t{off}($fp)")
+                        dump_value_to_mem(t)
+                        # else:
+                        #     print_text(f"\taddi\t{t},\t$fp,\t{off}")
+                        #     print_text(f"\tlw\t{t},\t({t})")
+                        off += entry["size"]
                 else:
                     print_text(c)
 
