@@ -387,7 +387,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         # Everything gets stored in the stack but we dont flush temps into
         # memory so we need to make sure that we dont access those memory locations
         off = LOCAL_VAR_OFFSET
-        print(var, entry)
+        # print(var, entry)
         if entry["pointer_lvl"] >= 1:
             # def load_func(reg):
             #     treg, _ = get_register("1", current_symbol_table, -1, no_flush=True)
@@ -457,7 +457,7 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
         if var not in prev_var_access and not (is_number(store_name) or is_char(store_name)[0]):
             vmem = var_to_mem[store_name]
             if entry is not None and entry["is_array"]:
-                print_text(f"\tla,\t{register},\t{vmem['memory address']}")
+                print_text(f"\tla\t{register},\t{vmem['memory address']}")
 
         if is_global:
             load_instr = LOAD_INSTRUCTIONS[
@@ -521,7 +521,7 @@ def store_temp_regs_in_use(offset: int) -> int:
             vmem = var_to_mem[store_name]
             removed_registers[name] = vmem["load function"]
             ## Store the current value
-            print_text(vmem["save function"](reg))
+            print_text(vmem["store function"](reg))
             register_descriptor[reg] = None
             busy_registers.remove(reg)
     return offset
@@ -1115,7 +1115,7 @@ def generate_mips_from_3ac(code):
                             instrs.append(get_mips_instr_from_binary_op("!=", _type5, t3, "$0", t5)[0])
                             instrs.append(get_mips_instr_from_binary_op("&", _type, t4, t5, t1)[0])
 
-                        if op == "||":
+                        elif op == "||":
                             instrs = []
                             t4, offset, entry4 = get_register(
                                 "1", current_symbol_table, offset, True, no_flush=is_const
@@ -1131,6 +1131,7 @@ def generate_mips_from_3ac(code):
 
                         else:
                             instrs = get_mips_instr_from_binary_op(op, _type, t2, t3, t1)
+
                         for instr in instrs:
                             print_text(instr)
                         dump_value_to_mem(t1)

@@ -802,7 +802,7 @@ def p_unary_expression(p):
                 ]
             ]
             p[0]["pointer_lvl"] = p[0].get("pointer_lvl", 0) + 1
-            print(p[0]["pointer_lvl"])
+            # print(p[0]["pointer_lvl"])
             p[0]["value"] = nvar
 
         elif p[1] == "+" or p[1] == "-" or p[1] == "!":
