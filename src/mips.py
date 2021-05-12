@@ -397,10 +397,13 @@ def simple_register_allocator(var: str, current_symbol_table: SymbolTable, offse
             load_func = lambda reg: f"\tlw\t{reg},\t{off}($fp)"
             store_func = lambda reg: f"\tsw\t{reg},\t{off}($fp)"
         else:
-            load_instr = LOAD_INSTRUCTIONS[_type] if not entry["is_array"] else "la"
-            save_instr = SAVE_INSTRUCTIONS[_type]
-            load_func = lambda reg: f"\t{load_instr}\t{reg},\t{off}($fp)"
-            store_func = lambda reg: f"\t{save_instr}\t{reg},\t{off}($fp)"
+            if entry["is_array"]:
+                _load_instr = "la"
+            else:
+                _load_instr = LOAD_INSTRUCTIONS[_type]
+            _save_instr = SAVE_INSTRUCTIONS[_type]
+            load_func = lambda reg: f"\t{_load_instr}\t{reg},\t{off}($fp)"
+            store_func = lambda reg: f"\t{_save_instr}\t{reg},\t{off}($fp)"
         var_to_mem[store_name] = {
             "wrt_register": "$fp",
             "offset": str(LOCAL_VAR_OFFSET),
