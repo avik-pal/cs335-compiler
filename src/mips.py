@@ -797,8 +797,8 @@ def generate_mips_from_3ac(code):
 
                         tmp_reg, offset = get_register("1", current_symbol_table, offset)
 
-                        print_text(f"\tsll\t{t1},\t{t1},\t2")
-                        print_text(f"\tadd\t{tmp_reg},\t{t0},\t{t1}")
+                        print_text(f"\tsll\t{tmp_reg},\t{t1},\t2")
+                        print_text(f"\tadd\t{tmp_reg},\t{t0},\t{tmp_reg}")
                         print_text(f"\t{save_instr}\t{t2},\t0({tmp_reg})")
                         continue
 
