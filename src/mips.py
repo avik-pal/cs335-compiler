@@ -897,7 +897,7 @@ def generate_mips_from_3ac(code):
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
-                        if c[3].endswith("]"):  # & arr [x]
+                        if c[3].endswith("]"):  # y = & arr [x]
                             arr_name = c[3].split()[0]
                             t2, offset = get_register(arr_name, current_symbol_table, offset)
 
@@ -911,10 +911,12 @@ def generate_mips_from_3ac(code):
                             print_text(f"\tsll\t{tmp_reg},\t{t3},\t2")
                             print_text(f"\tadd\t{tmp_reg},\t{t2},\t{tmp_reg}")
                             print_text(f"\tla\t{t1},\t0({tmp_reg})")
-                        else:
-                            # doesn't work yet
-                            t3, offset = get_register(c[3], current_symbol_table, offset)
-                            print_text(f"\t{load_instr}\t{t1},\t{t3}")
+                        else: # y = & var
+                            #TODO: directly use name if global variable
+                            addr = var_to_mem[c[3]]["memory address"]
+                            off = int(addr.split("(")[0])
+                            bp = addr.split("(")[1].split(")")[0]
+                            print_text(f"\taddi\t{t1},\t{bp},\t{off}")
 
                     elif c[2].startswith("*"):  # deref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
