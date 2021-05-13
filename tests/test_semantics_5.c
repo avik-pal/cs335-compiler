@@ -1,11 +1,17 @@
 // Sizeof demo
 
 int main() {
-    int a;
+    int a, d;
     double b;
 
-    // int d = sizeof(int);
-    b = sizeof b;
+    int x;
+    struct x {
+        float y, z;
+    };
+    struct x obj;
+
+    x = sizeof(int);
+    d = sizeof b;
     a = sizeof(int*);
 
 

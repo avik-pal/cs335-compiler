@@ -4,9 +4,11 @@ import os
 
 DATATYPE2SIZE = {
     "VOID": 0,
-    "CHAR": 1,
-    "SIGNED CHAR": 1,
-    "UNSIGNED CHAR": 1,
+    "CHAR": 4,  # Char is not 4 bytes, but this allows us to support all
+    # unicode characters and also prevents potential alignment
+    # issues
+    "SIGNED CHAR": 4,
+    "UNSIGNED CHAR": 4,
     "SHORT": 2,
     "SHORT INT": 2,
     "SIGNED SHORT": 2,
@@ -102,14 +104,18 @@ class SymbolTable:
         self._custom_types = dict()
         self._symtab_labels = dict()
         self._paramtab = []
+        self.current_offset = 0
         self.parent = parent
+        if self.parent is not None:
+            self.parent.children.append(self)
+        self.children = []
         self.table_number = TABLENUMBER
         TABLENUMBER += 1
 
         if parent is None:
             self.table_name = "GLOBAL"
         else:
-            self.table_name = f"BLOCK {self.table_number}"
+            self.table_name = f"BLOCK_{self.table_number}"
 
     @staticmethod
     def _get_proper_name(entry: dict, kind: int = 0):
@@ -123,7 +129,9 @@ class SymbolTable:
         entry = self.lookup(name)
         entry["value"] = value
 
-    def insert(self, entry: dict, kind: int = 0) -> Tuple[bool, Union[dict, List[dict]]]:
+    def insert(
+        self, entry: dict, kind: int = 0, fname=None, param: bool = False
+    ) -> Tuple[bool, Union[dict, List[dict]]]:
         # Variables (ID) -> {"name", "type", "value", "is_array", "dimensions", "pointer_lvl"}
         # Functions (FN) -> {"name", "return type", "parameter types"}
         # Structs (ST)   -> {"name", "alt name" (via typedef), "field names", "field types"}
@@ -134,7 +142,9 @@ class SymbolTable:
         global DATATYPE2SIZE
 
         name = self._get_proper_name(entry, kind)
-        prev_entry = self.lookup_current_table(name, kind, entry.get("alt name", None))
+        prev_entry = self.lookup_current_table(name, False, entry.get("alt name", None), kind)
+        if prev_entry is None and kind == 0 and fname is not None:
+            prev_entry = self.lookup(name + ".static." + fname)
         # if entry['name'] == 'arr':
         #     print(f"Symtab {entry} {prev_entry}")
         if prev_entry is None:
@@ -143,12 +153,16 @@ class SymbolTable:
             if kind == 0:
                 if not self.check_type(entry["type"]):
                     raise Exception(f"{entry['type']} is not a valid data type")
+                if entry["type"].startswith("enum"):
+                    entry["type"] = "int"
                 t = self.lookup_type(entry["type"])
-                entry["size"] = compute_storage_size(entry, t)
-                entry["value"] = entry.get("value", get_default_value(entry["type"]))
-                entry["offset"] = compute_offset_size(
-                    entry["size"], entry["is_array"], entry.get("dimensions", []), entry, t
-                )
+                entry["size"] = compute_storage_size(entry, t, self)
+
+                _type = _get_correct_type(entry)
+
+                entry["value"] = entry.get("value", get_default_value(_type))
+                entry["offset"] = self.current_offset + entry["size"]
+                self.current_offset = entry["offset"]
 
                 if entry["is_array"]:
                     dims = entry["dimensions"]
@@ -167,13 +181,26 @@ class SymbolTable:
                             ndims.append(dim["value"])
                     entry["dimensions"] = ndims
 
+                entry["table name"] = self.table_name
+
                 self._symtab_variables[name] = entry
+                if param:
+                    self._paramtab.append(name)
 
             elif kind == 1:
                 # Function
                 entry["local scope"] = None
                 self._symtab_functions[name] = entry
                 self._symtab_functions[name]["name resolution"] = name
+                ret_type = entry["return type"]
+                _s = compute_storage_size({"type": ret_type}, self.lookup_type(ret_type))
+                entry["return type size"] = _s
+                param_size = 0
+                for p in entry["parameter types"]:
+                    t = self.lookup_type(p)
+                    _s = compute_storage_size({"type": p}, t)
+                    param_size += _s
+                entry["param_size"] = param_size
                 if entry["name"] in self._function_names:
                     self._function_names[entry["name"]].append(name)
                 else:
@@ -211,7 +238,7 @@ class SymbolTable:
                     _, nentry = self.insert(
                         {
                             "name": var,
-                            "type": f"enum {name}",
+                            "type": f"int",
                             "is_array": False,
                             "dimensions": [],
                             "value": entry["field values"][i],
@@ -308,22 +335,23 @@ class SymbolTable:
         symname: str,
         paramtab_check: bool = True,
         alt_name: Union[str, None] = None,
+        kind: int = -1,
     ) -> Union[None, list, dict]:
-        res = self._search_for_variable(symname)
-        res = self._search_for_function(symname) if res is None else res
-        res = self._search_for_struct(symname, alt_name) if res is None else res
-        res = self._search_for_class(symname) if res is None else res
-        res = self._search_for_enum(symname) if res is None else res
-        res = self._search_for_union(symname, alt_name) if res is None else res
-        res = self._search_for_label(symname) if res is None else res
+        res = self._search_for_variable(symname) if kind <= 0 else None
+        res = self._search_for_function(symname) if res is None and kind <= 1 else res
+        res = self._search_for_struct(symname, alt_name) if res is None and kind <= 2 else res
+        res = self._search_for_class(symname) if res is None and kind <= 3 else res
+        res = self._search_for_enum(symname) if res is None and kind <= 4 else res
+        res = self._search_for_union(symname, alt_name) if res is None and kind <= 5 else res
+        res = self._search_for_label(symname) if res is None and kind <= 6 else res
         return self.lookup_parameter(symname) if res is None and paramtab_check else res
 
     def lookup_parameter(self, paramname: str) -> Union[None, list, dict]:
         res = None
-        for table in self._paramtab:
-            res = table._search_for_variable(paramname)
-            if res is not None:
-                break
+        # for table in self._paramtab:
+        # res = table._search_for_variable(paramname)
+        # if res is not None:
+        # break
         return res
 
     def _lookup_type(self, typename: str) -> Union[dict, None]:
@@ -349,7 +377,6 @@ class SymbolTable:
     def display(self) -> None:
         # Simple Pretty Printer
         global num_display_invocations
-        print()
         print("-" * 100)
         print(f"SYMBOL TABLE: {self.table_name}, TABLE NUMBER: {self.table_number}, FUNCTION SCOPE: {self.func_scope}")
         print("-" * 51)
@@ -380,7 +407,12 @@ class SymbolTable:
                 os.remove("symtables.csv")
 
         with open("symtables.csv", mode="a+") as sym_file:
-            sym_writer = csv.writer(sym_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            sym_writer = csv.writer(
+                sym_file,
+                delimiter=",",
+                quotechar='"',
+                quoting=csv.QUOTE_MINIMAL,
+            )
             if num_display_invocations == 0:
                 sym_writer.writerow(
                     [
@@ -456,7 +488,8 @@ class SymbolTable:
 
 
 SYMBOL_TABLES = []
-
+GLOBAL_SYMBOL_TABLE = None
+SYMTAB_NAME_TO_TABLE = {}
 STATIC_VARIABLE_MAPS = {}
 
 
@@ -464,19 +497,27 @@ def pop_scope() -> SymbolTable:
     global SYMBOL_TABLES
     s = SYMBOL_TABLES.pop()
     # if s.table_name != "GLOBAL":
-    s.display()
-    print(
-        "[DEBUG INFO]  POP SYMBOL TABLE: ",
-        s.table_number,
-        s.table_name,
-    )
+    # s.display()
+    # print(
+    #     "[DEBUG INFO]  POP SYMBOL TABLE: ",
+    #     s.table_number,
+    #     s.table_name,
+    # )
     return s
 
 
 def push_scope(s: SymbolTable) -> None:
-    global SYMBOL_TABLES
+    global SYMBOL_TABLES, GLOBAL_SYMBOL_TABLE, SYMTAB_NAME_TO_TABLE
+    if len(SYMBOL_TABLES) == 0:
+        GLOBAL_SYMBOL_TABLE = s
     SYMBOL_TABLES.append(s)
-    print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
+    SYMTAB_NAME_TO_TABLE[s.table_name] = s
+    # print("[DEBUG INFO] PUSH SYMBOL TABLE: ", s.table_number, s.table_name)
+
+
+def get_tabname_mapping():
+    global SYMTAB_NAME_TO_TABLE
+    return SYMTAB_NAME_TO_TABLE
 
 
 def new_scope(parent=None, function_scope=None) -> SymbolTable:
@@ -488,49 +529,72 @@ def get_current_symtab() -> Union[None, SymbolTable]:
     return None if len(SYMBOL_TABLES) == 0 else SYMBOL_TABLES[-1]
 
 
+def get_global_symtab():
+    global GLOBAL_SYMBOL_TABLE
+    return GLOBAL_SYMBOL_TABLE
+
+
 def compute_offset_size(dsize: int, is_array: bool, dimensions: List[int], entry, typeentry) -> int:
     if not is_array:
         return dsize
     else:
         offset = [DATATYPE2SIZE[entry["type"].upper()]]
         for i, d in enumerate(reversed(entry["dimensions"])):
-            if i is not  len(entry["dimensions"]) - 1 :
-                offset.append(offset[i]* int(d["value"]))
+            if i is not len(entry["dimensions"]) - 1:
+                offset.append(offset[i] * int(d["value"]))
         return offset[::-1]
 
 
-def compute_storage_size(entry, typeentry) -> int:
+def _get_correct_type(entry: dict):
+    # TODO: Pointer to an array?
+    if entry["is_array"]:
+        return entry["type"] + "*"
+    if entry["pointer_lvl"] > 0:
+        return entry["type"] + "*" * entry["pointer_lvl"]
+    return entry["type"]
+
+
+def compute_storage_size(entry, typeentry, symTab=None) -> int:
     _c = entry["type"].count("*")
+    symTab = get_current_symtab() if symTab is None else symTab
     if _c > 0:
         t = "".join(filter(lambda x: x != "*", entry["type"])).strip()
-        return compute_storage_size({"type": t, "pointer_lvl": _c}, get_current_symtab().lookup_type(t))
+        return compute_storage_size({"type": t, "pointer_lvl": _c}, symTab.lookup_type(t), symTab)
+    # if "[" in entry["type"]:
+    #     # FIXME
+    #     t = entry["type"][:entry["type"].index("[")]
+    #     return compute_storage_size({"type":t, "pointer_lvl": 1}, get_current_symtab().lookup_type(t))
     global DATATYPE2SIZE
     if entry.get("is_array", False):
         prod = DATATYPE2SIZE[entry["type"].upper()]
         for d in entry["dimensions"]:
             if d == "variable":
                 return "var"
-            prod*=int(d["value"])
+            if isinstance(d, str):
+                prod *= int(d)
+            elif isinstance(d, int):
+                prod *= d
+            else:
+                prod *= int(d["value"])
         return prod
+
     if entry.get("pointer_lvl", 0) > 0:
-        return 8
+        return 4
     if entry["type"].startswith("enum "):
         return 4
     if entry["type"].startswith("struct "):
         size = 0
-        symTab = get_current_symtab()
         temp = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
-            size += compute_storage_size({"type": t}, symTab.lookup_type(t))
+            size += compute_storage_size({"type": t}, symTab.lookup_type(t), symTab)
         return size
     if entry["type"].startswith("union "):
         size = 0
-        symTab = get_current_symtab()
         temp = "".join(filter(lambda x: x != "*", entry["type"])).strip()
         typeentry = symTab.lookup_type(temp)
         for t in typeentry["field types"]:
-            size = max(size, compute_storage_size({"type": t}, symTab.lookup_type(t)))
+            size = max(size, compute_storage_size({"type": t}, symTab.lookup_type(t), symTab))
         return size
     if typeentry is None:
         s = DATATYPE2SIZE[entry["type"].upper()]
@@ -545,13 +609,33 @@ TMP_LABEL_COUNTER = 0
 TMP_CLOSURE_COUNTER = 0
 
 
-def get_tmp_var(vartype=None) -> str:
+def get_tmp_var(vartype=None, symTab=None) -> str:
     global TMP_VAR_COUNTER
     TMP_VAR_COUNTER += 1
     vname = f"__tmp_var_{TMP_VAR_COUNTER}"
     if vartype is not None:
-        symTab = get_current_symtab()
-        symTab.insert({"name": vname, "type": vartype, "is_array": False, "dimensions": []})
+        symTab = get_current_symtab() if symTab is None else symTab
+
+        ptr_level = vartype.count("*")
+        if ptr_level > 0:
+            symTab.insert(
+                {
+                    "name": vname,
+                    "type": vartype[:-ptr_level],
+                    "is_array": False,
+                    "dimensions": [],
+                    "pointer_lvl": ptr_level,
+                }
+            )
+        else:
+            symTab.insert(
+                {
+                    "name": vname,
+                    "type": vartype,
+                    "is_array": False,
+                    "dimensions": [],
+                }
+            )
     return vname
 
 
@@ -560,7 +644,10 @@ def get_tmp_closure(rettype: str, argtypes: list = []) -> str:
     TMP_CLOSURE_COUNTER += 1
     vname = f"__tmp_closure_{TMP_VAR_COUNTER}"
     symTab = get_current_symtab()
-    symTab.insert({"name": vname, "return type": rettype, "parameter types": argtypes}, kind=1)
+    symTab.insert(
+        {"name": vname, "return type": rettype, "parameter types": argtypes},
+        kind=1,
+    )
     return vname
 
 
@@ -576,8 +663,18 @@ def get_default_value(type: str):
     elif type.upper() in FLOATING_POINT_TYPES:
         return 0.0
     elif type.upper() in CHARACTER_TYPES:
-        return ""
+        return 0
     elif type[-1] == "*":
         return "NULL"
-    else:
+    elif type == "void":
         return -1
+    else:
+        return None
+
+
+STDLIB_CODES = dict()
+
+
+def get_stdlib_codes():
+    global STDLIB_CODES
+    return STDLIB_CODES

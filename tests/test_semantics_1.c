@@ -18,10 +18,10 @@ union MyPoint {
 int main() {
     struct Point pt;
     union MyPoint pt2;
-    int c = 0.0;
+    int c = 0;
     int d = 5 + 6 * 9;
 
-    for(c = 1; c < 10.0; c ++) {
+    for(c = 1; c < 10; c ++) {
         d -= 1;
         ++d;
     }
