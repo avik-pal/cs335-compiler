@@ -1,3 +1,4 @@
+@include "stdlib/io/console_output.c"
 int main()
 {
     int new_arr[5];
@@ -13,4 +14,5 @@ int main()
     a = arr[3];
 
     return a + b;
+
 }
