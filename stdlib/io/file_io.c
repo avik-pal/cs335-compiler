@@ -17,19 +17,16 @@ int fopen(char fname[], int write)
 }
 
 void fwrite(int fd, char* buffer, int size){
-
     __asm_direc "li $v0, 15";
     __asm_direc "lw $a0, 0($fp)";
     __asm_direc "la $a1, 4($fp)";
     __asm_direc "lw $a2, 8($fp)";
     __asm_direc "syscall";
 
-    if (1) {
-        __asm_direc "la $sp, 0($fp)";
-        __asm_direc "lw $ra, -8($sp)";
-        __asm_direc "lw $fp, -4($sp)";
-        __asm_direc "jr $ra";
-    }
+    __asm_direc "la $sp, 0($fp)";
+    __asm_direc "lw $ra, -8($sp)";
+    __asm_direc "lw $fp, -4($sp)";
+    __asm_direc "jr $ra";
 
 }
 

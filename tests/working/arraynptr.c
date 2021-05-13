@@ -10,7 +10,7 @@ int main()
     ptr = &arr[2];
     ptr++; 
     *ptr = 3;
-    a = arr[3];
+    a = arr[2];
 
-    return a+b;
+    return a + b;
 }

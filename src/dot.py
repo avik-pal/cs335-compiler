@@ -178,17 +178,41 @@ def _rewrite_code_2nd_pass(code, indent):
     new_codes, new_indents = [], []
     cur_symtab = get_global_symtab()
     tmap = get_tabname_mapping()
-    for _i, (c, i) in enumerate(zip(code, indent)):
-        if _i < len(code) - 1:
-            c1 = c
-            c2 = code[_i + 1]
-            if len(c1) == 4 and len(c2) == 3:
-                if "[" in c1[-1] and "]" in c1[-1]:
-                    if c1[0] == c2[0]:
-                        new_codes.append([f"{c1[2]}{c1[3]}", ":=", c2[2]])
-                        new_indents.append(indent[_i])
-                        continue
 
+    rhs_arrvar = dict()
+    del_idxs = []
+
+    for _i, (c, i) in enumerate(zip(code, indent)):
+        if len(c) == 4:
+            if "[" in c[-1] and "]" in c[-1] and c[1] == ":=":
+                rhs_arrvar[c[0]] = (c[2], c[3], _i)
+
+        if len(c) == 3 and c[1] == ":=":
+            if c[0] in rhs_arrvar:
+                var, idx, ii = rhs_arrvar[c[0]]
+                c = [f"{var}{idx}", ":=", c[2]]
+                new_codes[ii] = []
+                del_idxs.append(ii)
+        # if _i < len(code) - 1:
+        #     c1 = c
+        #     c2 = code[_i + 1]
+        #     if len(c1) == 4 and len(c2) == 3:
+        #         if "[" in c1[-1] and "]" in c1[-1]:
+        #             if c1[0] == c2[0]:
+        #                 new_codes.append([f"{c1[2]}{c1[3]}", ":=", c2[2]])
+        #                 new_indents.append(indent[_i])
+        #                 continue
+        new_codes.append(c)
+        new_indents.append(i)
+
+    for idx in reversed(sorted(del_idxs)):
+        del new_codes[idx]
+        del new_indents[idx]
+
+    code, indent = new_codes, new_indents
+    new_codes, new_indents = [], []
+
+    for _i, (c, i) in enumerate(zip(code, indent)):
         ts = list(map(lambda x: "->" in x, c))
         if c[0] == "SYMTAB" and c[1] == "PUSH":
             cur_symtab = tmap[c[2]]

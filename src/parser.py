@@ -649,22 +649,13 @@ def p_postfix_expression(p):
                         ]
                     ],
                     "potential_pending": max(p[1].get("potential_pending", len(ventry["dimensions"])) - 1, 0),
-                    "storing_array": True
+                    "storing_array": True,
                 }
                 if p[1].get("potential_pending", 0) >= 1:
-                    p[0]["code"] = (
-                        c1[:-1]
-                        + c2
-                        + [[nvar, ":=", c1[-1][2], f"{c1[-1][3]}[{p[3]['value']}]"]]
-                    )
+                    p[0]["code"] = c1[:-1] + c2 + [[nvar, ":=", c1[-1][2], f"{c1[-1][3]}[{p[3]['value']}]"]]
                 else:
-                    idx = p[3]['value']
-                    p[0]["code"] = (
-                        c1
-                        + c2
-                        + [[nvar, ":=", p[1]["value"], f"[{p[3]['value']}]"]]
-                    )
-                
+                    p[0]["code"] = c1 + c2 + [[nvar, ":=", p[1]["value"], f"[{p[3]['value']}]"]]
+
                 if p[0]["potential_pending"] == 0:
                     c_d = p[0]["code"][:-1]
                     c_l = p[0]["code"][-1]
@@ -676,7 +667,7 @@ def p_postfix_expression(p):
                     if len(idxs) > 1:
                         ttvar2 = get_tmp_var("int")
                         c_d.append([ttvar1, ":=", idxs[0], "*", str(cact_dims[0])])
-                    else:    
+                    else:
                         c_d.append([ttvar1, ":=", idxs[0]])
                     for _i in range(1, len(idxs)):
                         _v = str(cact_dims[_i])
