@@ -676,7 +676,16 @@ def p_postfix_expression(p):
                         else:
                             c_d.append([ttvar2, ":=", idxs[_i], "*", _v])
                         c_d.append([ttvar1, ":=", ttvar1, "+", ttvar2])
-                    c_d.append([c_l[0], ":=", c_l[2], f"[{ttvar1}]"])
+                    # c_d.append([c_l[0], ":=", c_l[2], f"[{ttvar1}]"])
+                    c_d.append(
+                        [
+                            "FUNCTION CALL",
+                            temp_dict["type"],
+                            funcname,
+                            [{"value": c_l[2]}, {"value": ttvar1}],
+                            c_l[0],
+                        ]
+                    )
                     p[0]["code"] = c_d
 
                 del temp_dict

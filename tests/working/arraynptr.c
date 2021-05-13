@@ -6,11 +6,11 @@ int main()
     int a = 2;
     int *ptr;
     b = arr[2]*arr[3];
-    new_arr[0] = 100; 
+    new_arr[0] = 100;
     ptr = &arr[2];
     ptr++; 
     *ptr = 3;
-    a = arr[2];
+    a = arr[3];
 
     return a + b;
 }
