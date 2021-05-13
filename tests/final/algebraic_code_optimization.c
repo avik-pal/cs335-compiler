@@ -1,9 +1,8 @@
-// Copy Propagation
-
-int x = 4;
+@include "stdlib/io/console_input.c"
 
 int main() {
-    int a, b, c, d, e, f, g;
+    int a, b, c, d, e, f, g, x;
+    x = read_int();
     a = x * x;
     b = 3;
     c = x;
@@ -11,10 +10,5 @@ int main() {
     e = b * 2;
     f = a + d;
     g = e * f;
-
-    for (x = 1; x < 10; x++) {
-        a++;
-    }
-
     return f * g + a;
 }
