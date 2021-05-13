@@ -1041,7 +1041,7 @@ def generate_mips_from_3ac(code):
 
                             # array out of bounds check
                             print_text(f"\tli\t{tmp_reg2},\t{entry_arr['dimensions'][0]}")
-                            print_text(f"\tslt\t{tmp_reg},\t{t1},\t{tmp_reg2}")
+                            print_text(f"\tslt\t{tmp_reg},\t{t3},\t{tmp_reg2}")
                             print_text(f"\tbeq\t{tmp_reg},\t$0,\t{err_label}")
 
                             print_text(f"\tsll\t{tmp_reg},\t{t3},\t{bits}")
@@ -1084,7 +1084,7 @@ def generate_mips_from_3ac(code):
 
                         # array out of bounds check
                         print_text(f"\tli\t{tmp_reg2},\t{entry_arr['dimensions'][0]}")
-                        print_text(f"\tslt\t{tmp_reg},\t{t1},\t{tmp_reg2}")
+                        print_text(f"\tslt\t{tmp_reg},\t{t2},\t{tmp_reg2}")
                         print_text(f"\tbeq\t{tmp_reg},\t$0,\t{err_label}")
 
                         print_text(f"\tsll\t{tmp_reg},\t{t2},\t{bits}")
