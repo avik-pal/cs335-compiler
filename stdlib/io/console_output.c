@@ -21,7 +21,10 @@ void print_char(char x) {
 }
 
 void print_string(char *x){
-    __asm_direc "la $a0, 0($fp)";
-    __asm_direc "li $v0, 4";
-    __asm_direc "syscall";
+    int i=0;
+    while(x[i]!='\0'){
+        print_char(x[i]);
+        i++;
+    }
+    return;
 }
