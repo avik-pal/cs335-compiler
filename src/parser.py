@@ -623,7 +623,8 @@ def p_postfix_expression(p):
                 temp_dict = copy.deepcopy(p[1])
                 temp_dict["is_array"] = False
                 funcname = "__get_array_element" + f"({get_flookup_type(temp_dict)}*,int)"
-                nvar = get_tmp_var(get_flookup_type(temp_dict))
+                # nvar = get_tmp_var(get_flookup_type(temp_dict))
+                nvar = get_tmp_var(temp_dict["type"])
                 c1 = p[1]["code"]
                 c2 = p[3]["code"]
                 p[1]["code"] = []
@@ -648,7 +649,7 @@ def p_postfix_expression(p):
                             nvar,
                         ]
                     ],
-                    "potential_pending": max(p[1].get("potential_pending", len(ventry["dimensions"])) - 1, 0),
+                    "potential_pending": max(p[1].get("potential_pending", len(ventry["dimensions"]) if "dimensions" in ventry else 1) - 1, 0),
                     "storing_array": True,
                 }
                 if p[1].get("potential_pending", 0) >= 1:
@@ -660,7 +661,7 @@ def p_postfix_expression(p):
                     c_d = p[0]["code"][:-1]
                     c_l = p[0]["code"][-1]
                     ventry = symTab.lookup(c_l[2])
-                    act_dims = [int(z) for z in ventry["dimensions"]]
+                    act_dims = [int(z) for z in (ventry["dimensions"] if "dimensions" in ventry else ['0'])]
                     cact_dims = np.clip(np.cumsum(act_dims[::-1])[::-1] - act_dims, a_min=1, a_max=999999)
                     idxs = c_l[3].replace("[", " ").replace("]", " ").split()
                     ttvar1 = get_tmp_var("int")

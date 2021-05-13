@@ -724,7 +724,7 @@ def generate_mips_from_3ac(code):
                         print_text(instr2(t))
                     else:
                         _type = entry["type"]
-                    instr = SAVE_INSTRUCTIONS[_type]
+                    instr = SAVE_INSTRUCTIONS[_type] if not c[1] in var_to_mem else var_to_mem[c[1]]["si"]
                     s = 4  # wont work for double
                     all_pushparams.extend([f"\t{instr}\t{t},\t-{s}($sp)", f"\tla\t$sp,\t-{s}($sp)"])
 
@@ -892,7 +892,7 @@ def generate_mips_from_3ac(code):
                         off = LOCAL_VAR_OFFSET - _s
                         if entry["pointer_lvl"] >= 1:
                             _load_instr = "lw"
-                            _save_instr = SAVE_INSTRUCTIONS[_type] if _type in SAVE_INSTRUCTIONS else "sw"
+                            _save_instr = "sw"
                             load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
                             store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                         else:
@@ -906,7 +906,6 @@ def generate_mips_from_3ac(code):
                                 _save_instr = SAVE_INSTRUCTIONS[_type] if _type in SAVE_INSTRUCTIONS else "sw"
                                 store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                             load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
-
                         var_to_mem[store_name] = {
                             "wrt_register": "$fp",
                             "offset": str(LOCAL_VAR_OFFSET),
