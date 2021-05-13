@@ -76,7 +76,7 @@ SAVE_INSTRUCTIONS = {
     "char": "sw",
     "int": "sw",
     "void": "sw",
-    "long": "sd",
+    "long": "sw",
     "float": "s.s",
     "double": "s.d",
 }
@@ -85,7 +85,7 @@ LOAD_INSTRUCTIONS = {
     "char": "lw",
     "int": "lw",
     "void": "lw",
-    "long": "ld",
+    "long": "lw",
     "float": "l.s",
     "double": "l.d",
 }
@@ -777,6 +777,7 @@ def generate_mips_from_3ac(code):
                         print_text(f"\tsll\t{tmp_reg},\t{t1},\t{bits}")
                         print_text(f"\tadd\t{tmp_reg},\t{t0},\t{tmp_reg}")
                         print_text(f"\t{save_instr}\t{t2},\t0({tmp_reg})")
+                        dump_value_to_mem(t0)
                         continue
 
                     if c[0].startswith("*"):  # *ptr = x
@@ -794,6 +795,7 @@ def generate_mips_from_3ac(code):
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
                         print_text(f"\t{save_instr}\t{t2},\t0({t0})")
+                        dump_value_to_mem(t0)
                         continue
 
                     if "->" in c[0]:  # var -> field := x
@@ -816,6 +818,7 @@ def generate_mips_from_3ac(code):
                             print_text(instr(t1))
 
                         print_text(f"\tsw\t{t1},\t({ttemp})")
+                        dump_value_to_mem(t0)
                         continue
 
                     if "->" in c[2]:  # x := var -> field
@@ -829,6 +832,7 @@ def generate_mips_from_3ac(code):
                         t0, offset = get_register(c[0], current_symbol_table, offset, no_flush=True)
                         t1, offset = get_register(c[2], current_symbol_table, offset)
                         print_text(f"\tmove\t{t0},\t{t1}")
+                        dump_value_to_mem(t0)
                         continue
 
                     if _type.startswith("struct"):
@@ -1005,6 +1009,7 @@ def generate_mips_from_3ac(code):
                                     _type = entry["type"]
                                     instr = MOVE_INSTRUCTIONS[_type]
                                     print_text(f"\t{instr}\t{t1},\t{t2}")
+                                dump_value_to_mem(t1)
 
                     elif c[2].startswith("&"):  # ref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
@@ -1032,8 +1037,9 @@ def generate_mips_from_3ac(code):
                             # print_text(f"\tbeq\t{tmp_reg},\t$0,\t{err_label}")
 
                             print_text(f"\tsll\t{tmp_reg},\t{t3},\t{bits}")
-                            print_text(f"\tadd\t{tmp_reg},\t{t2},\t{tmp_reg}")
-                            print_text(f"\tla\t{t1},\t0({tmp_reg})")
+                            print_text(f"\tadd\t{t1},\t{t2},\t{tmp_reg}")
+                            # print_text(f"\tmove\t{t1},\t{tmp_reg}")
+                            dump_value_to_mem(t1)
                         else:  # y = & var
                             # TODO: directly use name if global variable
                             t2, offset = get_register(c[3], current_symbol_table, offset, no_flush=True)
@@ -1041,6 +1047,7 @@ def generate_mips_from_3ac(code):
                             off = int(addr.split("(")[0])
                             bp = addr.split("(")[1].split(")")[0]
                             print_text(f"\taddi\t{t1},\t{bp},\t{off}")
+                            dump_value_to_mem(t1)
 
                     elif c[2].startswith("*"):  # deref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True)
@@ -1050,6 +1057,7 @@ def generate_mips_from_3ac(code):
 
                         t2, offset = get_register(c[3], current_symbol_table, offset)
                         print_text(f"\t{load_instr}\t{t1},\t0({t2})")
+                        dump_value_to_mem(t1)
 
                     elif c[3].startswith("["):  # array indexing
                         t0, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
@@ -1141,7 +1149,7 @@ def generate_mips_from_3ac(code):
                         dump_value_to_mem(t1)
 
                     elif c[3] == "->":
-                        pass
+                        raise NotImplementedError
 
                     else:
                         # Assignment + An op
