@@ -5,7 +5,7 @@ int main(){
     int t,b;
     int i,k,j;
     int n = 3;
-    int arr[3] = {9,4,7};
+    float arr[3] = {9.0,4.0,7.0};
     
     // n = read_int();
     // for(i=0;i<n;i++){
@@ -21,7 +21,7 @@ int main(){
         }
     }
     for(k=0;k<n;k++){
-        print_int(arr[k]);
+        print_float(arr[k]);
         print_char(' ');
     }
     print_char('\n');

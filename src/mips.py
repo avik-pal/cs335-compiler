@@ -59,8 +59,6 @@ BINARY_OPS_TO_INSTR = {
         "<": "c.lt.s",
         "!=": "c.ne.s",
         "==": "c.eq.s",
-        ">": "c.gt.s",
-        ">=": "c.ge.s",
     },
     "double": {
         "+": "add.d",
@@ -71,8 +69,6 @@ BINARY_OPS_TO_INSTR = {
         "<": "c.lt.d",
         "!=": "c.ne.d",
         "==": "c.eq.d",
-        ">": "c.gt.d",
-        ">=": "c.ge.d",
     },
 }
 
@@ -169,10 +165,14 @@ def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: s
     if op == "%":
         div_op = BINARY_OPS_TO_INSTR[t]["/"]
         return [f"\t{div_op}\t{reg1},\t{reg2}", f"\tmfhi\t{reg3}"]
-    op_mips = BINARY_OPS_TO_INSTR[t][op]
     if op in BINARY_REL_OPS and t in ("float", "double"):
         label1 = get_tmp_label()
         label2 = get_tmp_label()
+        if op in (">=", ">"):
+            op_mips = BINARY_OPS_TO_INSTR[t]["<" if op == ">=" else "<="]
+            reg1, reg2 = reg2, reg1
+        else:
+            op_mips = BINARY_OPS_TO_INSTR[t][op]
         return [
             f"\t{op_mips}\t{reg1},\t{reg2}",
             f"\tbc1f\t{label1}",
@@ -183,6 +183,7 @@ def get_mips_instr_from_binary_op(op: str, t: str, reg1: str, reg2: str, reg3: s
             f"{label2}:",
         ]
     else:
+        op_mips = BINARY_OPS_TO_INSTR[t][op]
         return [f"\t{op_mips}\t{reg3},\t{reg1},\t{reg2}"]
 
 
@@ -480,11 +481,14 @@ def store_temp_regs_in_use(offset: int) -> int:
     global busy_registers, removed_registers, register_descriptor
     for reg in busy_registers:
         if reg[1] == "t":
+            # dump_value_to_mem(reg, force=True)
             name = register_descriptor[reg]
             if name is None:
                 continue
             store_name = name.split("-")[-1]
+            print_text("# "+ name + ", " + store_name)
             if is_number(store_name) or is_char(store_name)[0]:
+                print_text("# " + store_name)
                 continue
             vmem = var_to_mem[store_name]
             removed_registers[name] = vmem["load function"]
@@ -890,10 +894,11 @@ def generate_mips_from_3ac(code):
                         else:
                             if entry["is_array"]:
                                 _load_instr = "la"
+                                _save_instr = "sw"
                             else:
                                 # Terrible hack
                                 _load_instr = LOAD_INSTRUCTIONS[_type] if _type in LOAD_INSTRUCTIONS else "lw"
-                            _save_instr = SAVE_INSTRUCTIONS[_type] if _type in SAVE_INSTRUCTIONS else "sw"
+                                _save_instr = SAVE_INSTRUCTIONS[_type] if _type in SAVE_INSTRUCTIONS else "sw"
                             load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
                             store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                         var_to_mem[store_name] = {
