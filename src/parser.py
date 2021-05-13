@@ -781,7 +781,7 @@ def p_unary_expression(p):
             typeentry = symTab.lookup_type(entry["type"])
             p[0] = {
                 "type": "int",
-                "value": compute_storage_size(entry, typeentry),
+                "value": str(compute_storage_size(entry, typeentry)),
             }
 
             p[0]["code"] = p[2]["code"]
@@ -887,7 +887,7 @@ def p_unary_expression(p):
         if p[1] == "sizeof":
             p[0] = {
                 "type": "int",
-                "value": compute_storage_size({"value": p[3]["value"], "type": p[3]["value"]}, None),
+                "value": str(compute_storage_size({"value": p[3]["value"], "type": p[3]["value"]}, None)),
                 "code": p[3]["code"],
             }
 

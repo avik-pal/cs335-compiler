@@ -1019,7 +1019,40 @@ def generate_mips_from_3ac(code):
                     # typecast expression
                     if c[2].startswith("("):
                         datatype = c[2].replace("(", "").replace(")", "")
-                        offset = type_cast_mips(c, datatype, current_symbol_table, offset)
+                        if not datatype.endswith("*"):
+                            offset = type_cast_mips(c, datatype, current_symbol_table, offset)
+                        else:
+                            is_num, instr = is_number(c[3], True)
+                            is_ch, instr2 = is_char(c[3])
+
+                            if is_num or is_ch:
+                                # Assignment with a constant
+                                instr = instr if is_num else instr2
+                                if global_scope:
+                                    entry = current_symbol_table.lookup(c[0])
+                                    fp = requires_fp_register(entry["value"], entry)[0]
+                                    print_data(f"{c[0]}: .{size_to_mips_standard(entry['size'], fp)} {entry['value']}")
+                                else:
+                                    t1, offset, entry = get_register(
+                                        c[0], current_symbol_table, offset, True, no_flush=True
+                                    )
+                                    print_text(instr(t1))
+                                    dump_value_to_mem(t1)
+                            else:
+                                t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
+                                if entry["is_array"] == True:
+                                    loc = var_to_mem[c[0]]["memory address"]
+                                    print_text(f"\tla\t{t1},\t{loc}")
+
+                                if global_scope:
+                                    raise Exception("Non constant initialization in global scope")
+
+                                if not c[2] == "NULL":
+                                    t2, offset = get_register(c[3], current_symbol_table, offset)
+                                    _type = entry["type"]
+                                    instr = MOVE_INSTRUCTIONS[_type]
+                                    print_text(f"\t{instr}\t{t1},\t{t2}")
+                    
 
                     elif c[2].startswith("&"):  # ref
                         t1, offset, entry = get_register(c[0], current_symbol_table, offset, True, no_flush=True)
