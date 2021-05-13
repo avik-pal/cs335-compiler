@@ -2,15 +2,14 @@
 @include "stdlib/io/console_input.c"
 
 int main(){
-    int t,b;
+    int t,n;
     int i,k,j;
-    int n = 3;
-    float arr[3] = {9.0,4.0,7.0};
+    float arr[100];
     
-    // n = read_int();
-    // for(i=0;i<n;i++){
-    //     arr[i] = read_int();
-    // }
+    n = read_float();
+    for(i=0;i<n;i++){
+        arr[i] = read_float();
+    }
     for(i=0;i<n-1;i++){
         for(j=i+1;j<n;j++){
             if(arr[i]>arr[j]){
