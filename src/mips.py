@@ -120,7 +120,7 @@ BACKPATCH_OFFSET = None
 BACKPATCH_INDEX = None
 data_number_counter = -1
 LOCAL_VAR_OFFSET = None
-
+err_label = -1;
 
 def get_tmp_data():
     global data_number_counter
@@ -615,9 +615,10 @@ def close_file(fd_reg):
 
 
 def generate_mips_from_3ac(code):
-    global STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL, global_vars, BACKPATCH_OFFSET, BACKPATCH_INDEX, LOCAL_VAR_OFFSET, var_to_mem
+    global STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL, global_vars, BACKPATCH_OFFSET, BACKPATCH_INDEX, LOCAL_VAR_OFFSET, var_to_mem, err_label
 
     # print_text("## MIPS Assembly Code\n")
+    err_label = get_tmp_label();
 
     print_text()
     print_text("main:")
@@ -630,6 +631,7 @@ def generate_mips_from_3ac(code):
     print_text("\tmove\t$a0,\t$v0")
     print_text("\tli\t$v0,\t1")
     print_text("\tsyscall")
+    print_text(f"{err_label}:")
     print_text("\tli\t$v0,\t10")
     print_text("\tsyscall")
 
@@ -815,6 +817,12 @@ def generate_mips_from_3ac(code):
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
                         tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
+                        tmp_reg2, offset = get_register("1", current_symbol_table, offset, no_flush = True)
+
+                        # array out of bounds check
+                        print_text(f"\tli\t{tmp_reg2},\t{entry['dimensions'][0]}")
+                        print_text(f"\tslt\t{tmp_reg},\t{t1},\t{tmp_reg2}")
+                        print_text(f"\tbeq\t{tmp_reg},\t$0,\t{err_label}")
 
                         print_text(f"\tsll\t{tmp_reg},\t{t1},\t{bits}")
                         print_text(f"\tadd\t{tmp_reg},\t{t0},\t{tmp_reg}")
@@ -1021,7 +1029,7 @@ def generate_mips_from_3ac(code):
 
                         if c[3].endswith("]"):  # y = & arr [x]
                             arr_name = c[3].split()[0]
-                            t2, offset = get_register(arr_name, current_symbol_table, offset)
+                            t2, offset, entry_arr = get_register(arr_name, current_symbol_table, offset, True, no_flush=True)
 
                             index = c[3].split()[1].replace("[", "").replace("]", "")
                             is_num, instr = is_number(index, True)
@@ -1029,6 +1037,12 @@ def generate_mips_from_3ac(code):
                             if is_num:
                                 print_text(instr(t3))
                             tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
+                            tmp_reg2, offset = get_register("1", current_symbol_table, offset, no_flush = True)
+
+                            # array out of bounds check
+                            print_text(f"\tli\t{tmp_reg2},\t{entry_arr['dimensions'][0]}")
+                            print_text(f"\tslt\t{tmp_reg},\t{t1},\t{tmp_reg2}")
+                            print_text(f"\tbeq\t{tmp_reg},\t$0,\t{err_label}")
 
                             print_text(f"\tsll\t{tmp_reg},\t{t3},\t{bits}")
                             print_text(f"\tadd\t{tmp_reg},\t{t2},\t{tmp_reg}")
@@ -1066,6 +1080,12 @@ def generate_mips_from_3ac(code):
                         if is_num:
                             print_text(instr(t2))
                         tmp_reg, offset = get_register("1", current_symbol_table, offset, no_flush=True)
+                        tmp_reg2, offset = get_register("1", current_symbol_table, offset, no_flush = True)
+
+                        # array out of bounds check
+                        print_text(f"\tli\t{tmp_reg2},\t{entry_arr['dimensions'][0]}")
+                        print_text(f"\tslt\t{tmp_reg},\t{t1},\t{tmp_reg2}")
+                        print_text(f"\tbeq\t{tmp_reg},\t$0,\t{err_label}")
 
                         print_text(f"\tsll\t{tmp_reg},\t{t2},\t{bits}")
                         print_text(f"\tadd\t{tmp_reg},\t{t1},\t{tmp_reg}")
