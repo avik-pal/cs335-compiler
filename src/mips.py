@@ -564,7 +564,7 @@ def size_to_mips_standard(s: int, fp: bool) -> str:
 # IMP: int main() should be present and with no other form of definition
 
 
-def generate_mips_from_3ac(code):
+def generate_mips_from_3ac(code, no_dump = False):
     global STATIC_NESTING_LVL, DYNAMIC_NESTING_LVL, global_vars, BACKPATCH_OFFSET, BACKPATCH_INDEX, LOCAL_VAR_OFFSET, var_to_mem, err_label
 
     # print_text("## MIPS Assembly Code\n")
@@ -1008,7 +1008,7 @@ def generate_mips_from_3ac(code):
                                 if not c[2] == "NULL":
                                     t2, offset = get_register(c[3], current_symbol_table, offset)
                                     _type = entry["type"]
-                                    instr = MOVE_INSTRUCTIONS[_type]
+                                    instr = MOVE_INSTRUCTIONS[_type] if entry["pointer_lvl"] == 0 else "move"
                                     print_text(f"\t{instr}\t{t1},\t{t2}")
                                 dump_value_to_mem(t1)
 
@@ -1244,7 +1244,8 @@ def generate_mips_from_3ac(code):
             else:
                 print_text(c)
 
-    print_assembly()
+    if not no_dump:
+        print_assembly()
 
 
 def _return_stack_custom_types(v, vtype, symtab):

@@ -2810,6 +2810,7 @@ def get_args():
     parser.add_argument("-v", "--verbose", action="store_true", help="Print IR")
     parser.add_argument("--no-assembly", action="store_true", help="Don't Generate Assembly Code")
     parser.add_argument("-o", "--output", type=str, default="AST", help="Output file")
+    parser.add_argument("--no-dump", action="store_true", help="Run MIPS Generator but don't print the output")
     return parser
 
 
@@ -2849,4 +2850,4 @@ if __name__ == "__main__":
 
         code = parse_code(tree, args.output, args.optimize, args.verbose)
         if not args.no_assembly:
-            generate_mips_from_3ac(code)
+            generate_mips_from_3ac(code, args.no_dump)
