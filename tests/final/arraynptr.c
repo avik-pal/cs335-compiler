@@ -1,3 +1,5 @@
+@include "stdlib/io/console_input.c"
+
 int main()
 {
     int new_arr[5];
@@ -9,7 +11,7 @@ int main()
     new_arr[0] = 100;
     ptr = &arr[2];
     ptr++; 
-    *ptr = 3;
+    *ptr = read_int();
     a = arr[3];
 
     return a + b;
