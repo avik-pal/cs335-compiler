@@ -30,6 +30,7 @@ from symtab import (
     SYMBOL_TABLES,
     STATIC_VARIABLE_MAPS,
 )
+import numpy as np
 from mips import generate_mips_from_3ac
 
 flag_for_error = 0
@@ -627,6 +628,12 @@ def p_postfix_expression(p):
                 c2 = p[3]["code"]
                 p[1]["code"] = []
                 p[3]["code"] = []
+                ventry = symTab.lookup(p[1]["value"])
+                # print(
+                #     c1
+                #     + c2
+                #     + [nvar, ":=", p[1]["value"], f"[{p[3]['value']}]"]
+                # )
                 p[0] = {
                     "value": nvar,
                     "type": temp_dict["type"],
@@ -641,10 +648,49 @@ def p_postfix_expression(p):
                             nvar,
                         ]
                     ],
+                    "potential_pending": max(p[1].get("potential_pending", len(ventry["dimensions"])) - 1, 0),
+                    "storing_array": True
                 }
+                if p[1].get("potential_pending", 0) >= 1:
+                    p[0]["code"] = (
+                        c1[:-1]
+                        + c2
+                        + [[nvar, ":=", c1[-1][2], f"{c1[-1][3]}[{p[3]['value']}]"]]
+                    )
+                else:
+                    idx = p[3]['value']
+                    p[0]["code"] = (
+                        c1
+                        + c2
+                        + [[nvar, ":=", p[1]["value"], f"[{p[3]['value']}]"]]
+                    )
+                
+                if p[0]["potential_pending"] == 0:
+                    c_d = p[0]["code"][:-1]
+                    c_l = p[0]["code"][-1]
+                    ventry = symTab.lookup(c_l[2])
+                    act_dims = [int(z) for z in ventry["dimensions"]]
+                    cact_dims = np.clip(np.cumsum(act_dims[::-1])[::-1] - act_dims, a_min=1, a_max=999999)
+                    idxs = c_l[3].replace("[", " ").replace("]", " ").split()
+                    ttvar1 = get_tmp_var("int")
+                    if len(idxs) > 1:
+                        ttvar2 = get_tmp_var("int")
+                        c_d.append([ttvar1, ":=", idxs[0], "*", str(cact_dims[0])])
+                    else:    
+                        c_d.append([ttvar1, ":=", idxs[0]])
+                    for _i in range(1, len(idxs)):
+                        _v = str(cact_dims[_i])
+                        if _i == len(idxs) - 1:
+                            c_d.append([ttvar2, ":=", idxs[_i]])
+                        else:
+                            c_d.append([ttvar2, ":=", idxs[_i], "*", _v])
+                        c_d.append([ttvar1, ":=", ttvar1, "+", ttvar2])
+                    c_d.append([c_l[0], ":=", c_l[2], f"[{ttvar1}]"])
+                    p[0]["code"] = c_d
+
                 del temp_dict
             else:
-                err_msg = "Error at line number " + str(p.lineno(3)) + ": Not an integr index"
+                err_msg = "Error at line number " + str(p.lineno(3)) + ": Not an integer index"
                 GLOBAL_ERROR_LIST.append(err_msg)
                 raise SyntaxError
                 # raise Exception

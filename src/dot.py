@@ -178,7 +178,17 @@ def _rewrite_code_2nd_pass(code, indent):
     new_codes, new_indents = [], []
     cur_symtab = get_global_symtab()
     tmap = get_tabname_mapping()
-    for (c, i) in zip(code, indent):
+    for _i, (c, i) in enumerate(zip(code, indent)):
+        if _i < len(code) - 1:
+            c1 = c
+            c2 = code[_i + 1]
+            if len(c1) == 4 and len(c2) == 3:
+                if "[" in c1[-1] and "]" in c1[-1]:
+                    if c1[0] == c2[0]:
+                        new_codes.append([f"{c1[2]}{c1[3]}", ":=", c2[2]])
+                        new_indents.append(indent[_i])
+                        continue
+
         ts = list(map(lambda x: "->" in x, c))
         if c[0] == "SYMTAB" and c[1] == "PUSH":
             cur_symtab = tmap[c[2]]
