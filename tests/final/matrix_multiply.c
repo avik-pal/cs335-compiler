@@ -1,4 +1,4 @@
-@include "stdlib/io/console_output.c"
+// @include "stdlib/io/console_output.c"
 
 int main(){
     int a[3][2], b[2][3], c[3][3];

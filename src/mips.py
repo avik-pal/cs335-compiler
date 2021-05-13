@@ -486,9 +486,9 @@ def store_temp_regs_in_use(offset: int) -> int:
             if name is None:
                 continue
             store_name = name.split("-")[-1]
-            print_text("# "+ name + ", " + store_name)
+            # print_text("# "+ name + ", " + store_name)
             if is_number(store_name) or is_char(store_name)[0]:
-                print_text("# " + store_name)
+                # print_text("# " + store_name)
                 continue
             vmem = var_to_mem[store_name]
             removed_registers[name] = vmem["load function"]
@@ -899,12 +899,14 @@ def generate_mips_from_3ac(code):
                             if entry["is_array"]:
                                 _load_instr = "la"
                                 _save_instr = "sw"
+                                store_func = lambda reg, loc, si: f""
                             else:
                                 # Terrible hack
                                 _load_instr = LOAD_INSTRUCTIONS[_type] if _type in LOAD_INSTRUCTIONS else "lw"
                                 _save_instr = SAVE_INSTRUCTIONS[_type] if _type in SAVE_INSTRUCTIONS else "sw"
+                                store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                             load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
-                            store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
+
                         var_to_mem[store_name] = {
                             "wrt_register": "$fp",
                             "offset": str(LOCAL_VAR_OFFSET),
