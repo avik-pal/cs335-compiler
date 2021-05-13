@@ -622,7 +622,7 @@ def generate_mips_from_3ac(code, no_dump = False):
                 if c[0].endswith(":"):
                     global_scope = False
                     # Label
-                    print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_").replace("*", "ptr"))
+                    print_text(c[0].replace("(", "__").replace(")", "__").replace(",", "_").replace("*", "ptr").replace(' ', 'sp'))
                 elif c[0] == "ENDFUNC":
                     # for v,e in var_to_mem.items():
                     #     print(v, e, current_symbol_table.func_scope)
@@ -805,7 +805,7 @@ def generate_mips_from_3ac(code, no_dump = False):
                         idx = type_entry["field names"].index(field)
                         offset = 0
                         for z in range(idx):
-                            offset += compute_storage_size({"type": type_entry["field types"]}, None)
+                            offset += compute_storage_size({"type": type_entry["field types"][z]}, None)
 
                         ttemp, offset = get_register("1", current_symbol_table, offset, no_flush=True)
                         print_text(f"\taddi\t{ttemp},\t{t0},\t{offset}")
@@ -817,7 +817,7 @@ def generate_mips_from_3ac(code, no_dump = False):
                         if is_const:
                             print_text(instr(t1))
 
-                        print_text(f"\tsw\t{t1},\t({ttemp})")
+                        print_text(f"\t{var_to_mem[c[2]]['si']}\t{t1},\t({ttemp})")
                         dump_value_to_mem(t0)
                         continue
 
@@ -1126,7 +1126,7 @@ def generate_mips_from_3ac(code, no_dump = False):
                             print_text(params)
                         all_pushparams = []
                         print_text(
-                            f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_').replace('*', 'ptr')}"
+                            f"\tjal\t{c[3].replace('(', '__').replace(')', '__').replace(',', '_').replace('*', 'ptr').replace(' ', 'sp')}"
                         )
                         # caller pops the arguments
                         entry = current_symbol_table.lookup(c[0])
