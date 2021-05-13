@@ -335,6 +335,8 @@ def type_cast_mips(c, dtype, current_symbol_table, offset):  # reg1 := (dtype) r
 
 def requires_fp_register(val, entry):
     if entry is not None:
+        if entry["pointer_lvl"] >= 1 or entry["is_array"]:
+            return False, "int"
         return (entry["type"] in ("float", "double", "long double"), entry["type"])
     else:
         v = eval(val)
@@ -808,7 +810,7 @@ def generate_mips_from_3ac(code):
                         if is_num:
                             print_text(instr(t2))
 
-                        req_fp, _type = requires_fp_register(c[2], entry)
+                        req_fp, _type = requires_fp_register(c[2], None)
                         load_instr = LOAD_INSTRUCTIONS[_type]
                         save_instr = SAVE_INSTRUCTIONS[_type]
 
@@ -928,9 +930,9 @@ def generate_mips_from_3ac(code):
                         _s = entry["size"]
                         if entry["pointer_lvl"] >= 1:
                             _load_instr = "lw"
-                            _save_instr = "sw"
-                            load_func = lambda reg, loc, li: f"\tlw\t{reg},\t{loc}"
-                            store_func = lambda reg, loc, si: f"\tsw\t{reg},\t{loc}"
+                            _save_instr = SAVE_INSTRUCTIONS[_type] if _type in SAVE_INSTRUCTIONS else "sw"
+                            load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
+                            store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                         else:
                             if entry["is_array"]:
                                 _load_instr = "la"
@@ -959,8 +961,8 @@ def generate_mips_from_3ac(code):
                                 if entry["pointer_lvl"] >= 1:
                                     _load_instr = "lw"
                                     _save_instr = "sw"
-                                    load_func = lambda reg, loc, li: f"\tlw\t{reg},\t{loc}"
-                                    store_func = lambda reg, loc, si: f"\tsw\t{reg},\t{loc}"
+                                    load_func = lambda reg, loc, li: f"\t{li}\t{reg},\t{loc}"
+                                    store_func = lambda reg, loc, si: f"\t{si}\t{reg},\t{loc}"
                                 else:
                                     if entry["is_array"]:
                                         _load_instr = "la"
