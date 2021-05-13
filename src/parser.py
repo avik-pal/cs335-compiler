@@ -818,14 +818,15 @@ def p_unary_expression(p):
             # TODO: handle cases when len(p[1]["code"] > 1
             # assert len(p[2]["code"]) <= 1, AssertionError(f"Fix this case-> {p[2]['code']}, len: {len(p[2]['code'])}")
 
+            tmp_code = copy.deepcopy(p[2]["code"])
+
             if len(p[2]["code"]) > 1:
-                tmp_code = p[2]["code"][:-1]
                 f_call_ind = len(p[2]["code"]) - 1
             else:
-                tmp_code = []
                 f_call_ind = 0
 
             if (not p[2]["code"] == []) and (p[2]["code"][f_call_ind][2].startswith("__get_array_element")):  # &a[i]
+                tmp_code = p[2]["code"][:-1]
                 rep = p[2]["code"][f_call_ind][3][0]["value"] + " [" + p[2]["code"][f_call_ind][3][1]["value"] + "]"
                 p[2]["value"] = rep
 
@@ -850,6 +851,7 @@ def p_unary_expression(p):
             ]
             # print(p[0]["pointer_lvl"])
             p[0]["value"] = nvar
+            # print(p[0])
 
         elif p[1] == "+" or p[1] == "-" or p[1] == "!":
 
@@ -1354,6 +1356,7 @@ def p_assignment_expression(p):
             }
             # TODO: handle cases when len(p[1]["code"] > 1
             # assert len(p[1]["code"]) <= 1, AssertionError(f"Fix this case-> {p[1]['code']}, len: {len(p[1]['code'])}")
+
             if len(p[1]["code"]) > 1:
                 tmp_code = p[1]["code"][:-1]
                 f_call_ind = len(p[1]["code"]) - 1
@@ -1389,6 +1392,7 @@ def p_assignment_expression(p):
             arg["code"] = []
             p[1]["code"] = []
             del p[0]["arguments"]
+            # print(p[0])
 
         else:
             fname, fentry, args = resolve_function_name_uniform_types(p[2][:-1], [p[1], p[3]])
